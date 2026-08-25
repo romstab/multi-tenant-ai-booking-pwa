@@ -125,6 +125,11 @@
       </div>
     </main>
 
+    <div class="px-4 pb-2 flex justify-center">
+      <button id="btn-install" type="button" class="hidden text-sm px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-medium shadow-sm">
+        📲 Install App
+      </button>
+    </div>
     <footer class="py-5 text-center text-xs text-slate-400">
       Multi-Tenant AI Booking PWA · Portfolio Project
     </footer>
@@ -271,6 +276,27 @@
     document.getElementById('signup-password').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') document.getElementById('btn-signup').click();
     });
+
+    // PWA install prompt
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('btn-install');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (installBtn) installBtn.classList.remove('hidden');
+    });
+    if (installBtn) {
+      installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) {
+          alert('To install: open browser menu → Add to Home Screen / Install app.');
+          return;
+        }
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        installBtn.classList.add('hidden');
+      });
+    }
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/service-worker.js').catch(() => {});

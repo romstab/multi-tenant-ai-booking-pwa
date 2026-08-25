@@ -28,9 +28,14 @@
             <p class="text-xs text-slate-400 truncate" id="header-email"></p>
           </div>
         </div>
-        <button id="btn-logout" class="text-sm px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 transition shrink-0">
-          Logout
-        </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <button id="btn-install" type="button" class="hidden text-sm px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 transition">
+            Install
+          </button>
+          <button id="btn-logout" class="text-sm px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 transition">
+            Logout
+          </button>
+        </div>
       </div>
     </header>
 
@@ -553,8 +558,24 @@
           </div>
           <p class="text-sm mt-2">${escapeHtml(a.serviceName || 'Service')} · ${formatDisplayDate(a.date)} · ${a.startTime}–${a.endTime}</p>
           ${a.notes ? `<p class="text-xs text-slate-500 mt-1">Notes: ${escapeHtml(a.notes)}</p>` : ''}
+          ${a.status !== 'cancelled' ? `<button data-cancel="${a.id}" class="mt-2 text-xs px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Cancel</button>` : ''}
         </div>
       `).join('');
+
+      el.querySelectorAll('[data-cancel]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Cancel this appointment?')) return;
+          try {
+            await updateDoc(doc(db, 'tenants', tenantId, 'appointments', btn.dataset.cancel), {
+              status: 'cancelled',
+              updatedAt: serverTimestamp()
+            });
+          } catch (err) {
+            console.error(err);
+            alert('Could not cancel appointment.');
+          }
+        });
+      });
     }
 
     // ---------- Nav ----------
@@ -601,6 +622,27 @@
       return Number(p).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
     }
 
+    // PWA install
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const b = document.getElementById('btn-install');
+      if (b) b.classList.remove('hidden');
+    });
+    const installBtn = document.getElementById('btn-install');
+    if (installBtn) {
+      installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) {
+          alert('To install: browser menu → Add to Home Screen / Install app.');
+          return;
+        }
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        installBtn.classList.add('hidden');
+      });
+    }
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/service-worker.js').catch(() => {});
     }

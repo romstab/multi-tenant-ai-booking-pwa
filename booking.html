@@ -125,7 +125,10 @@
     </main>
 
     <footer class="py-4 text-center text-xs text-slate-400">
-      Powered by BookAI Scheduler
+      <button id="btn-install" type="button" class="hidden mb-3 text-sm px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 font-medium">
+        📲 Install App
+      </button>
+      <div>Powered by BookAI Scheduler</div>
     </footer>
   </div>
 
@@ -491,7 +494,10 @@
         });
         const data = await res.json();
         thinking.remove();
-        if (!res.ok) throw new Error(data.error || 'AI unavailable');
+        if (!res.ok) {
+          const detail = data.detail ? ' (' + data.detail + ')' : '';
+          throw new Error((data.error || 'AI unavailable') + detail);
+        }
 
         messages.innerHTML += `<div class="text-left"><span class="inline-block bg-violet-50 text-slate-800 px-3 py-1.5 rounded-xl text-sm">${escapeHtml(data.reply || 'No response.')}</span></div>`;
         messages.scrollTop = messages.scrollHeight;
@@ -520,6 +526,27 @@
 
     init();
 
+    // PWA install
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const b = document.getElementById('btn-install');
+      if (b) b.classList.remove('hidden');
+    });
+    const installBtn = document.getElementById('btn-install');
+    if (installBtn) {
+      installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) {
+          alert('To install: browser menu → Add to Home Screen / Install app.');
+          return;
+        }
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        installBtn.classList.add('hidden');
+      });
+    }
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/service-worker.js').catch(() => {});
     }
