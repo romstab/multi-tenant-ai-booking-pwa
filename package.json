@@ -1,0 +1,9 @@
+{
+  "name": "multi-tenant-ai-booking-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant AI booking and service scheduler PWA",
+  "dependencies": {
+    "firebase-admin": "^12.6.0"
+  }
+}

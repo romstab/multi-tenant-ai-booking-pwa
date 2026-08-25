@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // MULTI-TENANT FIRESTORE SECURITY RULES
+    // ============================================================
+    // tenantId is always the Firebase Auth UID of the business owner.
+    //
+    // PUBLIC (unauthenticated):
+    //   - Read tenants/{tenantId}/settings/config  (business info + hours)
+    //   - Read tenants/{tenantId}/services/{id}    (for active services listing)
+    //
+    // PRIVATE (owner only — request.auth.uid == tenantId):
+    //   - Write settings, services
+    //   - Read/write appointments
+    //
+    // Appointments are NEVER publicly listable or readable.
+    // Public booking creation goes through /api/create-booking (Admin SDK).
+    // ============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isTenantOwner(tenantId) {
+      return isSignedIn() && request.auth.uid == tenantId;
+    }
+
+    match /tenants/{tenantId} {
+
+      // Settings document
+      match /settings/{docId} {
+        // Anyone can read public business config (needed for booking page)
+        allow read: if true;
+
+        // Only the owner can create/update/delete their settings
+        allow create, update, delete: if isTenantOwner(tenantId)
+          && docId == 'config';
+      }
+
+      // Services
+      match /services/{serviceId} {
+        // Public can read services (booking page filters active client-side)
+        allow read: if true;
+
+        // Only owner can manage services
+        allow create, update, delete: if isTenantOwner(tenantId);
+      }
+
+      // Appointments — STRICTLY PRIVATE
+      match /appointments/{appointmentId} {
+        // Only the tenant owner can read their appointments
+        allow read: if isTenantOwner(tenantId);
+
+        // Clients must NOT create appointments directly.
+        // Creation is done by the Vercel serverless function using Admin SDK
+        // (which bypasses these rules). This prevents race conditions and
+        // unauthorized writes.
+        allow create, update, delete: if isTenantOwner(tenantId);
+      }
+    }
+
+    // Deny everything else by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
