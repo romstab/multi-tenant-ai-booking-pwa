@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — BookAI Scheduler</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 antialiased">
+  <!-- Auth loading overlay -->
+  <div id="auth-loading" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
+    <div class="text-white text-center">
+      <div class="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
+      <p class="text-sm">Checking authentication…</p>
+    </div>
+  </div>
+
+  <div id="app" class="hidden min-h-screen flex flex-col">
+    <!-- Top bar -->
+    <header class="bg-slate-900 text-white sticky top-0 z-40">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-sm shrink-0">B</div>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm truncate" id="header-business-name">Dashboard</p>
+            <p class="text-xs text-slate-400 truncate" id="header-email"></p>
+          </div>
+        </div>
+        <button id="btn-logout" class="text-sm px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 transition shrink-0">
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Mobile nav -->
+    <nav class="bg-white border-b border-slate-200 sticky top-[52px] z-30 overflow-x-auto">
+      <div class="max-w-6xl mx-auto px-2 flex gap-1 py-2 text-sm whitespace-nowrap">
+        <button data-section="overview" class="nav-btn px-3 py-1.5 rounded-lg bg-sky-100 text-sky-700 font-medium">Overview</button>
+        <button data-section="settings" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Settings</button>
+        <button data-section="services" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Services</button>
+        <button data-section="hours" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Hours</button>
+        <button data-section="appointments" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Appointments</button>
+      </div>
+    </nav>
+
+    <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-6">
+      <!-- OVERVIEW -->
+      <section id="section-overview" class="space-y-5">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h2 class="text-lg font-semibold mb-1">Public Booking Link</h2>
+          <p class="text-sm text-slate-500 mb-3">Share this link with customers so they can book appointments.</p>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="booking-link" readonly
+              class="flex-1 px-3 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm font-mono truncate" />
+            <button id="btn-copy-link"
+              class="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium transition shrink-0">
+              Copy Link
+            </button>
+          </div>
+          <p id="copy-msg" class="text-sm text-green-600 mt-2 hidden">Link copied!</p>
+        </div>
+
+        <div class="grid sm:grid-cols-3 gap-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Services</p>
+            <p class="text-2xl font-bold mt-1" id="stat-services">—</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Upcoming</p>
+            <p class="text-2xl font-bold mt-1" id="stat-upcoming">—</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Status</p>
+            <p class="text-2xl font-bold mt-1 text-emerald-600" id="stat-status">Active</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS (Business Setup) -->
+      <section id="section-settings" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h2 class="text-lg font-semibold mb-4">Business Settings</h2>
+          <form id="form-settings" class="space-y-4">
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Business Name *</label>
+                <input id="set-name" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Category</label>
+                <input id="set-category" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Salon, Clinic, Consulting…" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Description</label>
+              <textarea id="set-description" rows="3" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none"></textarea>
+            </div>
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Contact Email</label>
+                <input id="set-email" type="email" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Contact Phone</label>
+                <input id="set-phone" type="tel" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Address (optional)</label>
+              <input id="set-address" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Logo URL (optional)</label>
+              <input id="set-logo" type="url" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" placeholder="https://…" />
+            </div>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium transition">
+              Save Settings
+            </button>
+            <p id="settings-msg" class="text-sm hidden"></p>
+          </form>
+        </div>
+      </section>
+
+      <!-- SERVICES -->
+      <section id="section-services" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold">Services</h2>
+            <button id="btn-add-service" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">
+              + Add Service
+            </button>
+          </div>
+
+          <!-- Add/Edit form (hidden by default) -->
+          <div id="service-form-wrap" class="hidden mb-5 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <input type="hidden" id="svc-id" />
+            <div class="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium mb-1">Name *</label>
+                <input id="svc-name" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-sky-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium mb-1">Price</label>
+                <input id="svc-price" type="number" min="0" step="0.01" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-sky-500" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium mb-1">Description</label>
+              <textarea id="svc-desc" rows="2" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-sky-500"></textarea>
+            </div>
+            <div class="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium mb-1">Duration (minutes) *</label>
+                <input id="svc-duration" type="number" min="5" step="5" value="30" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-sky-500" />
+              </div>
+              <div class="flex items-end">
+                <label class="flex items-center gap-2 text-sm">
+                  <input id="svc-active" type="checkbox" checked class="rounded border-slate-300 text-sky-600 focus:ring-sky-500" />
+                  Active (visible to customers)
+                </label>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button id="btn-save-service" class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">Save</button>
+              <button id="btn-cancel-service" class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm font-medium">Cancel</button>
+            </div>
+            <p id="svc-msg" class="text-sm hidden"></p>
+          </div>
+
+          <div id="services-list" class="space-y-3">
+            <p class="text-sm text-slate-500">Loading services…</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- HOURS -->
+      <section id="section-hours" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h2 class="text-lg font-semibold mb-4">Operating Hours</h2>
+          <div id="hours-form" class="space-y-3">
+            <!-- generated by JS -->
+          </div>
+          <button id="btn-save-hours" class="mt-5 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium transition">
+            Save Hours
+          </button>
+          <p id="hours-msg" class="text-sm mt-2 hidden"></p>
+        </div>
+      </section>
+
+      <!-- APPOINTMENTS -->
+      <section id="section-appointments" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h2 class="text-lg font-semibold mb-1">Appointments</h2>
+          <p class="text-sm text-slate-500 mb-4">Updates in real time. No refresh needed.</p>
+          <div id="appointments-list" class="space-y-3">
+            <p class="text-sm text-slate-500">Loading appointments…</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- First-time setup modal -->
+  <div id="setup-modal" class="fixed inset-0 bg-slate-900/70 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <h2 class="text-xl font-semibold mb-1">Welcome! Set up your business</h2>
+      <p class="text-sm text-slate-500 mb-5">This information appears on your public booking page.</p>
+      <form id="form-setup" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Business Name *</label>
+          <input id="setup-name" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Category</label>
+          <input id="setup-category" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Salon, Clinic…" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Short Description</label>
+          <textarea id="setup-description" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Contact Email</label>
+            <input id="setup-email" type="email" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Phone</label>
+            <input id="setup-phone" type="tel" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+          </div>
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-medium text-sm transition">
+          Create Business
+        </button>
+        <p id="setup-error" class="text-sm text-red-600 hidden"></p>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      auth, db, onAuthStateChanged, signOut,
+      doc, getDoc, setDoc, updateDoc, deleteDoc,
+      collection, addDoc, query, onSnapshot, serverTimestamp
+    } from './firebase-config.js';
+    import { getDefaultOperatingHours, copyToClipboard, formatDisplayDate } from './app.js';
+
+    let tenantId = null;
+    let settings = null;
+    let servicesUnsub = null;
+    let appointmentsUnsub = null;
+
+    const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    const DAY_LABELS = { monday:'Monday', tuesday:'Tuesday', wednesday:'Wednesday', thursday:'Thursday', friday:'Friday', saturday:'Saturday', sunday:'Sunday' };
+
+    // ---------- Auth guard ----------
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.replace('/index.html');
+        return;
+      }
+      tenantId = user.uid;
+      document.getElementById('header-email').textContent = user.email || '';
+      document.getElementById('auth-loading').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+
+      // Booking link
+      const link = `${window.location.origin}/booking.html?tenant=${tenantId}`;
+      document.getElementById('booking-link').value = link;
+
+      await loadSettings();
+      startRealtimeListeners();
+    });
+
+    // ---------- Settings ----------
+    async function loadSettings() {
+      const ref = doc(db, 'tenants', tenantId, 'settings', 'config');
+      const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        document.getElementById('setup-modal').classList.remove('hidden');
+        document.getElementById('setup-email').value = auth.currentUser?.email || '';
+        return;
+      }
+      settings = snap.data();
+      applySettingsToUI();
+    }
+
+    function applySettingsToUI() {
+      if (!settings) return;
+      document.getElementById('header-business-name').textContent = settings.businessName || 'Dashboard';
+      document.getElementById('set-name').value = settings.businessName || '';
+      document.getElementById('set-category').value = settings.businessCategory || '';
+      document.getElementById('set-description').value = settings.businessDescription || '';
+      document.getElementById('set-email').value = settings.contactEmail || '';
+      document.getElementById('set-phone').value = settings.contactPhone || '';
+      document.getElementById('set-address').value = settings.address || '';
+      document.getElementById('set-logo').value = settings.logoUrl || '';
+      renderHoursForm(settings.operatingHours || getDefaultOperatingHours());
+    }
+
+    // First-time setup
+    document.getElementById('form-setup').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('setup-name').value.trim();
+      if (!name) return;
+      const errEl = document.getElementById('setup-error');
+      errEl.classList.add('hidden');
+      try {
+        const data = {
+          ownerId: tenantId,
+          businessName: name,
+          businessCategory: document.getElementById('setup-category').value.trim(),
+          businessDescription: document.getElementById('setup-description').value.trim(),
+          contactEmail: document.getElementById('setup-email').value.trim(),
+          contactPhone: document.getElementById('setup-phone').value.trim(),
+          address: '',
+          logoUrl: '',
+          operatingHours: getDefaultOperatingHours(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+        await setDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), data);
+        settings = { ...data, createdAt: new Date(), updatedAt: new Date() };
+        document.getElementById('setup-modal').classList.add('hidden');
+        applySettingsToUI();
+      } catch (err) {
+        console.error(err);
+        errEl.textContent = 'Could not save settings. Check Firestore rules.';
+        errEl.classList.remove('hidden');
+      }
+    });
+
+    // Save settings
+    document.getElementById('form-settings').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('settings-msg');
+      try {
+        const data = {
+          businessName: document.getElementById('set-name').value.trim(),
+          businessCategory: document.getElementById('set-category').value.trim(),
+          businessDescription: document.getElementById('set-description').value.trim(),
+          contactEmail: document.getElementById('set-email').value.trim(),
+          contactPhone: document.getElementById('set-phone').value.trim(),
+          address: document.getElementById('set-address').value.trim(),
+          logoUrl: document.getElementById('set-logo').value.trim(),
+          updatedAt: serverTimestamp()
+        };
+        await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), data);
+        settings = { ...settings, ...data };
+        document.getElementById('header-business-name').textContent = data.businessName;
+        msg.textContent = 'Settings saved.';
+        msg.className = 'text-sm text-green-600';
+        msg.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        msg.textContent = 'Failed to save settings.';
+        msg.className = 'text-sm text-red-600';
+        msg.classList.remove('hidden');
+      }
+    });
+
+    // ---------- Hours ----------
+    function renderHoursForm(hours) {
+      const container = document.getElementById('hours-form');
+      container.innerHTML = DAYS.map(day => {
+        const h = hours[day] || { enabled: false, open: '09:00', close: '17:00' };
+        return `
+          <div class="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+            <label class="flex items-center gap-2 w-28 shrink-0">
+              <input type="checkbox" data-day="${day}" class="hour-enabled rounded border-slate-300 text-sky-600" ${h.enabled ? 'checked' : ''} />
+              <span class="text-sm font-medium">${DAY_LABELS[day]}</span>
+            </label>
+            <input type="time" data-day="${day}" data-field="open" value="${h.open || '09:00'}"
+              class="px-2 py-1.5 rounded-lg border border-slate-300 text-sm" />
+            <span class="text-slate-400 text-sm">to</span>
+            <input type="time" data-day="${day}" data-field="close" value="${h.close || '17:00'}"
+              class="px-2 py-1.5 rounded-lg border border-slate-300 text-sm" />
+          </div>`;
+      }).join('');
+    }
+
+    document.getElementById('btn-save-hours').addEventListener('click', async () => {
+      const msg = document.getElementById('hours-msg');
+      const operatingHours = {};
+      DAYS.forEach(day => {
+        const enabled = document.querySelector(`.hour-enabled[data-day="${day}"]`)?.checked || false;
+        const open = document.querySelector(`input[data-day="${day}"][data-field="open"]`)?.value || '';
+        const close = document.querySelector(`input[data-day="${day}"][data-field="close"]`)?.value || '';
+        operatingHours[day] = { enabled, open, close };
+      });
+      try {
+        await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), {
+          operatingHours,
+          updatedAt: serverTimestamp()
+        });
+        settings.operatingHours = operatingHours;
+        msg.textContent = 'Operating hours saved.';
+        msg.className = 'text-sm text-green-600 mt-2';
+        msg.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        msg.textContent = 'Failed to save hours.';
+        msg.className = 'text-sm text-red-600 mt-2';
+        msg.classList.remove('hidden');
+      }
+    });
+
+    // ---------- Services ----------
+    function startRealtimeListeners() {
+      // Services
+      if (servicesUnsub) servicesUnsub();
+      servicesUnsub = onSnapshot(collection(db, 'tenants', tenantId, 'services'), (snap) => {
+        const list = [];
+        snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+        list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        renderServices(list);
+        document.getElementById('stat-services').textContent = list.filter(s => s.active !== false).length;
+      }, (err) => {
+        console.error(err);
+        document.getElementById('services-list').innerHTML = '<p class="text-sm text-red-600">Could not load services.</p>';
+      });
+
+      // Appointments (real-time)
+      if (appointmentsUnsub) appointmentsUnsub();
+      appointmentsUnsub = onSnapshot(collection(db, 'tenants', tenantId, 'appointments'), (snap) => {
+        const list = [];
+        snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+        list.sort((a, b) => {
+          const da = (a.date || '') + (a.startTime || '');
+          const db_ = (b.date || '') + (b.startTime || '');
+          return db_.localeCompare(da); // newest first-ish
+        });
+        renderAppointments(list);
+        const today = new Date().toISOString().slice(0, 10);
+        const upcoming = list.filter(a => a.date >= today && a.status !== 'cancelled').length;
+        document.getElementById('stat-upcoming').textContent = upcoming;
+      }, (err) => {
+        console.error(err);
+        document.getElementById('appointments-list').innerHTML = '<p class="text-sm text-red-600">Could not load appointments.</p>';
+      });
+    }
+
+    function renderServices(list) {
+      const el = document.getElementById('services-list');
+      if (!list.length) {
+        el.innerHTML = '<p class="text-sm text-slate-500 py-4 text-center">No services yet. Click “+ Add Service”.</p>';
+        return;
+      }
+      el.innerHTML = list.map(s => `
+        <div class="flex flex-wrap items-start justify-between gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+          <div class="min-w-0">
+            <p class="font-medium text-sm">${escapeHtml(s.name)} ${s.active === false ? '<span class="text-xs text-amber-600 font-normal">(inactive)</span>' : ''}</p>
+            <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(s.description || '')}</p>
+            <p class="text-xs text-slate-600 mt-1">${s.duration || 0} min · ${formatPrice(s.price)}</p>
+          </div>
+          <div class="flex gap-2 shrink-0">
+            <button data-edit="${s.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100">Edit</button>
+            <button data-delete="${s.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white border border-red-200 text-red-600 hover:bg-red-50">Delete</button>
+          </div>
+        </div>
+      `).join('');
+
+      el.querySelectorAll('[data-edit]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const s = list.find(x => x.id === btn.dataset.edit);
+          if (!s) return;
+          document.getElementById('svc-id').value = s.id;
+          document.getElementById('svc-name').value = s.name || '';
+          document.getElementById('svc-desc').value = s.description || '';
+          document.getElementById('svc-duration').value = s.duration || 30;
+          document.getElementById('svc-price').value = s.price ?? '';
+          document.getElementById('svc-active').checked = s.active !== false;
+          document.getElementById('service-form-wrap').classList.remove('hidden');
+        });
+      });
+      el.querySelectorAll('[data-delete]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete this service?')) return;
+          try {
+            await deleteDoc(doc(db, 'tenants', tenantId, 'services', btn.dataset.delete));
+          } catch (err) {
+            console.error(err);
+            alert('Could not delete service.');
+          }
+        });
+      });
+    }
+
+    document.getElementById('btn-add-service').addEventListener('click', () => {
+      document.getElementById('svc-id').value = '';
+      document.getElementById('svc-name').value = '';
+      document.getElementById('svc-desc').value = '';
+      document.getElementById('svc-duration').value = 30;
+      document.getElementById('svc-price').value = '';
+      document.getElementById('svc-active').checked = true;
+      document.getElementById('service-form-wrap').classList.remove('hidden');
+    });
+    document.getElementById('btn-cancel-service').addEventListener('click', () => {
+      document.getElementById('service-form-wrap').classList.add('hidden');
+    });
+    document.getElementById('btn-save-service').addEventListener('click', async () => {
+      const name = document.getElementById('svc-name').value.trim();
+      const duration = parseInt(document.getElementById('svc-duration').value, 10);
+      const msg = document.getElementById('svc-msg');
+      if (!name || !duration || duration < 5) {
+        msg.textContent = 'Name and duration (min 5) are required.';
+        msg.className = 'text-sm text-red-600';
+        msg.classList.remove('hidden');
+        return;
+      }
+      const payload = {
+        name,
+        description: document.getElementById('svc-desc').value.trim(),
+        duration,
+        price: parseFloat(document.getElementById('svc-price').value) || 0,
+        active: document.getElementById('svc-active').checked,
+        updatedAt: serverTimestamp()
+      };
+      try {
+        const id = document.getElementById('svc-id').value;
+        if (id) {
+          await updateDoc(doc(db, 'tenants', tenantId, 'services', id), payload);
+        } else {
+          payload.createdAt = serverTimestamp();
+          await addDoc(collection(db, 'tenants', tenantId, 'services'), payload);
+        }
+        document.getElementById('service-form-wrap').classList.add('hidden');
+        msg.classList.add('hidden');
+      } catch (err) {
+        console.error(err);
+        msg.textContent = 'Failed to save service.';
+        msg.className = 'text-sm text-red-600';
+        msg.classList.remove('hidden');
+      }
+    });
+
+    // ---------- Appointments ----------
+    function renderAppointments(list) {
+      const el = document.getElementById('appointments-list');
+      if (!list.length) {
+        el.innerHTML = '<p class="text-sm text-slate-500 py-6 text-center">No appointments yet. Share your booking link!</p>';
+        return;
+      }
+      el.innerHTML = list.map(a => `
+        <div class="p-4 rounded-xl border border-slate-200 bg-white">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p class="font-medium text-sm">${escapeHtml(a.customerName || 'Customer')}</p>
+              <p class="text-xs text-slate-500">${escapeHtml(a.customerEmail || '')}${a.customerPhone ? ' · ' + escapeHtml(a.customerPhone) : ''}</p>
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded-full ${a.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}">${escapeHtml(a.status || 'confirmed')}</span>
+          </div>
+          <p class="text-sm mt-2">${escapeHtml(a.serviceName || 'Service')} · ${formatDisplayDate(a.date)} · ${a.startTime}–${a.endTime}</p>
+          ${a.notes ? `<p class="text-xs text-slate-500 mt-1">Notes: ${escapeHtml(a.notes)}</p>` : ''}
+        </div>
+      `).join('');
+    }
+
+    // ---------- Nav ----------
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const section = btn.dataset.section;
+        document.querySelectorAll('.nav-btn').forEach(b => {
+          b.className = 'nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100';
+        });
+        btn.className = 'nav-btn px-3 py-1.5 rounded-lg bg-sky-100 text-sky-700 font-medium';
+        ['overview','settings','services','hours','appointments'].forEach(s => {
+          document.getElementById('section-' + s).classList.toggle('hidden', s !== section);
+        });
+      });
+    });
+
+    // ---------- Copy link ----------
+    document.getElementById('btn-copy-link').addEventListener('click', async () => {
+      const ok = await copyToClipboard(document.getElementById('booking-link').value);
+      const msg = document.getElementById('copy-msg');
+      msg.textContent = ok ? 'Link copied!' : 'Could not copy. Select and copy manually.';
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 2500);
+    });
+
+    // ---------- Logout ----------
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      if (servicesUnsub) servicesUnsub();
+      if (appointmentsUnsub) appointmentsUnsub();
+      await signOut(auth);
+      window.location.replace('/index.html');
+    });
+
+    // Helpers
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    function formatPrice(p) {
+      if (p == null || p === '') return '—';
+      return Number(p).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>

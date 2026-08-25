@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book an Appointment</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 antialiased">
+  <!-- Error state -->
+  <div id="error-state" class="hidden min-h-screen flex items-center justify-center px-4">
+    <div class="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm">
+      <div class="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">!</div>
+      <h1 class="text-xl font-semibold mb-2">Unable to load booking page</h1>
+      <p id="error-message" class="text-sm text-slate-600"></p>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading-state" class="min-h-screen flex items-center justify-center">
+    <div class="text-center">
+      <div class="w-10 h-10 border-2 border-slate-300 border-t-sky-600 rounded-full animate-spin mx-auto mb-3"></div>
+      <p class="text-sm text-slate-500">Loading business…</p>
+    </div>
+  </div>
+
+  <!-- Main booking UI -->
+  <div id="booking-app" class="hidden min-h-screen flex flex-col">
+    <header class="bg-slate-900 text-white">
+      <div class="max-w-3xl mx-auto px-4 py-5">
+        <div class="flex items-center gap-3">
+          <div id="biz-logo" class="w-12 h-12 rounded-xl bg-sky-500 flex items-center justify-center font-bold text-lg shrink-0 overflow-hidden">
+            <span id="biz-initial">B</span>
+          </div>
+          <div class="min-w-0">
+            <h1 id="biz-name" class="font-semibold text-lg truncate">Business</h1>
+            <p id="biz-category" class="text-sm text-slate-400 truncate"></p>
+          </div>
+        </div>
+        <p id="biz-desc" class="mt-3 text-sm text-slate-300 leading-relaxed"></p>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-3xl mx-auto w-full px-4 py-6 space-y-6">
+      <!-- Step 1: Service -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">1. Select a service</h2>
+        <div id="services-container" class="space-y-2">
+          <p class="text-sm text-slate-500">Loading services…</p>
+        </div>
+      </section>
+
+      <!-- Step 2: Date -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">2. Select a date</h2>
+        <input id="booking-date" type="date"
+          class="w-full sm:w-auto px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+        <p id="date-hint" class="text-xs text-slate-500 mt-2"></p>
+      </section>
+
+      <!-- Step 3: Time slots -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">3. Select a time</h2>
+        <div id="slots-container" class="flex flex-wrap gap-2">
+          <p class="text-sm text-slate-500">Select a service and date first.</p>
+        </div>
+      </section>
+
+      <!-- Step 4: Customer info -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">4. Your details</h2>
+        <div class="space-y-3">
+          <div>
+            <label for="cust-name" class="block text-sm font-medium mb-1">Full name *</label>
+            <input id="cust-name" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+          </div>
+          <div>
+            <label for="cust-email" class="block text-sm font-medium mb-1">Email *</label>
+            <input id="cust-email" type="email" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+          </div>
+          <div>
+            <label for="cust-phone" class="block text-sm font-medium mb-1">Phone (optional)</label>
+            <input id="cust-phone" type="tel" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+          </div>
+          <div>
+            <label for="cust-notes" class="block text-sm font-medium mb-1">Notes (optional)</label>
+            <textarea id="cust-notes" rows="2" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- Confirm -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div id="summary" class="text-sm text-slate-600 mb-4 hidden"></div>
+        <button id="btn-confirm" disabled
+          class="w-full py-3 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium text-sm transition">
+          Confirm Booking
+        </button>
+        <p id="booking-msg" class="text-sm mt-3 hidden text-center"></p>
+      </div>
+
+      <!-- Gemini AI Assistant -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-bold">AI</div>
+          <div>
+            <h2 class="text-sm font-semibold">Ask the assistant</h2>
+            <p class="text-xs text-slate-500">Questions about services, hours, or what to choose</p>
+          </div>
+        </div>
+        <div id="chat-messages" class="space-y-2 max-h-48 overflow-y-auto mb-3 text-sm">
+          <p class="text-slate-500 text-xs">Example: “What services do you offer?” or “What time do you open on Friday?”</p>
+        </div>
+        <div class="flex gap-2">
+          <input id="chat-input" type="text" placeholder="Ask a question…"
+            class="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-violet-500 outline-none" />
+          <button id="btn-chat" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shrink-0">
+            Send
+          </button>
+        </div>
+        <p id="chat-error" class="text-xs text-red-600 mt-2 hidden"></p>
+      </section>
+    </main>
+
+    <footer class="py-4 text-center text-xs text-slate-400">
+      Powered by BookAI Scheduler
+    </footer>
+  </div>
+
+  <!-- Success modal -->
+  <div id="success-modal" class="fixed inset-0 bg-slate-900/70 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
+      <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 text-2xl">✓</div>
+      <h2 class="text-xl font-semibold mb-2">Booking confirmed!</h2>
+      <p id="success-details" class="text-sm text-slate-600 mb-5"></p>
+      <button id="btn-success-close" class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">
+        Done
+      </button>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      db, doc, getDoc, collection, getDocs, query, where
+    } from './firebase-config.js';
+    import {
+      generateAvailableSlots,
+      formatDisplayDate,
+      timeToMinutes,
+      minutesToTime
+    } from './app.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const tenantId = params.get('tenant');
+
+    let settings = null;
+    let services = [];
+    let existingAppointments = []; // loaded only for the selected date (via server or limited client read if rules allow)
+    let selectedService = null;
+    let selectedDate = null;
+    let selectedSlot = null;
+
+    // ---------- Init ----------
+    async function init() {
+      if (!tenantId || tenantId.length < 10) {
+        showError('Missing or invalid tenant ID. Please use the booking link provided by the business.');
+        return;
+      }
+
+      try {
+        const settingsRef = doc(db, 'tenants', tenantId, 'settings', 'config');
+        const settingsSnap = await getDoc(settingsRef);
+        if (!settingsSnap.exists()) {
+          showError('This business was not found. The booking link may be incorrect or the business has not finished setup.');
+          return;
+        }
+        settings = settingsSnap.data();
+
+        // Load active services
+        const svcSnap = await getDocs(collection(db, 'tenants', tenantId, 'services'));
+        services = [];
+        svcSnap.forEach(d => {
+          const data = d.data();
+          if (data.active !== false) services.push({ id: d.id, ...data });
+        });
+        services.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        renderBusinessHeader();
+        renderServices();
+        setupDateInput();
+        document.getElementById('loading-state').classList.add('hidden');
+        document.getElementById('booking-app').classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        showError('Could not load business data. Please check your connection or try again later.');
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('loading-state').classList.add('hidden');
+      document.getElementById('error-state').classList.remove('hidden');
+      document.getElementById('error-message').textContent = msg;
+    }
+
+    function renderBusinessHeader() {
+      document.getElementById('biz-name').textContent = settings.businessName || 'Business';
+      document.getElementById('biz-category').textContent = settings.businessCategory || '';
+      document.getElementById('biz-desc').textContent = settings.businessDescription || '';
+      document.getElementById('biz-initial').textContent = (settings.businessName || 'B').charAt(0).toUpperCase();
+      if (settings.logoUrl) {
+        const logo = document.getElementById('biz-logo');
+        logo.innerHTML = `<img src="${escapeAttr(settings.logoUrl)}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<span>${(settings.businessName||'B').charAt(0)}</span>'" />`;
+      }
+      document.title = `Book — ${settings.businessName || 'Appointment'}`;
+    }
+
+    function renderServices() {
+      const el = document.getElementById('services-container');
+      if (!services.length) {
+        el.innerHTML = '<p class="text-sm text-amber-600">No services are currently available for booking.</p>';
+        return;
+      }
+      el.innerHTML = services.map(s => `
+        <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-sky-300 cursor-pointer transition has-[:checked]:border-sky-500 has-[:checked]:bg-sky-50">
+          <input type="radio" name="service" value="${s.id}" class="mt-1 text-sky-600 focus:ring-sky-500" />
+          <div class="min-w-0">
+            <p class="font-medium text-sm">${escapeHtml(s.name)}</p>
+            <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(s.description || '')}</p>
+            <p class="text-xs text-slate-600 mt-1">${s.duration || 0} min · ${formatPrice(s.price)}</p>
+          </div>
+        </label>
+      `).join('');
+
+      el.querySelectorAll('input[name="service"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          selectedService = services.find(s => s.id === radio.value) || null;
+          selectedSlot = null;
+          updateSummary();
+          if (selectedDate) loadSlots();
+        });
+      });
+    }
+
+    function setupDateInput() {
+      const input = document.getElementById('booking-date');
+      const today = new Date();
+      const min = today.toISOString().slice(0, 10);
+      const maxDate = new Date(today);
+      maxDate.setDate(maxDate.getDate() + 60);
+      input.min = min;
+      input.max = maxDate.toISOString().slice(0, 10);
+      input.addEventListener('change', () => {
+        selectedDate = input.value;
+        selectedSlot = null;
+        updateSummary();
+        loadSlots();
+      });
+    }
+
+    /**
+     * Load appointments for the selected date.
+     * Security rules allow reading appointments only if authenticated as the tenant.
+     * Public clients cannot list appointments, so we call the create-booking API
+     * with a "preview" mode OR we compute slots client-side using a lightweight
+     * public endpoint. For this architecture we fetch slots via the serverless
+     * function which safely reads appointments server-side.
+     */
+    async function loadSlots() {
+      const container = document.getElementById('slots-container');
+      if (!selectedService || !selectedDate) {
+        container.innerHTML = '<p class="text-sm text-slate-500">Select a service and date first.</p>';
+        return;
+      }
+
+      container.innerHTML = '<p class="text-sm text-slate-500">Checking availability…</p>';
+
+      try {
+        // Ask serverless for available slots (server reads appointments safely)
+        const res = await fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'getSlots',
+            tenantId,
+            serviceId: selectedService.id,
+            date: selectedDate
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Could not load slots');
+        }
+
+        const slots = data.slots || [];
+        if (!slots.length) {
+          container.innerHTML = '<p class="text-sm text-amber-600">No available times on this date. Try another day.</p>';
+          document.getElementById('date-hint').textContent = '';
+          return;
+        }
+
+        container.innerHTML = slots.map(s => `
+          <button type="button" data-start="${s.startTime}" data-end="${s.endTime}"
+            class="slot-btn px-3 py-2 rounded-xl border border-slate-300 text-sm hover:border-sky-500 hover:bg-sky-50 transition">
+            ${s.startTime}
+          </button>
+        `).join('');
+
+        container.querySelectorAll('.slot-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            container.querySelectorAll('.slot-btn').forEach(b => {
+              b.classList.remove('border-sky-500', 'bg-sky-100', 'font-medium');
+              b.classList.add('border-slate-300');
+            });
+            btn.classList.add('border-sky-500', 'bg-sky-100', 'font-medium');
+            btn.classList.remove('border-slate-300');
+            selectedSlot = { startTime: btn.dataset.start, endTime: btn.dataset.end };
+            updateSummary();
+          });
+        });
+      } catch (err) {
+        console.error(err);
+        // Fallback: generate slots without existing appointments (less accurate)
+        // This still respects operating hours; final conflict check is server-side on confirm.
+        const slots = generateAvailableSlots({
+          date: selectedDate,
+          durationMinutes: selectedService.duration || 30,
+          operatingHours: settings.operatingHours || {},
+          existingAppointments: []
+        });
+        if (!slots.length) {
+          container.innerHTML = '<p class="text-sm text-amber-600">No available times (closed or no hours set).</p>';
+        } else {
+          container.innerHTML = slots.map(s => `
+            <button type="button" data-start="${s.startTime}" data-end="${s.endTime}"
+              class="slot-btn px-3 py-2 rounded-xl border border-slate-300 text-sm hover:border-sky-500 hover:bg-sky-50 transition">
+              ${s.startTime}
+            </button>
+          `).join('') + '<p class="w-full text-xs text-slate-400 mt-2">Availability is approximate; final check happens on confirm.</p>';
+          container.querySelectorAll('.slot-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              container.querySelectorAll('.slot-btn').forEach(b => {
+                b.classList.remove('border-sky-500', 'bg-sky-100', 'font-medium');
+              });
+              btn.classList.add('border-sky-500', 'bg-sky-100', 'font-medium');
+              selectedSlot = { startTime: btn.dataset.start, endTime: btn.dataset.end };
+              updateSummary();
+            });
+          });
+        }
+      }
+    }
+
+    function updateSummary() {
+      const summary = document.getElementById('summary');
+      const btn = document.getElementById('btn-confirm');
+      if (selectedService && selectedDate && selectedSlot) {
+        summary.innerHTML = `
+          <strong>${escapeHtml(selectedService.name)}</strong> on
+          ${formatDisplayDate(selectedDate)} at <strong>${selectedSlot.startTime}</strong>
+          (${selectedService.duration || 0} min)
+        `;
+        summary.classList.remove('hidden');
+        btn.disabled = false;
+      } else {
+        summary.classList.add('hidden');
+        btn.disabled = true;
+      }
+    }
+
+    // Confirm booking
+    document.getElementById('btn-confirm').addEventListener('click', async () => {
+      const name = document.getElementById('cust-name').value.trim();
+      const email = document.getElementById('cust-email').value.trim();
+      const phone = document.getElementById('cust-phone').value.trim();
+      const notes = document.getElementById('cust-notes').value.trim();
+      const msg = document.getElementById('booking-msg');
+      const btn = document.getElementById('btn-confirm');
+
+      msg.classList.add('hidden');
+      if (!name || !email) {
+        msg.textContent = 'Please enter your name and email.';
+        msg.className = 'text-sm mt-3 text-center text-red-600';
+        msg.classList.remove('hidden');
+        return;
+      }
+      if (!selectedService || !selectedDate || !selectedSlot) {
+        msg.textContent = 'Please select service, date, and time.';
+        msg.className = 'text-sm mt-3 text-center text-red-600';
+        msg.classList.remove('hidden');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Booking…';
+
+      try {
+        const res = await fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create',
+            tenantId,
+            serviceId: selectedService.id,
+            date: selectedDate,
+            startTime: selectedSlot.startTime,
+            endTime: selectedSlot.endTime,
+            customerName: name,
+            customerEmail: email,
+            customerPhone: phone,
+            notes
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Booking failed');
+        }
+
+        document.getElementById('success-details').textContent =
+          `${selectedService.name} on ${formatDisplayDate(selectedDate)} at ${selectedSlot.startTime}. A confirmation was recorded.`;
+        document.getElementById('success-modal').classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        msg.textContent = err.message || 'Could not complete booking. The slot may have been taken.';
+        msg.className = 'text-sm mt-3 text-center text-red-600';
+        msg.classList.remove('hidden');
+        // Refresh slots
+        loadSlots();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Confirm Booking';
+      }
+    });
+
+    document.getElementById('btn-success-close').addEventListener('click', () => {
+      document.getElementById('success-modal').classList.add('hidden');
+      // Reset form partially
+      selectedSlot = null;
+      document.getElementById('cust-name').value = '';
+      document.getElementById('cust-email').value = '';
+      document.getElementById('cust-phone').value = '';
+      document.getElementById('cust-notes').value = '';
+      updateSummary();
+      loadSlots();
+    });
+
+    // ---------- Gemini AI ----------
+    document.getElementById('btn-chat').addEventListener('click', sendChat);
+    document.getElementById('chat-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendChat();
+    });
+
+    async function sendChat() {
+      const input = document.getElementById('chat-input');
+      const message = input.value.trim();
+      const errEl = document.getElementById('chat-error');
+      const messages = document.getElementById('chat-messages');
+      errEl.classList.add('hidden');
+      if (!message || !settings) return;
+
+      // Show user message
+      messages.innerHTML += `<div class="text-right"><span class="inline-block bg-sky-100 text-sky-900 px-3 py-1.5 rounded-xl text-sm">${escapeHtml(message)}</span></div>`;
+      input.value = '';
+      messages.scrollTop = messages.scrollHeight;
+
+      const thinking = document.createElement('p');
+      thinking.className = 'text-xs text-slate-400';
+      thinking.textContent = 'Thinking…';
+      messages.appendChild(thinking);
+
+      try {
+        const tenantContext = {
+          businessName: settings.businessName,
+          businessDescription: settings.businessDescription,
+          businessCategory: settings.businessCategory,
+          services: services.map(s => ({
+            name: s.name,
+            description: s.description,
+            duration: s.duration,
+            price: s.price
+          })),
+          operatingHours: settings.operatingHours
+        };
+
+        const res = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantContext, userMessage: message })
+        });
+        const data = await res.json();
+        thinking.remove();
+        if (!res.ok) throw new Error(data.error || 'AI unavailable');
+
+        messages.innerHTML += `<div class="text-left"><span class="inline-block bg-violet-50 text-slate-800 px-3 py-1.5 rounded-xl text-sm">${escapeHtml(data.reply || 'No response.')}</span></div>`;
+        messages.scrollTop = messages.scrollHeight;
+      } catch (err) {
+        thinking.remove();
+        errEl.textContent = err.message || 'Could not reach the assistant.';
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    // Helpers
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    function escapeAttr(str) {
+      return String(str || '').replace(/"/g, '&quot;');
+    }
+    function formatPrice(p) {
+      if (p == null || p === '') return '';
+      return Number(p).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    }
+
+    init();
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
