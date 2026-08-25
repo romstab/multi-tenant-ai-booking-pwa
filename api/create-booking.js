@@ -1,43 +1,48 @@
 /**
- * Vercel Serverless Function — Secure Booking + Slot Preview
- * ----------------------------------------------------------
+ * Vercel Serverless — Secure Booking + Slot Preview (CommonJS for Vercel)
  * POST /api/create-booking
  *
- * Actions:
- *   { action: "getSlots", tenantId, serviceId, date }
- *   { action: "create", tenantId, serviceId, date, startTime, endTime, customerName, customerEmail, ... }
- *
- * Uses Firebase Admin SDK for privileged reads/writes and transactions.
- *
- * Required environment variables on Vercel:
+ * Env vars required:
  *   FIREBASE_PROJECT_ID
  *   FIREBASE_CLIENT_EMAIL
- *   FIREBASE_PRIVATE_KEY   (replace \n with real newlines or keep escaped)
- *
- * How to get them:
- *   Firebase Console → Project Settings → Service accounts → Generate new private key
- *   Use the project_id, client_email, and private_key fields.
+ *   FIREBASE_PRIVATE_KEY
  */
 
-import admin from 'firebase-admin';
+const admin = require('firebase-admin');
 
-// Initialize Admin once (warm container reuse)
-if (!admin.apps.length) {
+function initAdmin() {
+  if (admin.apps.length) return true;
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+  if (!projectId || !clientEmail || !privateKey) {
+    console.error('Missing Firebase Admin env vars', {
+      hasProjectId: !!projectId,
+      hasClientEmail: !!clientEmail,
+      hasPrivateKey: !!privateKey
+    });
+    return false;
+  }
+
+  // Fix escaped newlines from Vercel env
+  privateKey = privateKey.replace(/\\n/g, '\n');
+
   try {
-    const privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
     admin.initializeApp({
       credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        projectId,
+        clientEmail,
         privateKey
       })
     });
+    return true;
   } catch (e) {
-    console.error('Firebase Admin init failed', e.message);
+    console.error('Firebase Admin init failed:', e.message);
+    return false;
   }
 }
-
-const db = () => admin.firestore();
 
 function timeToMinutes(t) {
   if (!t) return 0;
@@ -48,7 +53,7 @@ function timeToMinutes(t) {
 function minutesToTime(mins) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
 }
 
 function getWeekdayKey(dateStr) {
@@ -61,22 +66,26 @@ function hasConflict(reqStart, reqEnd, existStart, existEnd) {
   return reqStart < existEnd && reqEnd > existStart;
 }
 
-function generateSlots(date, durationMinutes, operatingHours, appointments, slotInterval = 30) {
+function generateSlots(date, durationMinutes, operatingHours, appointments, slotInterval) {
+  slotInterval = slotInterval || 30;
   const weekday = getWeekdayKey(date);
-  const day = operatingHours?.[weekday];
+  const day = operatingHours && operatingHours[weekday];
   if (!day || !day.enabled || !day.open || !day.close) return [];
 
   const openMin = timeToMinutes(day.open);
   const closeMin = timeToMinutes(day.close);
   if (closeMin <= openMin) return [];
 
-  const onDay = (appointments || []).filter(a => a.date === date && a.status !== 'cancelled');
-  const slots = [];
+  const onDay = (appointments || []).filter(function (a) {
+    return a.date === date && a.status !== 'cancelled';
+  });
 
+  const slots = [];
   for (let start = openMin; start + durationMinutes <= closeMin; start += slotInterval) {
     const end = start + durationMinutes;
     let conflict = false;
-    for (const a of onDay) {
+    for (let i = 0; i < onDay.length; i++) {
+      const a = onDay[i];
       if (hasConflict(start, end, timeToMinutes(a.startTime), timeToMinutes(a.endTime))) {
         conflict = true;
         break;
@@ -89,40 +98,50 @@ function generateSlots(date, durationMinutes, operatingHours, appointments, slot
   return slots;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-  // Guard: Admin must be configured
-  if (!admin.apps.length) {
+  if (!initAdmin()) {
     return res.status(500).json({
-      error: 'Server booking is not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY on Vercel.'
+      error: 'Server booking not configured. Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY on Vercel, then Redeploy.'
     });
   }
+
+  const db = admin.firestore();
 
   try {
     const body = req.body || {};
     const action = body.action || 'create';
 
     if (action === 'getSlots') {
-      return await handleGetSlots(body, res);
+      return await handleGetSlots(db, body, res);
     }
     if (action === 'create') {
-      return await handleCreate(body, res);
+      return await handleCreate(db, body, res);
     }
     return res.status(400).json({ error: 'Unknown action' });
   } catch (err) {
-    console.error('create-booking error', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('create-booking error:', err);
+    return res.status(err.status || 500).json({
+      error: err.message || 'Internal server error'
+    });
   }
-}
+};
 
-async function handleGetSlots(body, res) {
-  const { tenantId, serviceId, date } = body;
+async function handleGetSlots(db, body, res) {
+  const tenantId = body.tenantId;
+  const serviceId = body.serviceId;
+  const date = body.date;
+
   if (!tenantId || !serviceId || !date) {
     return res.status(400).json({ error: 'tenantId, serviceId, and date are required' });
   }
@@ -130,133 +149,118 @@ async function handleGetSlots(body, res) {
     return res.status(400).json({ error: 'Invalid date format' });
   }
 
-  const settingsSnap = await db().doc(`tenants/${tenantId}/settings/config`).get();
+  const settingsSnap = await db.doc('tenants/' + tenantId + '/settings/config').get();
   if (!settingsSnap.exists) {
     return res.status(404).json({ error: 'Business not found' });
   }
   const settings = settingsSnap.data();
 
-  const serviceSnap = await db().doc(`tenants/${tenantId}/services/${serviceId}`).get();
+  const serviceSnap = await db.doc('tenants/' + tenantId + '/services/' + serviceId).get();
   if (!serviceSnap.exists || serviceSnap.data().active === false) {
     return res.status(404).json({ error: 'Service not found or inactive' });
   }
   const service = serviceSnap.data();
   const duration = service.duration || 30;
 
-  // Load appointments for that date only
-  const apptSnap = await db()
-    .collection(`tenants/${tenantId}/appointments`)
+  const apptSnap = await db
+    .collection('tenants/' + tenantId + '/appointments')
     .where('date', '==', date)
     .get();
 
   const appointments = [];
-  apptSnap.forEach(d => appointments.push(d.data()));
+  apptSnap.forEach(function (d) {
+    appointments.push(d.data());
+  });
 
   const slots = generateSlots(date, duration, settings.operatingHours || {}, appointments);
-  return res.status(200).json({ slots });
+  return res.status(200).json({ slots: slots });
 }
 
-async function handleCreate(body, res) {
-  const {
-    tenantId,
-    serviceId,
-    date,
-    startTime,
-    endTime,
-    customerName,
-    customerEmail,
-    customerPhone = '',
-    notes = ''
-  } = body;
+async function handleCreate(db, body, res) {
+  const tenantId = body.tenantId;
+  const serviceId = body.serviceId;
+  const date = body.date;
+  const startTime = body.startTime;
+  const endTime = body.endTime;
+  const customerName = body.customerName;
+  const customerEmail = body.customerEmail;
+  const customerPhone = body.customerPhone || '';
+  const notes = body.notes || '';
 
-  if (!tenantId || !serviceId || !date || !startTime || !endTime || !customerName || !customerEmail) {
+  if (!tenantId || !serviceId || !date || !startTime || !customerName || !customerEmail) {
     return res.status(400).json({ error: 'Missing required booking fields' });
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'Invalid date' });
   }
-  if (customerName.length > 120 || customerEmail.length > 200) {
-    return res.status(400).json({ error: 'Invalid input length' });
+
+  const settingsRef = db.doc('tenants/' + tenantId + '/settings/config');
+  const serviceRef = db.doc('tenants/' + tenantId + '/services/' + serviceId);
+  const appointmentsCol = db.collection('tenants/' + tenantId + '/appointments');
+
+  const settingsSnap = await settingsRef.get();
+  if (!settingsSnap.exists) {
+    return res.status(404).json({ error: 'Business not found' });
+  }
+  const settings = settingsSnap.data();
+
+  const serviceSnap = await serviceRef.get();
+  if (!serviceSnap.exists || serviceSnap.data().active === false) {
+    return res.status(404).json({ error: 'Service not found or inactive' });
+  }
+  const service = serviceSnap.data();
+  const duration = service.duration || 30;
+
+  const startMin = timeToMinutes(startTime);
+  const finalEnd = endTime || minutesToTime(startMin + duration);
+  const reqEndMin = timeToMinutes(finalEnd);
+
+  const weekday = getWeekdayKey(date);
+  const day = settings.operatingHours && settings.operatingHours[weekday];
+  if (!day || !day.enabled) {
+    return res.status(400).json({ error: 'Business is closed on this day' });
+  }
+  const openMin = timeToMinutes(day.open);
+  const closeMin = timeToMinutes(day.close);
+  if (startMin < openMin || reqEndMin > closeMin) {
+    return res.status(400).json({ error: 'Selected time is outside operating hours' });
   }
 
-  const settingsRef = db().doc(`tenants/${tenantId}/settings/config`);
-  const serviceRef = db().doc(`tenants/${tenantId}/services/${serviceId}`);
-  const appointmentsCol = db().collection(`tenants/${tenantId}/appointments`);
-
-  // Transaction: re-check conflicts and write atomically
-  const result = await db().runTransaction(async (tx) => {
-    const [settingsSnap, serviceSnap] = await Promise.all([
-      tx.get(settingsRef),
-      tx.get(serviceRef)
-    ]);
-
-    if (!settingsSnap.exists) throw Object.assign(new Error('Business not found'), { status: 404 });
-    if (!serviceSnap.exists || serviceSnap.data().active === false) {
-      throw Object.assign(new Error('Service not found or inactive'), { status: 404 });
-    }
-
-    const settings = settingsSnap.data();
-    const service = serviceSnap.data();
-    const duration = service.duration || 30;
-
-    // Verify endTime matches duration (or recompute)
-    const startMin = timeToMinutes(startTime);
-    const expectedEnd = minutesToTime(startMin + duration);
-    const finalEnd = endTime || expectedEnd;
-
-    // Operating hours check
-    const weekday = getWeekdayKey(date);
-    const day = settings.operatingHours?.[weekday];
-    if (!day || !day.enabled) {
-      throw Object.assign(new Error('Business is closed on this day'), { status: 400 });
-    }
-    const openMin = timeToMinutes(day.open);
-    const closeMin = timeToMinutes(day.close);
-    if (startMin < openMin || timeToMinutes(finalEnd) > closeMin) {
-      throw Object.assign(new Error('Selected time is outside operating hours'), { status: 400 });
-    }
-
-    // Load same-day appointments inside transaction
-    // Note: Firestore transactions require all reads before writes.
-    // We use a query; for strong consistency on high concurrency consider a different design.
-    const apptQuery = appointmentsCol.where('date', '==', date);
-    const apptSnap = await tx.get(apptQuery);
-
-    const appointments = [];
-    apptSnap.forEach(d => appointments.push(d.data()));
-
-    const reqEndMin = timeToMinutes(finalEnd);
-    for (const a of appointments) {
-      if (a.status === 'cancelled') continue;
-      if (hasConflict(startMin, reqEndMin, timeToMinutes(a.startTime), timeToMinutes(a.endTime))) {
-        throw Object.assign(new Error('This time slot is no longer available'), { status: 409 });
-      }
-    }
-
-    const newRef = appointmentsCol.doc();
-    const appointment = {
-      customerName: String(customerName).trim(),
-      customerEmail: String(customerEmail).trim().toLowerCase(),
-      customerPhone: String(customerPhone || '').trim(),
-      notes: String(notes || '').trim().slice(0, 500),
-      serviceId,
-      serviceName: service.name || '',
-      serviceDuration: duration,
-      date,
-      startTime,
-      endTime: finalEnd,
-      status: 'confirmed',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    };
-
-    tx.set(newRef, appointment);
-    return { id: newRef.id, ...appointment };
+  const apptSnap = await appointmentsCol.where('date', '==', date).get();
+  const appointments = [];
+  apptSnap.forEach(function (d) {
+    appointments.push(d.data());
   });
+
+  for (let i = 0; i < appointments.length; i++) {
+    const a = appointments[i];
+    if (a.status === 'cancelled') continue;
+    if (hasConflict(startMin, reqEndMin, timeToMinutes(a.startTime), timeToMinutes(a.endTime))) {
+      return res.status(409).json({ error: 'This time slot is no longer available' });
+    }
+  }
+
+  const appointment = {
+    customerName: String(customerName).trim(),
+    customerEmail: String(customerEmail).trim().toLowerCase(),
+    customerPhone: String(customerPhone).trim(),
+    notes: String(notes).trim().slice(0, 500),
+    serviceId: serviceId,
+    serviceName: service.name || '',
+    serviceDuration: duration,
+    date: date,
+    startTime: startTime,
+    endTime: finalEnd,
+    status: 'confirmed',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+
+  const newRef = await appointmentsCol.add(appointment);
 
   return res.status(201).json({
     success: true,
-    appointmentId: result.id,
+    appointmentId: newRef.id,
     message: 'Booking confirmed'
   });
 }
