@@ -2,525 +2,601 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard — BookAI Scheduler</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Dashboard — BookAI</title>
   <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png" />
   <meta name="theme-color" content="#0f172a" />
+  <link rel="stylesheet" href="/styles.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 antialiased">
-  <!-- Auth loading overlay -->
+<body class="bg-slate-50 text-slate-900 antialiased">
   <div id="auth-loading" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
-    <div class="text-white text-center">
+    <div class="text-center text-white">
       <div class="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
-      <p class="text-sm">Checking authentication…</p>
+      <p class="text-sm">Loading…</p>
     </div>
   </div>
 
-  <div id="app" class="hidden min-h-screen flex flex-col">
-    <!-- Top bar -->
-    <header class="bg-slate-900 text-white sticky top-0 z-40">
-      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2 min-w-0">
-          <div class="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-sm shrink-0">B</div>
-          <div class="min-w-0">
-            <p class="font-semibold text-sm truncate" id="header-business-name">Dashboard</p>
-            <p class="text-xs text-slate-400 truncate" id="header-email"></p>
+  <!-- ONBOARDING WIZARD -->
+  <div id="onboarding" class="hidden fixed inset-0 z-50 bg-slate-50 overflow-y-auto">
+    <div class="max-w-lg mx-auto px-4 py-6 pb-24">
+      <div class="flex items-center justify-between mb-6">
+        <p class="text-sm font-semibold text-slate-900">Setup</p>
+        <p class="text-xs text-slate-500" id="ob-step-label">Step 1 of 5</p>
+      </div>
+      <div class="flex gap-1.5 mb-6" id="ob-dots"></div>
+
+      <!-- Step 1 Business -->
+      <div class="ob-step" data-step="1">
+        <h1 class="text-xl font-semibold mb-1">Business information</h1>
+        <p class="text-sm text-slate-500 mb-5">This appears on your public booking page.</p>
+        <div class="space-y-3">
+          <div><label class="label">Business name *</label><input id="ob-name" class="input" placeholder="e.g. Northside Barbers" /></div>
+          <div><label class="label">Category</label>
+            <select id="ob-category" class="select">
+              <option value="Barbershop">Barbershop</option>
+              <option value="Salon">Salon</option>
+              <option value="Spa">Spa</option>
+              <option value="Clinic">Clinic</option>
+              <option value="Tutor">Tutor</option>
+              <option value="Repair Shop">Repair Shop</option>
+              <option value="Pet Grooming">Pet Grooming</option>
+              <option value="Consultant">Consultant</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div><label class="label">Description</label><textarea id="ob-desc" class="textarea" rows="3" placeholder="Short description for customers"></textarea></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="label">Phone</label><input id="ob-phone" class="input" type="tel" /></div>
+            <div><label class="label">Email</label><input id="ob-email" class="input" type="email" /></div>
+          </div>
+          <div><label class="label">Address</label><input id="ob-address" class="input" /></div>
+          <div><label class="label">Booking handle (optional)</label><input id="ob-handle" class="input" placeholder="johns-barbershop" /><p class="text-[11px] text-slate-400 mt-1">Letters, numbers, hyphens. Used in /b/your-handle</p></div>
+        </div>
+      </div>
+
+      <!-- Step 2 Services -->
+      <div class="ob-step hidden" data-step="2">
+        <h1 class="text-xl font-semibold mb-1">Add services</h1>
+        <p class="text-sm text-slate-500 mb-4">Suggested for your category — edit or remove freely.</p>
+        <div id="ob-services" class="space-y-3 mb-3"></div>
+        <button type="button" id="ob-add-svc" class="btn btn-secondary btn-block text-sm">+ Add another service</button>
+      </div>
+
+      <!-- Step 3 Hours -->
+      <div class="ob-step hidden" data-step="3">
+        <h1 class="text-xl font-semibold mb-1">Business hours</h1>
+        <p class="text-sm text-slate-500 mb-4">Customers only see open days.</p>
+        <div id="ob-hours" class="space-y-2"></div>
+      </div>
+
+      <!-- Step 4 Theme -->
+      <div class="ob-step hidden" data-step="4">
+        <h1 class="text-xl font-semibold mb-1">Booking page style</h1>
+        <p class="text-sm text-slate-500 mb-4">Choose a clean theme for customers.</p>
+        <div class="grid grid-cols-2 gap-3" id="ob-themes">
+          <button type="button" data-theme="light" class="theme-opt card p-4 text-left border-2 border-sky-500"><p class="font-semibold text-sm">Light</p><p class="text-xs text-slate-500">Clean & minimal</p></button>
+          <button type="button" data-theme="dark" class="theme-opt card p-4 text-left border-2 border-transparent"><p class="font-semibold text-sm">Dark</p><p class="text-xs text-slate-500">Modern night look</p></button>
+          <button type="button" data-theme="blue" class="theme-opt card p-4 text-left border-2 border-transparent"><p class="font-semibold text-sm">Blue</p><p class="text-xs text-slate-500">Trust-focused</p></button>
+          <button type="button" data-theme="pink" class="theme-opt card p-4 text-left border-2 border-transparent"><p class="font-semibold text-sm">Pink</p><p class="text-xs text-slate-500">Salon / beauty</p></button>
+          <button type="button" data-theme="gold" class="theme-opt card p-4 text-left border-2 border-transparent"><p class="font-semibold text-sm">Gold</p><p class="text-xs text-slate-500">Premium feel</p></button>
+        </div>
+      </div>
+
+      <!-- Step 5 Ready -->
+      <div class="ob-step hidden" data-step="5">
+        <div class="text-center py-4">
+          <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">✓</div>
+          <h1 class="text-xl font-semibold mb-2">Your booking system is ready</h1>
+          <p class="text-sm text-slate-500 mb-6">Share this link with customers.</p>
+          <div class="card p-4 text-left mb-4">
+            <p class="text-xs text-slate-500 mb-1">Public booking link</p>
+            <p class="text-sm font-mono break-all" id="ob-link"></p>
+          </div>
+          <canvas id="ob-qr" class="mx-auto mb-4 rounded-xl border bg-white"></canvas>
+          <div class="flex gap-2">
+            <button type="button" id="ob-copy" class="btn btn-secondary flex-1">Copy link</button>
+            <button type="button" id="ob-finish" class="btn btn-primary flex-1">Open dashboard</button>
           </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <button id="btn-install" type="button" class="hidden text-sm px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 transition">
-            Install
-          </button>
-          <button id="btn-logout" class="text-sm px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 transition">
-            Logout
-          </button>
+      </div>
+
+      <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4" id="ob-nav" style="padding-bottom:calc(1rem + env(safe-area-inset-bottom))">
+        <div class="max-w-lg mx-auto flex gap-3">
+          <button type="button" id="ob-back" class="btn btn-secondary flex-1 hidden">Back</button>
+          <button type="button" id="ob-next" class="btn btn-primary flex-1">Continue</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app" class="hidden pb-nav min-h-screen">
+    <header class="bg-slate-900 text-white sticky top-0 z-30">
+      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-xs text-slate-400" id="greeting">Welcome</p>
+          <p class="font-semibold text-sm truncate" id="header-business-name">Dashboard</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button id="btn-notif" type="button" class="relative w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center" aria-label="Notifications">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span id="notif-badge" class="hidden absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500"></span>
+          </button>
+          <button id="btn-logout" type="button" class="text-xs px-3 py-2 rounded-xl bg-slate-800">Log out</button>
+        </div>
+      </div>
+      <div id="trial-banner" class="hidden bg-amber-500/15 border-t border-amber-500/20 px-4 py-2">
+        <p class="text-xs text-amber-100 max-w-5xl mx-auto" id="trial-text"></p>
       </div>
     </header>
 
-    <!-- Mobile nav -->
-    <nav class="bg-white border-b border-slate-200 sticky top-[52px] z-30 overflow-x-auto">
-      <div class="max-w-6xl mx-auto px-2 flex gap-1 py-2 text-sm whitespace-nowrap">
-        <button data-section="overview" class="nav-btn px-3 py-1.5 rounded-lg bg-sky-100 text-sky-700 font-medium">Overview</button>
-        <button data-section="settings" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Settings</button>
-        <button data-section="services" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Services</button>
-        <button data-section="hours" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Hours</button>
-        <button data-section="appointments" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Appointments</button>
-        <button data-section="analytics" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Analytics</button>
-        <button data-section="qr" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">QR / Share</button>
-      </div>
-    </nav>
-
-    <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-6">
-      <!-- OVERVIEW -->
-      <section id="section-overview" class="space-y-5">
-        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h2 class="text-lg font-semibold mb-1">Public Booking Link</h2>
-          <p class="text-sm text-slate-500 mb-3">Share this link with customers so they can book appointments.</p>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <input id="booking-link" readonly
-              class="flex-1 px-3 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm font-mono truncate" />
-            <button id="btn-copy-link"
-              class="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium transition shrink-0">
-              Copy Link
-            </button>
-          </div>
-          <p id="copy-msg" class="text-sm text-green-600 mt-2 hidden">Link copied!</p>
+    <!-- Panels -->
+    <main class="max-w-5xl mx-auto px-4 py-5 space-y-5">
+      <section id="panel-home" class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="card p-4"><p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Bookings</p><p class="text-2xl font-bold mt-1" id="m-total">0</p></div>
+          <div class="card p-4"><p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Upcoming</p><p class="text-2xl font-bold mt-1" id="m-upcoming">0</p></div>
+          <div class="card p-4"><p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Est. revenue</p><p class="text-2xl font-bold mt-1" id="m-revenue">0</p></div>
+          <div class="card p-4"><p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Top service</p><p class="text-sm font-semibold mt-2 truncate" id="m-popular">—</p></div>
         </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold text-sm">Public booking link</h2>
+            <button id="btn-copy-link" class="text-xs font-semibold text-sky-600">Copy</button>
+          </div>
+          <input id="booking-link" readonly class="input text-xs font-mono bg-slate-50" />
+          <p id="copy-msg" class="text-xs text-emerald-600 mt-2 hidden">Copied</p>
+        </div>
+        <div class="card p-4">
+          <h2 class="font-semibold text-sm mb-3">Upcoming appointments</h2>
+          <div id="home-upcoming" class="space-y-2"><p class="text-sm text-slate-500">Loading…</p></div>
+        </div>
+      </section>
 
-        <div class="grid sm:grid-cols-3 gap-4">
-          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Services</p>
-            <p class="text-2xl font-bold mt-1" id="stat-services">—</p>
+      <section id="panel-bookings" class="hidden space-y-4">
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          <button data-filter="all" class="filter-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-700 shrink-0">All</button>
+          <button data-filter="upcoming" class="filter-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 shrink-0">Upcoming</button>
+          <button data-filter="confirmed" class="filter-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 shrink-0">Confirmed</button>
+          <button data-filter="completed" class="filter-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 shrink-0">Completed</button>
+          <button data-filter="cancelled" class="filter-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 shrink-0">Cancelled</button>
+        </div>
+        <input id="search-bookings" class="input" placeholder="Search name, service, booking ID…" />
+        <div id="bookings-list" class="space-y-3"></div>
+      </section>
+
+      <section id="panel-services" class="hidden space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="font-semibold">Services</h2>
+          <button id="btn-add-service" class="btn btn-primary text-xs py-2">Add service</button>
+        </div>
+        <div id="service-form-wrap" class="card p-4 hidden space-y-3">
+          <input type="hidden" id="svc-id" />
+          <div><label class="label">Name *</label><input id="svc-name" class="input" /></div>
+          <div><label class="label">Description</label><textarea id="svc-desc" class="textarea" rows="2"></textarea></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="label">Duration (min) *</label><input id="svc-duration" type="number" min="5" step="5" value="30" class="input" /></div>
+            <div><label class="label">Price</label><input id="svc-price" type="number" min="0" step="0.01" class="input" /></div>
           </div>
-          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Upcoming</p>
-            <p class="text-2xl font-bold mt-1" id="stat-upcoming">—</p>
-          </div>
-          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Status</p>
-            <p class="text-2xl font-bold mt-1 text-emerald-600" id="stat-status">Active</p>
+          <label class="flex items-center gap-2 text-sm"><input id="svc-active" type="checkbox" checked class="rounded" /> Active</label>
+          <div class="flex gap-2"><button id="btn-save-service" class="btn btn-primary flex-1">Save</button><button id="btn-cancel-service" class="btn btn-secondary">Cancel</button></div>
+        </div>
+        <div id="services-list" class="space-y-3"></div>
+      </section>
+
+      <section id="panel-analytics" class="hidden space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="card p-4"><p class="text-[11px] text-slate-500 uppercase">This week</p><p class="text-xl font-bold" id="an-week">0</p></div>
+          <div class="card p-4"><p class="text-[11px] text-slate-500 uppercase">This month</p><p class="text-xl font-bold" id="an-month">0</p></div>
+          <div class="card p-4"><p class="text-[11px] text-slate-500 uppercase">Completed</p><p class="text-xl font-bold" id="an-done">0</p></div>
+          <div class="card p-4"><p class="text-[11px] text-slate-500 uppercase">Cancelled</p><p class="text-xl font-bold" id="an-cancelled">0</p></div>
+        </div>
+        <div class="card p-4">
+          <p class="text-sm text-slate-600" id="an-insight">Insights appear when you have bookings.</p>
+          <p class="text-sm mt-2 font-medium" id="an-popular"></p>
+        </div>
+        <div class="card p-4 text-center">
+          <h3 class="font-semibold text-sm mb-3">QR code</h3>
+          <canvas id="qr-canvas" class="mx-auto border rounded-xl"></canvas>
+          <div class="flex gap-2 justify-center mt-3">
+            <button id="btn-dl-qr" class="btn btn-secondary text-xs">Download</button>
+            <button id="btn-print-qr" class="btn btn-secondary text-xs">Print</button>
           </div>
         </div>
       </section>
 
-      <!-- SETTINGS (Business Setup) -->
-      <section id="section-settings" class="hidden space-y-4">
-        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h2 class="text-lg font-semibold mb-4">Business Settings</h2>
-          <form id="form-settings" class="space-y-4">
-            <div class="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1">Business Name *</label>
-                <input id="set-name" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">Category</label>
-                <input id="set-category" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Salon, Clinic, Consulting…" />
-              </div>
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Description</label>
-              <textarea id="set-description" rows="3" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none"></textarea>
-            </div>
-            <div class="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1">Contact Email</label>
-                <input id="set-email" type="email" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">Contact Phone</label>
-                <input id="set-phone" type="tel" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
-              </div>
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Address (optional)</label>
-              <input id="set-address" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Logo URL (optional)</label>
-              <input id="set-logo" type="url" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" placeholder="https://…" />
-            </div>
-            <button type="submit" class="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium transition">
-              Save Settings
-            </button>
-            <p id="settings-msg" class="text-sm hidden"></p>
-          </form>
+      <section id="panel-settings" class="hidden space-y-4">
+        <div class="card p-4 space-y-3">
+          <h2 class="font-semibold text-sm">Business settings</h2>
+          <div><label class="label">Business name</label><input id="set-name" class="input" /></div>
+          <div><label class="label">Category</label><input id="set-category" class="input" /></div>
+          <div><label class="label">Description</label><textarea id="set-description" class="textarea" rows="3"></textarea></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="label">Email</label><input id="set-email" type="email" class="input" /></div>
+            <div><label class="label">Phone</label><input id="set-phone" class="input" /></div>
+          </div>
+          <div><label class="label">Address</label><input id="set-address" class="input" /></div>
+          <button id="btn-save-settings" class="btn btn-primary btn-block">Save settings</button>
+          <p id="settings-msg" class="text-sm hidden"></p>
         </div>
-      </section>
-
-      <!-- SERVICES -->
-      <section id="section-services" class="hidden space-y-4">
-        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold">Services</h2>
-            <button id="btn-add-service" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">
-              + Add Service
-            </button>
-          </div>
-
-          <!-- Add/Edit form (hidden by default) -->
-          <div id="service-form-wrap" class="hidden mb-5 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-            <input type="hidden" id="svc-id" />
-            <div class="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-medium mb-1">Name *</label>
-                <input id="svc-name" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-sky-500" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium mb-1">Price</label>
-                <input id="svc-price" type="number" min="0" step="0.01" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-sky-500" />
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs font-medium mb-1">Description</label>
-              <textarea id="svc-desc" rows="2" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-sky-500"></textarea>
-            </div>
-            <div class="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-medium mb-1">Duration (minutes) *</label>
-                <input id="svc-duration" type="number" min="5" step="5" value="30" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-sky-500" />
-              </div>
-              <div class="flex items-end">
-                <label class="flex items-center gap-2 text-sm">
-                  <input id="svc-active" type="checkbox" checked class="rounded border-slate-300 text-sky-600 focus:ring-sky-500" />
-                  Active (visible to customers)
-                </label>
-              </div>
-            </div>
-            <div class="flex gap-2">
-              <button id="btn-save-service" class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">Save</button>
-              <button id="btn-cancel-service" class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm font-medium">Cancel</button>
-            </div>
-            <p id="svc-msg" class="text-sm hidden"></p>
-          </div>
-
-          <div id="services-list" class="space-y-3">
-            <p class="text-sm text-slate-500">Loading services…</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- HOURS -->
-      <section id="section-hours" class="hidden space-y-4">
-        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h2 class="text-lg font-semibold mb-4">Operating Hours</h2>
-          <div id="hours-form" class="space-y-3">
-            <!-- generated by JS -->
-          </div>
-          <button id="btn-save-hours" class="mt-5 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium transition">
-            Save Hours
-          </button>
+        <div class="card p-4">
+          <h2 class="font-semibold text-sm mb-3">Operating hours</h2>
+          <div id="hours-form" class="space-y-2"></div>
+          <button id="btn-save-hours" class="btn btn-primary btn-block mt-4">Save hours</button>
           <p id="hours-msg" class="text-sm mt-2 hidden"></p>
         </div>
       </section>
-
-      <!-- APPOINTMENTS -->
-      <section id="section-appointments" class="hidden space-y-4">
-        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h2 class="text-lg font-semibold mb-1">Appointments</h2>
-          <p class="text-sm text-slate-500 mb-4">Updates in real time. No refresh needed.</p>
-          <div id="appointments-list" class="space-y-3">
-            <p class="text-sm text-slate-500">Loading appointments…</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ANALYTICS -->
-      <section id="section-analytics" class="hidden space-y-4">
-        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <h2 class="text-lg font-semibold mb-4">Analytics</h2>
-          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            <div class="p-3 rounded-xl bg-slate-50 border"><p class="text-xs text-slate-500">This week</p><p class="text-xl font-bold" id="an-week">0</p></div>
-            <div class="p-3 rounded-xl bg-slate-50 border"><p class="text-xs text-slate-500">This month</p><p class="text-xl font-bold" id="an-month">0</p></div>
-            <div class="p-3 rounded-xl bg-slate-50 border"><p class="text-xs text-slate-500">Upcoming</p><p class="text-xl font-bold" id="an-upcoming">0</p></div>
-            <div class="p-3 rounded-xl bg-slate-50 border"><p class="text-xs text-slate-500">Cancelled</p><p class="text-xl font-bold" id="an-cancelled">0</p></div>
-          </div>
-          <p class="text-sm text-slate-600" id="an-insight">Insights appear when you have bookings.</p>
-          <p class="text-sm mt-2" id="an-popular"></p>
-        </div>
-      </section>
-
-      <!-- QR / SHARE -->
-      <section id="section-qr" class="hidden space-y-4">
-        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm text-center">
-          <h2 class="text-lg font-semibold mb-2">Booking QR Code</h2>
-          <p class="text-sm text-slate-500 mb-4">Customers can scan this to open your booking page.</p>
-          <canvas id="qr-canvas" class="mx-auto border rounded-xl bg-white"></canvas>
-          <div class="flex flex-wrap justify-center gap-2 mt-4">
-            <button id="btn-dl-qr" class="px-4 py-2 rounded-xl bg-sky-600 text-white text-sm font-medium">Download QR</button>
-            <button id="btn-print-qr" class="px-4 py-2 rounded-xl bg-slate-200 text-sm font-medium">Print</button>
-          </div>
-          <p class="text-xs text-slate-400 mt-3 break-all" id="qr-url-label"></p>
-        </div>
-      </section>
-
     </main>
+
+    <nav class="bottom-nav md:max-w-5xl md:mx-auto md:left-0 md:right-0">
+      <button type="button" data-panel="home" class="nav-item active"><span>⌂</span>Home</button>
+      <button type="button" data-panel="bookings" class="nav-item"><span>☰</span>Bookings</button>
+      <button type="button" data-panel="services" class="nav-item nav-fab" title="Services">+</button>
+      <button type="button" data-panel="analytics" class="nav-item"><span>▣</span>Insights</button>
+      <button type="button" data-panel="settings" class="nav-item"><span>⚙</span>Settings</button>
+    </nav>
   </div>
 
-  <!-- First-time setup modal -->
-  <div id="setup-modal" class="fixed inset-0 bg-slate-900/70 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-      <h2 class="text-xl font-semibold mb-1">Welcome! Set up your business</h2>
-      <p class="text-sm text-slate-500 mb-5">This information appears on your public booking page.</p>
-      <form id="form-setup" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium mb-1">Business Name *</label>
-          <input id="setup-name" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1">Category</label>
-          <input id="setup-category" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Salon, Clinic…" />
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1">Short Description</label>
-          <textarea id="setup-description" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none"></textarea>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-sm font-medium mb-1">Contact Email</label>
-            <input id="setup-email" type="email" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Phone</label>
-            <input id="setup-phone" type="tel" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
-          </div>
-        </div>
-        <button type="submit" class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-medium text-sm transition">
-          Create Business
-        </button>
-        <p id="setup-error" class="text-sm text-red-600 hidden"></p>
-      </form>
-    </div>
-  </div>
+  <div class="toast-wrap" id="toasts"></div>
 
   <script type="module">
     import {
       auth, db, onAuthStateChanged, signOut,
       doc, getDoc, setDoc, updateDoc, deleteDoc,
-      collection, addDoc, query, onSnapshot, serverTimestamp
+      collection, addDoc, onSnapshot, serverTimestamp
     } from './firebase-config.js';
     import { getDefaultOperatingHours, copyToClipboard, formatDisplayDate } from './app.js';
 
-    let tenantId = null;
-    let settings = null;
-    let servicesUnsub = null;
-    let appointmentsUnsub = null;
-
     const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-    const DAY_LABELS = { monday:'Monday', tuesday:'Tuesday', wednesday:'Wednesday', thursday:'Thursday', friday:'Friday', saturday:'Saturday', sunday:'Sunday' };
+    const DAY_LABELS = { monday:'Mon', tuesday:'Tue', wednesday:'Wed', thursday:'Thu', friday:'Fri', saturday:'Sat', sunday:'Sun' };
+    const TEMPLATES = {
+      Barbershop: [
+        { name: 'Haircut', description: 'Standard haircut', duration: 30, price: 250 },
+        { name: 'Beard Trim', description: 'Beard shaping', duration: 20, price: 150 },
+        { name: 'Haircut + Beard', description: 'Full grooming', duration: 45, price: 350 }
+      ],
+      Salon: [
+        { name: 'Haircut', description: 'Styled cut', duration: 45, price: 400 },
+        { name: 'Hair Coloring', description: 'Color service', duration: 90, price: 1200 },
+        { name: 'Hair Treatment', description: 'Treatment', duration: 60, price: 800 }
+      ],
+      Spa: [
+        { name: 'Massage 60 min', description: 'Relaxation massage', duration: 60, price: 900 },
+        { name: 'Facial', description: 'Facial treatment', duration: 45, price: 700 }
+      ],
+      Clinic: [
+        { name: 'Consultation', description: 'Initial consult', duration: 30, price: 500 },
+        { name: 'Follow-up', description: 'Follow-up visit', duration: 20, price: 300 }
+      ],
+      Tutor: [{ name: '1-hour Session', description: 'Private tutoring', duration: 60, price: 600 }],
+      'Repair Shop': [{ name: 'Diagnostics', description: 'Assessment', duration: 30, price: 200 }],
+      'Pet Grooming': [{ name: 'Full Groom', description: 'Bath + trim', duration: 90, price: 800 }],
+      Consultant: [{ name: 'Consultation', description: '1-hour consult', duration: 60, price: 1500 }],
+      Other: [{ name: 'Standard Service', description: 'Default service', duration: 30, price: 300 }]
+    };
 
-    // ---------- Auth guard ----------
+    let tenantId = null, settings = null, allAppointments = [], bookingFilter = 'all', obStep = 1, obTheme = 'light', obServices = [];
+
+    function toast(msg, type) {
+      const el = document.createElement('div');
+      el.className = 'toast toast-' + (type || 'info');
+      el.textContent = msg;
+      document.getElementById('toasts').appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+    function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+    function greeting() {
+      const h = new Date().getHours();
+      return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+    }
+
     onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.replace('/index.html');
-        return;
-      }
+      if (!user) { location.replace('/index.html'); return; }
       tenantId = user.uid;
-      document.getElementById('header-email').textContent = user.email || '';
+      document.getElementById('greeting').textContent = greeting();
+      document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
       document.getElementById('auth-loading').classList.add('hidden');
-      document.getElementById('app').classList.remove('hidden');
 
-      // Booking link
-      const link = `${window.location.origin}/booking.html?tenant=${tenantId}`;
-      document.getElementById('booking-link').value = link;
-
-      await loadSettings();
-      startRealtimeListeners();
-    });
-
-    // ---------- Settings ----------
-    async function loadSettings() {
-      const ref = doc(db, 'tenants', tenantId, 'settings', 'config');
-      const snap = await getDoc(ref);
+      const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
       if (!snap.exists()) {
-        document.getElementById('setup-modal').classList.remove('hidden');
-        document.getElementById('setup-email').value = auth.currentUser?.email || '';
+        document.getElementById('ob-email').value = user.email || '';
+        showOnboarding();
         return;
       }
       settings = snap.data();
-      applySettingsToUI();
+      enterApp();
+    });
+
+    function showOnboarding() {
+      document.getElementById('onboarding').classList.remove('hidden');
+      renderObDots();
+      renderObHours(getDefaultOperatingHours());
+      loadTemplateServices();
+      showObStep(1);
     }
 
-    function applySettingsToUI() {
-      if (!settings) return;
-      document.getElementById('header-business-name').textContent = settings.businessName || 'Dashboard';
-      document.getElementById('set-name').value = settings.businessName || '';
-      document.getElementById('set-category').value = settings.businessCategory || '';
-      document.getElementById('set-description').value = settings.businessDescription || '';
-      document.getElementById('set-email').value = settings.contactEmail || '';
-      document.getElementById('set-phone').value = settings.contactPhone || '';
-      document.getElementById('set-address').value = settings.address || '';
-      document.getElementById('set-logo').value = settings.logoUrl || '';
-      renderHoursForm(settings.operatingHours || getDefaultOperatingHours());
+    function renderObDots() {
+      document.getElementById('ob-dots').innerHTML = [1,2,3,4,5].map(i =>
+        '<div class="step-dot' + (i === obStep ? ' active' : i < obStep ? ' done' : '') + '"></div>'
+      ).join('');
+      document.getElementById('ob-step-label').textContent = 'Step ' + obStep + ' of 5';
     }
 
-    // First-time setup
-    document.getElementById('form-setup').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('setup-name').value.trim();
-      if (!name) return;
-      const errEl = document.getElementById('setup-error');
-      errEl.classList.add('hidden');
+    function showObStep(n) {
+      obStep = n;
+      document.querySelectorAll('.ob-step').forEach(el => el.classList.toggle('hidden', Number(el.dataset.step) !== n));
+      document.getElementById('ob-back').classList.toggle('hidden', n === 1 || n === 5);
+      document.getElementById('ob-next').classList.toggle('hidden', n === 5);
+      document.getElementById('ob-nav').classList.toggle('hidden', n === 5);
+      renderObDots();
+    }
+
+    document.getElementById('ob-category').addEventListener('change', loadTemplateServices);
+    function loadTemplateServices() {
+      const cat = document.getElementById('ob-category').value;
+      obServices = (TEMPLATES[cat] || TEMPLATES.Other).map(s => ({ ...s, active: true }));
+      renderObServices();
+    }
+    function renderObServices() {
+      const el = document.getElementById('ob-services');
+      el.innerHTML = obServices.map((s, i) => `
+        <div class="card p-3 space-y-2">
+          <input data-i="${i}" data-f="name" class="input text-sm" value="${esc(s.name)}" placeholder="Service name" />
+          <div class="grid grid-cols-2 gap-2">
+            <input data-i="${i}" data-f="duration" type="number" class="input text-sm" value="${s.duration}" placeholder="Minutes" />
+            <input data-i="${i}" data-f="price" type="number" class="input text-sm" value="${s.price}" placeholder="Price" />
+          </div>
+          <button type="button" data-del="${i}" class="text-xs text-red-600">Remove</button>
+        </div>`).join('');
+      el.querySelectorAll('[data-f]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const i = +inp.dataset.i, f = inp.dataset.f;
+          obServices[i][f] = f === 'name' ? inp.value : Number(inp.value) || 0;
+        });
+      });
+      el.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { obServices.splice(+b.dataset.del, 1); renderObServices(); });
+    }
+    document.getElementById('ob-add-svc').onclick = () => {
+      obServices.push({ name: '', description: '', duration: 30, price: 0, active: true });
+      renderObServices();
+    };
+
+    function renderObHours(hours) {
+      document.getElementById('ob-hours').innerHTML = DAYS.map(day => {
+        const h = hours[day] || { enabled: false, open: '09:00', close: '17:00' };
+        return `<div class="flex flex-wrap items-center gap-2 card p-3">
+          <label class="flex items-center gap-2 w-16 text-sm font-medium"><input type="checkbox" data-day="${day}" class="ob-en" ${h.enabled?'checked':''}/> ${DAY_LABELS[day]}</label>
+          <input type="time" data-day="${day}" data-field="open" value="${h.open||'09:00'}" class="input text-sm py-1.5 w-auto" />
+          <span class="text-slate-400 text-xs">to</span>
+          <input type="time" data-day="${day}" data-field="close" value="${h.close||'17:00'}" class="input text-sm py-1.5 w-auto" />
+        </div>`;
+      }).join('');
+    }
+
+    document.getElementById('ob-themes').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-theme]');
+      if (!btn) return;
+      obTheme = btn.dataset.theme;
+      document.querySelectorAll('.theme-opt').forEach(b => b.classList.toggle('border-sky-500', b === btn));
+      document.querySelectorAll('.theme-opt').forEach(b => { if (b !== btn) b.classList.remove('border-sky-500'); b.classList.toggle('border-transparent', b !== btn); });
+    });
+
+    document.getElementById('ob-back').onclick = () => { if (obStep > 1) showObStep(obStep - 1); };
+    document.getElementById('ob-next').onclick = async () => {
+      if (obStep === 1) {
+        if (!document.getElementById('ob-name').value.trim()) { toast('Business name is required', 'error'); return; }
+        showObStep(2); return;
+      }
+      if (obStep === 2) {
+        if (!obServices.filter(s => s.name.trim()).length) { toast('Add at least one service', 'error'); return; }
+        showObStep(3); return;
+      }
+      if (obStep === 3) { showObStep(4); return; }
+      if (obStep === 4) { await finishOnboarding(); }
+    };
+
+    async function finishOnboarding() {
+      const btn = document.getElementById('ob-next');
+      btn.disabled = true; btn.textContent = 'Saving…';
       try {
+        const operatingHours = {};
+        DAYS.forEach(day => {
+          operatingHours[day] = {
+            enabled: document.querySelector(`.ob-en[data-day="${day}"]`)?.checked || false,
+            open: document.querySelector(`input[data-day="${day}"][data-field="open"]`)?.value || '09:00',
+            close: document.querySelector(`input[data-day="${day}"][data-field="close"]`)?.value || '17:00'
+          };
+        });
+        const handle = document.getElementById('ob-handle').value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
         const data = {
           ownerId: tenantId,
-          businessName: name,
-          businessCategory: document.getElementById('setup-category').value.trim(),
-          businessDescription: document.getElementById('setup-description').value.trim(),
-          contactEmail: document.getElementById('setup-email').value.trim(),
-          contactPhone: document.getElementById('setup-phone').value.trim(),
-          address: '',
+          businessName: document.getElementById('ob-name').value.trim(),
+          businessCategory: document.getElementById('ob-category').value,
+          businessDescription: document.getElementById('ob-desc').value.trim(),
+          contactEmail: document.getElementById('ob-email').value.trim(),
+          contactPhone: document.getElementById('ob-phone').value.trim(),
+          address: document.getElementById('ob-address').value.trim(),
           logoUrl: '',
-          operatingHours: getDefaultOperatingHours(),
+          handle: handle || null,
+          theme: { mode: obTheme, primaryColor: '' },
+          bookingRules: { bufferMinutes: 0, minAdvanceHours: 0, maxAdvanceDays: 60, allowSameDay: true },
+          depositSettings: { enabled: false },
+          operatingHours,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         };
         await setDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), data);
-        settings = { ...data, createdAt: new Date(), updatedAt: new Date() };
-        // Register platform tenant (14-day trial) via Admin SDK
+        for (const s of obServices.filter(x => x.name.trim())) {
+          await addDoc(collection(db, 'tenants', tenantId, 'services'), {
+            name: s.name.trim(), description: s.description || '', duration: Number(s.duration) || 30,
+            price: Number(s.price) || 0, active: true, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+          });
+        }
         try {
           const idToken = await auth.currentUser.getIdToken();
           await fetch('/api/create-booking', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'registerTenant',
-              idToken,
-              businessName: data.businessName,
-              ownerEmail: data.contactEmail || auth.currentUser.email,
-              handle: ''
-            })
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'registerTenant', idToken, businessName: data.businessName, ownerEmail: data.contactEmail || auth.currentUser.email, handle })
           });
-        } catch (regErr) {
-          console.warn('platform register', regErr);
-        }
-        document.getElementById('setup-modal').classList.add('hidden');
-        applySettingsToUI();
+        } catch (e) { console.warn(e); }
+
+        settings = data;
+        const link = location.origin + '/booking.html?tenant=' + tenantId;
+        document.getElementById('ob-link').textContent = link;
+        if (typeof QRCode !== 'undefined') QRCode.toCanvas(document.getElementById('ob-qr'), link, { width: 180, margin: 2 });
+        showObStep(5);
       } catch (err) {
         console.error(err);
-        errEl.textContent = 'Could not save settings. Check Firestore rules.';
-        errEl.classList.remove('hidden');
+        toast('Could not save setup. Check connection and Firestore rules.', 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Continue';
       }
-    });
-
-    // Save settings
-    document.getElementById('form-settings').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const msg = document.getElementById('settings-msg');
-      try {
-        const data = {
-          businessName: document.getElementById('set-name').value.trim(),
-          businessCategory: document.getElementById('set-category').value.trim(),
-          businessDescription: document.getElementById('set-description').value.trim(),
-          contactEmail: document.getElementById('set-email').value.trim(),
-          contactPhone: document.getElementById('set-phone').value.trim(),
-          address: document.getElementById('set-address').value.trim(),
-          logoUrl: document.getElementById('set-logo').value.trim(),
-          updatedAt: serverTimestamp()
-        };
-        await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), data);
-        settings = { ...settings, ...data };
-        document.getElementById('header-business-name').textContent = data.businessName;
-        msg.textContent = 'Settings saved.';
-        msg.className = 'text-sm text-green-600';
-        msg.classList.remove('hidden');
-      } catch (err) {
-        console.error(err);
-        msg.textContent = 'Failed to save settings.';
-        msg.className = 'text-sm text-red-600';
-        msg.classList.remove('hidden');
-      }
-    });
-
-    // ---------- Hours ----------
-    function renderHoursForm(hours) {
-      const container = document.getElementById('hours-form');
-      container.innerHTML = DAYS.map(day => {
-        const h = hours[day] || { enabled: false, open: '09:00', close: '17:00' };
-        return `
-          <div class="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <label class="flex items-center gap-2 w-28 shrink-0">
-              <input type="checkbox" data-day="${day}" class="hour-enabled rounded border-slate-300 text-sky-600" ${h.enabled ? 'checked' : ''} />
-              <span class="text-sm font-medium">${DAY_LABELS[day]}</span>
-            </label>
-            <input type="time" data-day="${day}" data-field="open" value="${h.open || '09:00'}"
-              class="px-2 py-1.5 rounded-lg border border-slate-300 text-sm" />
-            <span class="text-slate-400 text-sm">to</span>
-            <input type="time" data-day="${day}" data-field="close" value="${h.close || '17:00'}"
-              class="px-2 py-1.5 rounded-lg border border-slate-300 text-sm" />
-          </div>`;
-      }).join('');
     }
 
-    document.getElementById('btn-save-hours').addEventListener('click', async () => {
-      const msg = document.getElementById('hours-msg');
-      const operatingHours = {};
-      DAYS.forEach(day => {
-        const enabled = document.querySelector(`.hour-enabled[data-day="${day}"]`)?.checked || false;
-        const open = document.querySelector(`input[data-day="${day}"][data-field="open"]`)?.value || '';
-        const close = document.querySelector(`input[data-day="${day}"][data-field="close"]`)?.value || '';
-        operatingHours[day] = { enabled, open, close };
-      });
-      try {
-        await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), {
-          operatingHours,
-          updatedAt: serverTimestamp()
-        });
-        settings.operatingHours = operatingHours;
-        msg.textContent = 'Operating hours saved.';
-        msg.className = 'text-sm text-green-600 mt-2';
-        msg.classList.remove('hidden');
-      } catch (err) {
-        console.error(err);
-        msg.textContent = 'Failed to save hours.';
-        msg.className = 'text-sm text-red-600 mt-2';
-        msg.classList.remove('hidden');
-      }
-    });
+    document.getElementById('ob-copy').onclick = async () => {
+      const ok = await copyToClipboard(document.getElementById('ob-link').textContent);
+      toast(ok ? 'Link copied' : 'Copy failed', ok ? 'success' : 'error');
+    };
+    document.getElementById('ob-finish').onclick = () => {
+      document.getElementById('onboarding').classList.add('hidden');
+      enterApp();
+    };
 
-    // ---------- Services ----------
-    function startRealtimeListeners() {
-      // Services
-      if (servicesUnsub) servicesUnsub();
-      servicesUnsub = onSnapshot(collection(db, 'tenants', tenantId, 'services'), (snap) => {
-        const list = [];
-        snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-        list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    function enterApp() {
+      document.getElementById('app').classList.remove('hidden');
+      document.getElementById('header-business-name').textContent = settings?.businessName || 'Dashboard';
+      document.getElementById('set-name').value = settings?.businessName || '';
+      document.getElementById('set-category').value = settings?.businessCategory || '';
+      document.getElementById('set-description').value = settings?.businessDescription || '';
+      document.getElementById('set-email').value = settings?.contactEmail || '';
+      document.getElementById('set-phone').value = settings?.contactPhone || '';
+      document.getElementById('set-address').value = settings?.address || '';
+      renderHoursForm(settings?.operatingHours || getDefaultOperatingHours());
+      startListeners();
+      drawQr();
+    }
+
+    let unsubSvc = null, unsubAppt = null;
+    function startListeners() {
+      if (unsubSvc) unsubSvc();
+      if (unsubAppt) unsubAppt();
+      unsubSvc = onSnapshot(collection(db, 'tenants', tenantId, 'services'), (snap) => {
+        const list = []; snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+        list.sort((a,b) => (a.name||'').localeCompare(b.name||''));
         renderServices(list);
-        document.getElementById('stat-services').textContent = list.filter(s => s.active !== false).length;
-      }, (err) => {
-        console.error(err);
-        document.getElementById('services-list').innerHTML = '<p class="text-sm text-red-600">Could not load services.</p>';
       });
-
-      // Appointments (real-time)
-      if (appointmentsUnsub) appointmentsUnsub();
-      appointmentsUnsub = onSnapshot(collection(db, 'tenants', tenantId, 'appointments'), (snap) => {
-        const list = [];
-        snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-        list.sort((a, b) => {
-          const da = (a.date || '') + (a.startTime || '');
-          const db_ = (b.date || '') + (b.startTime || '');
-          return db_.localeCompare(da); // newest first-ish
-        });
-        renderAppointments(list);
-        const today = new Date().toISOString().slice(0, 10);
-        const upcoming = list.filter(a => a.date >= today && a.status !== 'cancelled').length;
-        document.getElementById('stat-upcoming').textContent = upcoming;
-        computeAnalytics(list);
-        drawQr();
-      }, (err) => {
-        console.error(err);
-        document.getElementById('appointments-list').innerHTML = '<p class="text-sm text-red-600">Could not load appointments.</p>';
+      unsubAppt = onSnapshot(collection(db, 'tenants', tenantId, 'appointments'), (snap) => {
+        allAppointments = [];
+        snap.forEach(d => allAppointments.push({ id: d.id, ...d.data() }));
+        allAppointments.sort((a,b) => ((b.date||'')+(b.startTime||'')).localeCompare((a.date||'')+(a.startTime||'')));
+        updateMetrics();
+        renderBookings();
+        renderHomeUpcoming();
+        computeAnalytics();
       });
     }
+
+    function updateMetrics() {
+      const today = new Date().toISOString().slice(0, 10);
+      const upcoming = allAppointments.filter(a => a.date >= today && a.status !== 'cancelled' && a.status !== 'no_show');
+      document.getElementById('m-total').textContent = allAppointments.length;
+      document.getElementById('m-upcoming').textContent = upcoming.length;
+      let rev = 0; const bySvc = {};
+      allAppointments.forEach(a => {
+        if (a.status === 'cancelled') return;
+        rev += Number(a.servicePrice || 0);
+        bySvc[a.serviceName || 'Service'] = (bySvc[a.serviceName || 'Service'] || 0) + 1;
+      });
+      document.getElementById('m-revenue').textContent = rev.toLocaleString();
+      const top = Object.entries(bySvc).sort((a,b)=>b[1]-a[1])[0];
+      document.getElementById('m-popular').textContent = top ? top[0] : '—';
+    }
+
+    function renderHomeUpcoming() {
+      const today = new Date().toISOString().slice(0, 10);
+      const list = allAppointments.filter(a => a.date >= today && a.status !== 'cancelled').slice(0, 5);
+      const el = document.getElementById('home-upcoming');
+      if (!list.length) {
+        el.innerHTML = '<div class="text-center py-6"><p class="text-sm text-slate-500">No upcoming appointments</p><p class="text-xs text-slate-400 mt-1">Share your booking link to get started</p></div>';
+        return;
+      }
+      el.innerHTML = list.map(a => `
+        <div class="flex items-start justify-between gap-2 py-2 border-b border-slate-100 last:border-0">
+          <div class="min-w-0">
+            <p class="text-sm font-medium truncate">${esc(a.customerName)}</p>
+            <p class="text-xs text-slate-500">${esc(a.serviceName)} · ${formatDisplayDate(a.date)} · ${a.startTime}</p>
+          </div>
+          <span class="badge badge-${esc(a.status||'confirmed')}">${esc(a.status||'confirmed')}</span>
+        </div>`).join('');
+    }
+
+    function renderBookings() {
+      const q = (document.getElementById('search-bookings')?.value || '').toLowerCase();
+      const today = new Date().toISOString().slice(0, 10);
+      let list = allAppointments.slice();
+      if (bookingFilter === 'upcoming') list = list.filter(a => a.date >= today && a.status !== 'cancelled');
+      else if (bookingFilter !== 'all') list = list.filter(a => (a.status || 'confirmed') === bookingFilter);
+      if (q) list = list.filter(a => [a.customerName, a.serviceName, a.bookingId, a.customerEmail].join(' ').toLowerCase().includes(q));
+      const el = document.getElementById('bookings-list');
+      if (!list.length) { el.innerHTML = '<p class="text-sm text-slate-500 text-center py-8">No bookings match</p>'; return; }
+      el.innerHTML = list.map(a => {
+        const st = a.status || 'confirmed';
+        let actions = '';
+        if (st === 'pending' || st === 'pending_verification') actions = `<button data-act="confirmed" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700">Confirm</button>`;
+        if (st === 'confirmed') actions = `<button data-act="completed" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-sky-50 text-sky-700">Complete</button>
+          <button data-act="no_show" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-600">No show</button>`;
+        if (st !== 'cancelled' && st !== 'completed') actions += ` <button data-act="cancelled" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-600">Cancel</button>`;
+        return `<div class="card p-4">
+          <div class="flex justify-between gap-2 mb-1">
+            <p class="font-medium text-sm">${esc(a.customerName)}</p>
+            <span class="badge badge-${esc(st)}">${esc(st.replace('_',' '))}</span>
+          </div>
+          <p class="text-xs text-slate-500">${esc(a.serviceName)} · ${formatDisplayDate(a.date)} · ${a.startTime}–${a.endTime}</p>
+          ${a.bookingId ? `<p class="text-[11px] font-mono text-slate-400 mt-1">${esc(a.bookingId)}</p>` : ''}
+          <div class="flex flex-wrap gap-2 mt-3">${actions}</div>
+        </div>`;
+      }).join('');
+      el.querySelectorAll('[data-act]').forEach(btn => {
+        btn.onclick = async () => {
+          const act = btn.dataset.act;
+          if (act === 'cancelled' && !confirm('Cancel this appointment?')) return;
+          try {
+            await updateDoc(doc(db, 'tenants', tenantId, 'appointments', btn.dataset.id), { status: act, updatedAt: serverTimestamp() });
+            toast('Status updated', 'success');
+          } catch (e) { toast('Could not update status', 'error'); }
+        };
+      });
+    }
+
+    document.querySelectorAll('.filter-chip').forEach(b => {
+      b.onclick = () => {
+        bookingFilter = b.dataset.filter;
+        document.querySelectorAll('.filter-chip').forEach(x => {
+          x.className = 'filter-chip px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 ' + (x === b ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-600');
+        });
+        renderBookings();
+      };
+    });
+    document.getElementById('search-bookings')?.addEventListener('input', renderBookings);
 
     function renderServices(list) {
       const el = document.getElementById('services-list');
-      if (!list.length) {
-        el.innerHTML = '<p class="text-sm text-slate-500 py-4 text-center">No services yet. Click “+ Add Service”.</p>';
-        return;
-      }
+      if (!list.length) { el.innerHTML = '<p class="text-sm text-slate-500 text-center py-6">No services yet</p>'; return; }
       el.innerHTML = list.map(s => `
-        <div class="flex flex-wrap items-start justify-between gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-          <div class="min-w-0">
-            <p class="font-medium text-sm">${escapeHtml(s.name)} ${s.active === false ? '<span class="text-xs text-amber-600 font-normal">(inactive)</span>' : ''}</p>
-            <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(s.description || '')}</p>
-            <p class="text-xs text-slate-600 mt-1">${s.duration || 0} min · ${formatPrice(s.price)}</p>
-          </div>
+        <div class="card p-4 flex justify-between gap-3">
+          <div><p class="font-medium text-sm">${esc(s.name)} ${s.active===false?'<span class="text-amber-600 text-xs">(inactive)</span>':''}</p>
+          <p class="text-xs text-slate-500">${s.duration||0} min · ${s.price!=null?s.price:'—'}</p></div>
           <div class="flex gap-2 shrink-0">
-            <button data-edit="${s.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100">Edit</button>
-            <button data-delete="${s.id}" class="text-xs px-2.5 py-1 rounded-lg bg-white border border-red-200 text-red-600 hover:bg-red-50">Delete</button>
+            <button data-edit="${s.id}" class="text-xs px-2 py-1 rounded-lg border">Edit</button>
+            <button data-del="${s.id}" class="text-xs px-2 py-1 rounded-lg border border-red-200 text-red-600">Delete</button>
           </div>
-        </div>
-      `).join('');
-
-      el.querySelectorAll('[data-edit]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const s = list.find(x => x.id === btn.dataset.edit);
+        </div>`).join('');
+      el.querySelectorAll('[data-edit]').forEach(b => {
+        b.onclick = () => {
+          const s = list.find(x => x.id === b.dataset.edit);
           if (!s) return;
           document.getElementById('svc-id').value = s.id;
           document.getElementById('svc-name').value = s.name || '';
@@ -529,22 +605,18 @@
           document.getElementById('svc-price').value = s.price ?? '';
           document.getElementById('svc-active').checked = s.active !== false;
           document.getElementById('service-form-wrap').classList.remove('hidden');
-        });
+        };
       });
-      el.querySelectorAll('[data-delete]').forEach(btn => {
-        btn.addEventListener('click', async () => {
+      el.querySelectorAll('[data-del]').forEach(b => {
+        b.onclick = async () => {
           if (!confirm('Delete this service?')) return;
-          try {
-            await deleteDoc(doc(db, 'tenants', tenantId, 'services', btn.dataset.delete));
-          } catch (err) {
-            console.error(err);
-            alert('Could not delete service.');
-          }
-        });
+          try { await deleteDoc(doc(db, 'tenants', tenantId, 'services', b.dataset.del)); toast('Service deleted', 'success'); }
+          catch { toast('Delete failed', 'error'); }
+        };
       });
     }
 
-    document.getElementById('btn-add-service').addEventListener('click', () => {
+    document.getElementById('btn-add-service').onclick = () => {
       document.getElementById('svc-id').value = '';
       document.getElementById('svc-name').value = '';
       document.getElementById('svc-desc').value = '';
@@ -552,220 +624,137 @@
       document.getElementById('svc-price').value = '';
       document.getElementById('svc-active').checked = true;
       document.getElementById('service-form-wrap').classList.remove('hidden');
-    });
-    document.getElementById('btn-cancel-service').addEventListener('click', () => {
-      document.getElementById('service-form-wrap').classList.add('hidden');
-    });
-    document.getElementById('btn-save-service').addEventListener('click', async () => {
+    };
+    document.getElementById('btn-cancel-service').onclick = () => document.getElementById('service-form-wrap').classList.add('hidden');
+    document.getElementById('btn-save-service').onclick = async () => {
       const name = document.getElementById('svc-name').value.trim();
       const duration = parseInt(document.getElementById('svc-duration').value, 10);
-      const msg = document.getElementById('svc-msg');
-      if (!name || !duration || duration < 5) {
-        msg.textContent = 'Name and duration (min 5) are required.';
-        msg.className = 'text-sm text-red-600';
-        msg.classList.remove('hidden');
-        return;
-      }
+      if (!name || !duration || duration < 5) { toast('Name and duration required', 'error'); return; }
       const payload = {
-        name,
-        description: document.getElementById('svc-desc').value.trim(),
-        duration,
-        price: parseFloat(document.getElementById('svc-price').value) || 0,
-        active: document.getElementById('svc-active').checked,
-        updatedAt: serverTimestamp()
+        name, description: document.getElementById('svc-desc').value.trim(),
+        duration, price: parseFloat(document.getElementById('svc-price').value) || 0,
+        active: document.getElementById('svc-active').checked, updatedAt: serverTimestamp()
       };
       try {
         const id = document.getElementById('svc-id').value;
-        if (id) {
-          await updateDoc(doc(db, 'tenants', tenantId, 'services', id), payload);
-        } else {
-          payload.createdAt = serverTimestamp();
-          await addDoc(collection(db, 'tenants', tenantId, 'services'), payload);
-        }
+        if (id) await updateDoc(doc(db, 'tenants', tenantId, 'services', id), payload);
+        else { payload.createdAt = serverTimestamp(); await addDoc(collection(db, 'tenants', tenantId, 'services'), payload); }
         document.getElementById('service-form-wrap').classList.add('hidden');
-        msg.classList.add('hidden');
-      } catch (err) {
-        console.error(err);
-        msg.textContent = 'Failed to save service.';
-        msg.className = 'text-sm text-red-600';
-        msg.classList.remove('hidden');
-      }
-    });
+        toast('Service saved', 'success');
+      } catch { toast('Save failed', 'error'); }
+    };
 
-    // ---------- Appointments ----------
-    function renderAppointments(list) {
-      const el = document.getElementById('appointments-list');
-      if (!list.length) {
-        el.innerHTML = '<p class="text-sm text-slate-500 py-6 text-center">No appointments yet. Share your booking link!</p>';
-        return;
-      }
-      el.innerHTML = list.map(a => `
-        <div class="p-4 rounded-xl border border-slate-200 bg-white">
-          <div class="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <p class="font-medium text-sm">${escapeHtml(a.customerName || 'Customer')}</p>
-              <p class="text-xs text-slate-500">${escapeHtml(a.customerEmail || '')}${a.customerPhone ? ' · ' + escapeHtml(a.customerPhone) : ''}</p>
-            </div>
-            <span class="text-xs px-2 py-0.5 rounded-full ${a.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}">${escapeHtml(a.status || 'confirmed')}</span>
-          </div>
-          <p class="text-sm mt-2">${escapeHtml(a.serviceName || 'Service')} · ${formatDisplayDate(a.date)} · ${a.startTime}–${a.endTime}</p>
-          ${a.notes ? `<p class="text-xs text-slate-500 mt-1">Notes: ${escapeHtml(a.notes)}</p>` : ''}
-          ${a.status !== 'cancelled' ? `<button data-cancel="${a.id}" class="mt-2 text-xs px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Cancel</button>` : ''}
-        </div>
-      `).join('');
-
-      el.querySelectorAll('[data-cancel]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          if (!confirm('Cancel this appointment?')) return;
-          try {
-            await updateDoc(doc(db, 'tenants', tenantId, 'appointments', btn.dataset.cancel), {
-              status: 'cancelled',
-              updatedAt: serverTimestamp()
-            });
-          } catch (err) {
-            console.error(err);
-            alert('Could not cancel appointment.');
-          }
-        });
-      });
+    function renderHoursForm(hours) {
+      document.getElementById('hours-form').innerHTML = DAYS.map(day => {
+        const h = hours[day] || { enabled: false, open: '09:00', close: '17:00' };
+        return `<div class="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100">
+          <label class="flex items-center gap-2 w-16 text-sm"><input type="checkbox" data-day="${day}" class="hour-enabled" ${h.enabled?'checked':''}/> ${DAY_LABELS[day]}</label>
+          <input type="time" data-day="${day}" data-field="open" value="${h.open||'09:00'}" class="input text-sm py-1 w-auto" />
+          <span class="text-xs text-slate-400">–</span>
+          <input type="time" data-day="${day}" data-field="close" value="${h.close||'17:00'}" class="input text-sm py-1 w-auto" />
+        </div>`;
+      }).join('');
     }
-
-    // ---------- Nav ----------
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const section = btn.dataset.section;
-        document.querySelectorAll('.nav-btn').forEach(b => {
-          b.className = 'nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100';
-        });
-        btn.className = 'nav-btn px-3 py-1.5 rounded-lg bg-sky-100 text-sky-700 font-medium';
-        ['overview','settings','services','hours','appointments','analytics','qr'].forEach(s => {
-          document.getElementById('section-' + s).classList.toggle('hidden', s !== section);
-        });
+    document.getElementById('btn-save-hours').onclick = async () => {
+      const operatingHours = {};
+      DAYS.forEach(day => {
+        operatingHours[day] = {
+          enabled: document.querySelector(`.hour-enabled[data-day="${day}"]`)?.checked || false,
+          open: document.querySelector(`input[data-day="${day}"][data-field="open"]`)?.value || '',
+          close: document.querySelector(`input[data-day="${day}"][data-field="close"]`)?.value || ''
+        };
       });
-    });
+      try {
+        await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), { operatingHours, updatedAt: serverTimestamp() });
+        settings.operatingHours = operatingHours;
+        toast('Hours saved', 'success');
+      } catch { toast('Could not save hours', 'error'); }
+    };
+    document.getElementById('btn-save-settings').onclick = async () => {
+      try {
+        const data = {
+          businessName: document.getElementById('set-name').value.trim(),
+          businessCategory: document.getElementById('set-category').value.trim(),
+          businessDescription: document.getElementById('set-description').value.trim(),
+          contactEmail: document.getElementById('set-email').value.trim(),
+          contactPhone: document.getElementById('set-phone').value.trim(),
+          address: document.getElementById('set-address').value.trim(),
+          updatedAt: serverTimestamp()
+        };
+        await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), data);
+        settings = { ...settings, ...data };
+        document.getElementById('header-business-name').textContent = data.businessName;
+        toast('Settings saved', 'success');
+      } catch { toast('Save failed', 'error'); }
+    };
 
-    // ---------- Copy link ----------
-    document.getElementById('btn-copy-link').addEventListener('click', async () => {
-      const ok = await copyToClipboard(document.getElementById('booking-link').value);
-      const msg = document.getElementById('copy-msg');
-      msg.textContent = ok ? 'Link copied!' : 'Could not copy. Select and copy manually.';
-      msg.classList.remove('hidden');
-      setTimeout(() => msg.classList.add('hidden'), 2500);
-    });
-
-    // ---------- Logout ----------
-    
-    function computeAnalytics(list) {
+    function computeAnalytics() {
       const now = new Date();
       const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const today = now.toISOString().slice(0, 10);
-      let week = 0, month = 0, upcoming = 0, cancelled = 0;
-      const byService = {}, byDay = {}, byHour = {};
-      list.forEach(a => {
-        const d = a.date || '';
-        const st = a.status || 'confirmed';
-        if (st === 'cancelled') { cancelled++; return; }
-        if (d >= today) upcoming++;
-        const dt = new Date(d + 'T12:00:00');
+      let week=0, month=0, done=0, cancelled=0;
+      const byDay={}, byHour={}, bySvc={};
+      allAppointments.forEach(a => {
+        if (a.status === 'cancelled') { cancelled++; return; }
+        if (a.status === 'completed') done++;
+        const dt = new Date((a.date||'') + 'T12:00:00');
         if (dt >= weekAgo) week++;
         if (dt >= monthStart) month++;
-        byService[a.serviceName || 'Service'] = (byService[a.serviceName || 'Service'] || 0) + 1;
-        const dayName = dt.toLocaleDateString(undefined, { weekday: 'long' });
-        byDay[dayName] = (byDay[dayName] || 0) + 1;
-        const hour = (a.startTime || '00:00').slice(0, 2);
-        byHour[hour] = (byHour[hour] || 0) + 1;
+        bySvc[a.serviceName||'Service'] = (bySvc[a.serviceName||'Service']||0)+1;
+        byDay[dt.toLocaleDateString(undefined,{weekday:'long'})] = (byDay[dt.toLocaleDateString(undefined,{weekday:'long'})]||0)+1;
+        const hr = (a.startTime||'00').slice(0,2);
+        byHour[hr] = (byHour[hr]||0)+1;
       });
-      const el = (id) => document.getElementById(id);
-      if (el('an-week')) el('an-week').textContent = week;
-      if (el('an-month')) el('an-month').textContent = month;
-      if (el('an-upcoming')) el('an-upcoming').textContent = upcoming;
-      if (el('an-cancelled')) el('an-cancelled').textContent = cancelled;
-      const topSvc = Object.entries(byService).sort((a,b)=>b[1]-a[1])[0];
+      document.getElementById('an-week').textContent = week;
+      document.getElementById('an-month').textContent = month;
+      document.getElementById('an-done').textContent = done;
+      document.getElementById('an-cancelled').textContent = cancelled;
+      const topSvc = Object.entries(bySvc).sort((a,b)=>b[1]-a[1])[0];
       const topDay = Object.entries(byDay).sort((a,b)=>b[1]-a[1])[0];
       const topHour = Object.entries(byHour).sort((a,b)=>b[1]-a[1])[0];
-      if (el('an-popular')) {
-        el('an-popular').textContent = topSvc ? ('Most popular: ' + topSvc[0] + ' (' + topSvc[1] + ' bookings)') : '';
-      }
-      if (el('an-insight')) {
-        if (topDay && topHour) {
-          el('an-insight').textContent = 'Your busiest time is ' + topDay[0] + ' around ' + topHour[0] + ':00.';
-        } else {
-          el('an-insight').textContent = 'Insights appear when you have bookings.';
-        }
-      }
+      document.getElementById('an-popular').textContent = topSvc ? `Most popular: ${topSvc[0]} (${topSvc[1]})` : '';
+      document.getElementById('an-insight').textContent = (topDay && topHour)
+        ? `Your busiest time is ${topDay[0]} around ${topHour[0]}:00.`
+        : 'Insights appear when you have bookings.';
     }
 
     function drawQr() {
+      const url = document.getElementById('booking-link').value;
       const canvas = document.getElementById('qr-canvas');
-      const url = document.getElementById('booking-link')?.value;
       if (!canvas || !url || typeof QRCode === 'undefined') return;
-      QRCode.toCanvas(canvas, url, { width: 200, margin: 2 }, function (err) {
-        if (err) console.error(err);
-      });
-      const lab = document.getElementById('qr-url-label');
-      if (lab) lab.textContent = url;
+      QRCode.toCanvas(canvas, url, { width: 180, margin: 2 });
     }
-
     document.getElementById('btn-dl-qr')?.addEventListener('click', () => {
-      const canvas = document.getElementById('qr-canvas');
-      if (!canvas) return;
-      const a = document.createElement('a');
-      a.download = 'booking-qr.png';
-      a.href = canvas.toDataURL('image/png');
-      a.click();
+      const c = document.getElementById('qr-canvas'); if (!c) return;
+      const a = document.createElement('a'); a.download = 'booking-qr.png'; a.href = c.toDataURL(); a.click();
     });
     document.getElementById('btn-print-qr')?.addEventListener('click', () => {
-      const canvas = document.getElementById('qr-canvas');
-      if (!canvas) return;
-      const w = window.open('');
-      w.document.write('<img src="' + canvas.toDataURL() + '" onload="window.print()" />');
+      const c = document.getElementById('qr-canvas'); if (!c) return;
+      const w = window.open(''); w.document.write('<img src="'+c.toDataURL()+'" onload="print()" />');
     });
+    document.getElementById('btn-copy-link').onclick = async () => {
+      const ok = await copyToClipboard(document.getElementById('booking-link').value);
+      toast(ok ? 'Link copied' : 'Copy failed', ok ? 'success' : 'error');
+    };
 
-    document.getElementById('btn-logout').addEventListener('click', async () => {
-      if (servicesUnsub) servicesUnsub();
-      if (appointmentsUnsub) appointmentsUnsub();
-      await signOut(auth);
-      window.location.replace('/index.html');
-    });
-
-    // Helpers
-    function escapeHtml(str) {
-      return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
-    function formatPrice(p) {
-      if (p == null || p === '') return '—';
-      return Number(p).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-    }
-
-    // PWA install
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      const b = document.getElementById('btn-install');
-      if (b) b.classList.remove('hidden');
-    });
-    const installBtn = document.getElementById('btn-install');
-    if (installBtn) {
-      installBtn.addEventListener('click', async () => {
-        if (!deferredPrompt) {
-          alert('To install: browser menu → Add to Home Screen / Install app.');
-          return;
-        }
-        deferredPrompt.prompt();
-        await deferredPrompt.userChoice;
-        deferredPrompt = null;
-        installBtn.classList.add('hidden');
+    // Bottom nav
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const panel = btn.dataset.panel;
+        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        ['home','bookings','services','analytics','settings'].forEach(p => {
+          document.getElementById('panel-' + p)?.classList.toggle('hidden', p !== panel);
+        });
       });
-    }
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/service-worker.js').catch(() => {});
-    }
+    });
+
+    document.getElementById('btn-logout').onclick = async () => {
+      if (unsubSvc) unsubSvc(); if (unsubAppt) unsubAppt();
+      await signOut(auth); location.replace('/index.html');
+    };
+
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
   </script>
 </body>
 </html>

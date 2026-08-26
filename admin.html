@@ -234,6 +234,9 @@
       return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
     }
 
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').catch(function () {});
+    }
     (async function init() {
       if (await trySession()) showApp();
     })();

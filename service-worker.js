@@ -1,22 +1,30 @@
 /**
- * Basic Service Worker — static asset caching only
- * Avoid caching Firebase/API responses so data stays fresh.
+ * BookAI Service Worker — resilient install for PWA criteria
  */
-
-const CACHE_NAME = 'bookai-static-v1';
+const CACHE_NAME = 'bookai-static-v3';
 const STATIC_ASSETS = [
-  '/',
   '/index.html',
   '/dashboard.html',
   '/booking.html',
+  '/admin.html',
   '/firebase-config.js',
   '/app.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/assets/icons/icon-192.png',
+  '/assets/icons/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(
+        STATIC_ASSETS.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn('SW cache skip', url, err);
+          })
+        )
+      )
+    ).then(() => self.skipWaiting())
   );
 });
 
@@ -31,18 +39,17 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Never cache API or Firebase requests
   if (
     url.pathname.startsWith('/api/') ||
     url.hostname.includes('firestore.googleapis.com') ||
     url.hostname.includes('identitytoolkit.googleapis.com') ||
     url.hostname.includes('securetoken.googleapis.com') ||
-    url.hostname.includes('generativelanguage.googleapis.com')
+    url.hostname.includes('generativelanguage.googleapis.com') ||
+    url.hostname.includes('googleapis.com')
   ) {
-    return; // network only
+    return;
   }
 
-  // Network-first for HTML pages (so updates are seen quickly)
   if (event.request.mode === 'navigate' || event.request.destination === 'document') {
     event.respondWith(
       fetch(event.request)
@@ -51,12 +58,13 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return res;
         })
-        .catch(() => caches.match(event.request).then((r) => r || caches.match('/index.html')))
+        .catch(() =>
+          caches.match(event.request).then((r) => r || caches.match('/index.html'))
+        )
     );
     return;
   }
 
-  // Cache-first for static JS/CSS/icons
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -66,7 +74,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         }
         return res;
-      });
+      }).catch(() => cached);
     })
   );
 });

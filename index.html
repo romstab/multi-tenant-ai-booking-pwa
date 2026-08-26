@@ -2,305 +2,181 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BookAI Scheduler — Login</title>
-  <meta name="description" content="Multi-tenant AI booking and service scheduler" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>BookAI — Business Booking Platform</title>
+  <meta name="description" content="Professional online booking for local businesses" />
   <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png" />
   <meta name="theme-color" content="#0f172a" />
-  <link rel="icon" href="/assets/icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="stylesheet" href="/styles.css" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: { 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1' }
-          }
-        }
-      }
-    }
-  </script>
+  <script>tailwind.config={theme:{extend:{colors:{brand:{500:'#0ea5e9',600:'#0284c7'}}}}}</script>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800 antialiased">
+<body class="bg-slate-50 text-slate-900 antialiased">
   <div class="min-h-screen flex flex-col">
     <header class="bg-slate-900 text-white">
-      <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-9 h-9 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-lg">B</div>
-          <span class="font-semibold text-lg tracking-tight">BookAI Scheduler</span>
+      <div class="max-w-lg mx-auto px-5 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-sky-500 flex items-center justify-center font-bold text-sm">B</div>
+          <div>
+            <p class="font-semibold text-[15px] leading-tight">BookAI</p>
+            <p class="text-[11px] text-slate-400">Booking for local businesses</p>
+          </div>
         </div>
-        <span class="text-sm text-slate-400 hidden sm:inline">Multi-Tenant PWA</span>
+        <button id="btn-install" type="button" class="hidden text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700">Install</button>
       </div>
     </header>
 
-    <main class="flex-1 flex items-center justify-center px-4 py-10">
-      <div class="w-full max-w-md">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <main class="flex-1 flex flex-col justify-center px-4 py-8">
+      <div class="max-w-md mx-auto w-full">
+        <div class="text-center mb-6">
+          <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Grow with online bookings</h1>
+          <p class="mt-2 text-sm text-slate-500 leading-relaxed">Accept appointments, manage your schedule, and share one booking link with customers.</p>
+        </div>
+
+        <div class="card overflow-hidden">
           <div class="flex border-b border-slate-200">
-            <button id="tab-login" type="button"
-              class="flex-1 py-3.5 text-sm font-medium text-sky-600 border-b-2 border-sky-600 bg-sky-50/40 transition">
-              Login
-            </button>
-            <button id="tab-signup" type="button"
-              class="flex-1 py-3.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition">
-              Sign Up
-            </button>
+            <button type="button" id="tab-login" class="flex-1 py-3.5 text-sm font-semibold text-sky-600 border-b-2 border-sky-600 bg-sky-50/40">Log in</button>
+            <button type="button" id="tab-signup" class="flex-1 py-3.5 text-sm font-semibold text-slate-500">Create account</button>
           </div>
 
-          <!-- Login -->
-          <div id="form-login" class="p-6 space-y-4">
+          <div id="form-login" class="p-5 space-y-4">
             <div>
-              <label for="login-email" class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
-              <input id="login-email" type="email" required autocomplete="email"
-                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition text-sm"
-                placeholder="you@business.com" />
+              <label class="label" for="login-email">Email</label>
+              <input id="login-email" type="email" autocomplete="email" class="input" placeholder="you@business.com" />
             </div>
             <div>
-              <label for="login-password" class="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+              <label class="label" for="login-password">Password</label>
               <div class="relative">
-                <input id="login-password" type="password" required autocomplete="current-password"
-                  class="w-full px-3.5 py-2.5 pr-11 rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition text-sm"
-                  placeholder="••••••••" />
-                <button type="button" id="toggle-login-pw" aria-label="Show password"
-                  class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
-                  <!-- eye open -->
-                  <svg id="login-eye-open" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                  </svg>
-                  <!-- eye closed -->
-                  <svg id="login-eye-closed" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                  </svg>
+                <input id="login-password" type="password" autocomplete="current-password" class="input pr-11" placeholder="••••••••" />
+                <button type="button" id="toggle-login-pw" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-400" aria-label="Show password">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                 </button>
               </div>
             </div>
-            <button id="btn-login" type="button"
-              class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white font-medium text-sm transition disabled:opacity-60">
-              Login
-            </button>
+            <button type="button" id="btn-login" class="btn btn-primary btn-block">Log in</button>
             <p id="login-error" class="text-sm text-red-600 hidden" role="alert"></p>
           </div>
 
-          <!-- Signup -->
-          <div id="form-signup" class="p-6 space-y-4 hidden">
+          <div id="form-signup" class="p-5 space-y-4 hidden">
             <div>
-              <label for="signup-email" class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
-              <input id="signup-email" type="email" required autocomplete="email"
-                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition text-sm"
-                placeholder="you@business.com" />
+              <label class="label" for="signup-email">Work email</label>
+              <input id="signup-email" type="email" autocomplete="email" class="input" placeholder="you@business.com" />
             </div>
             <div>
-              <label for="signup-password" class="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+              <label class="label" for="signup-password">Password</label>
               <div class="relative">
-                <input id="signup-password" type="password" required minlength="6" autocomplete="new-password"
-                  class="w-full px-3.5 py-2.5 pr-11 rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition text-sm"
-                  placeholder="At least 6 characters" />
-                <button type="button" id="toggle-signup-pw" aria-label="Show password"
-                  class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
-                  <svg id="signup-eye-open" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                  </svg>
-                  <svg id="signup-eye-closed" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                  </svg>
+                <input id="signup-password" type="password" minlength="6" autocomplete="new-password" class="input pr-11" placeholder="At least 6 characters" />
+                <button type="button" id="toggle-signup-pw" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-400" aria-label="Show password">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                 </button>
               </div>
             </div>
-            <button id="btn-signup" type="button"
-              class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white font-medium text-sm transition disabled:opacity-60">
-              Create Account
-            </button>
+            <button type="button" id="btn-signup" class="btn btn-primary btn-block">Create account</button>
             <p id="signup-error" class="text-sm text-red-600 hidden" role="alert"></p>
-            <p class="text-xs text-slate-500 text-center leading-relaxed">
-              After signup you will configure your business on the dashboard.
-            </p>
+            <p class="text-xs text-slate-500 text-center">After signup, a short setup wizard helps you go live in minutes.</p>
           </div>
         </div>
 
-        <p class="mt-8 text-center text-sm text-slate-500">
-          Customers: open the unique booking link provided by the business.
-        </p>
+        <p class="mt-8 text-center text-xs text-slate-400">Customers use the booking link from their business — no account required.</p>
       </div>
     </main>
-
-    <div class="px-4 pb-2 flex justify-center">
-      <button id="btn-install" type="button" class="hidden text-sm px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-medium shadow-sm">
-        📲 Install App
-      </button>
-    </div>
-    <footer class="py-5 text-center text-xs text-slate-400">
-      Multi-Tenant AI Booking PWA · Portfolio Project
-    </footer>
   </div>
+  <div class="toast-wrap" id="toasts"></div>
 
   <script type="module">
-    import {
-      auth,
-      onAuthStateChanged,
-      signInWithEmailAndPassword,
-      createUserWithEmailAndPassword
-    } from './firebase-config.js';
+    import { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from './firebase-config.js';
 
-    // Redirect authenticated users
-    onAuthStateChanged(auth, (user) => {
-      if (user) window.location.replace('/dashboard.html');
-    });
+    onAuthStateChanged(auth, (user) => { if (user) location.replace('/dashboard.html'); });
 
-    // ---------- Password visibility toggles ----------
-    function setupPasswordToggle(inputId, btnId, openId, closedId) {
-      const input = document.getElementById(inputId);
-      const btn = document.getElementById(btnId);
-      const eyeOpen = document.getElementById(openId);
-      const eyeClosed = document.getElementById(closedId);
-      btn.addEventListener('click', () => {
-        const show = input.type === 'password';
-        input.type = show ? 'text' : 'password';
-        eyeOpen.classList.toggle('hidden', show);
-        eyeClosed.classList.toggle('hidden', !show);
-        btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-      });
+    function toast(msg, type) {
+      const el = document.createElement('div');
+      el.className = 'toast toast-' + (type || 'info');
+      el.textContent = msg;
+      document.getElementById('toasts').appendChild(el);
+      setTimeout(() => el.remove(), 3200);
     }
-    setupPasswordToggle('login-password', 'toggle-login-pw', 'login-eye-open', 'login-eye-closed');
-    setupPasswordToggle('signup-password', 'toggle-signup-pw', 'signup-eye-open', 'signup-eye-closed');
 
-    // ---------- Friendly Firebase error messages ----------
     function authErrorMessage(err) {
-      const code = err?.code || '';
       const map = {
-        'auth/email-already-in-use': 'This email is already registered. Please Login instead.',
+        'auth/email-already-in-use': 'This email is already registered. Please log in.',
         'auth/invalid-email': 'Invalid email address.',
-        'auth/weak-password': 'Password is too weak. Use at least 6 characters.',
+        'auth/weak-password': 'Password must be at least 6 characters.',
         'auth/user-not-found': 'No account found with this email.',
         'auth/wrong-password': 'Incorrect password.',
         'auth/invalid-credential': 'Invalid email or password.',
-        'auth/too-many-requests': 'Too many attempts. Please wait a few minutes.',
-        'auth/network-request-failed': 'Network error. Check your internet connection.',
-        'auth/operation-not-allowed': 'Email/Password sign-in is NOT enabled in Firebase Console → Authentication → Sign-in method.',
-        'auth/unauthorized-domain': 'This domain is not authorized. Add your Vercel domain in Firebase Console → Authentication → Settings → Authorized domains.'
+        'auth/too-many-requests': 'Too many attempts. Please wait a moment.',
+        'auth/network-request-failed': 'Network error. Check your connection.',
+        'auth/operation-not-allowed': 'Email/Password is not enabled in Firebase Authentication.',
+        'auth/unauthorized-domain': 'Add this domain in Firebase → Authentication → Authorized domains.'
       };
-      if (map[code]) return map[code];
-      // Show actual code so we can diagnose
-      return `Signup/Login failed (${code || 'unknown'}). Check Firebase Auth settings.`;
+      return map[err?.code] || ('Could not continue (' + (err?.code || 'error') + ').');
     }
 
-    // ---------- Tabs ----------
     const tabLogin = document.getElementById('tab-login');
     const tabSignup = document.getElementById('tab-signup');
-    const formLogin = document.getElementById('form-login');
-    const formSignup = document.getElementById('form-signup');
-
-    function activateTab(isLogin) {
-      if (isLogin) {
-        tabLogin.className = 'flex-1 py-3.5 text-sm font-medium text-sky-600 border-b-2 border-sky-600 bg-sky-50/40 transition';
-        tabSignup.className = 'flex-1 py-3.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition';
-        formLogin.classList.remove('hidden');
-        formSignup.classList.add('hidden');
-      } else {
-        tabSignup.className = 'flex-1 py-3.5 text-sm font-medium text-sky-600 border-b-2 border-sky-600 bg-sky-50/40 transition';
-        tabLogin.className = 'flex-1 py-3.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition';
-        formSignup.classList.remove('hidden');
-        formLogin.classList.add('hidden');
-      }
+    function activate(isLogin) {
+      tabLogin.className = 'flex-1 py-3.5 text-sm font-semibold ' + (isLogin ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50/40' : 'text-slate-500');
+      tabSignup.className = 'flex-1 py-3.5 text-sm font-semibold ' + (!isLogin ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50/40' : 'text-slate-500');
+      document.getElementById('form-login').classList.toggle('hidden', !isLogin);
+      document.getElementById('form-signup').classList.toggle('hidden', isLogin);
     }
+    tabLogin.onclick = () => activate(true);
+    tabSignup.onclick = () => activate(false);
 
-    tabLogin.addEventListener('click', () => activateTab(true));
-    tabSignup.addEventListener('click', () => activateTab(false));
+    function setupToggle(inputId, btnId) {
+      document.getElementById(btnId).onclick = () => {
+        const i = document.getElementById(inputId);
+        i.type = i.type === 'password' ? 'text' : 'password';
+      };
+    }
+    setupToggle('login-password', 'toggle-login-pw');
+    setupToggle('signup-password', 'toggle-signup-pw');
 
-    // ---------- Login ----------
-    document.getElementById('btn-login').addEventListener('click', async () => {
+    document.getElementById('btn-login').onclick = async () => {
       const email = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
       const errEl = document.getElementById('login-error');
       const btn = document.getElementById('btn-login');
-
       errEl.classList.add('hidden');
-      if (!email || !password) {
-        errEl.textContent = 'Please enter email and password.';
-        errEl.classList.remove('hidden');
-        return;
-      }
+      if (!email || !password) { errEl.textContent = 'Enter email and password.'; errEl.classList.remove('hidden'); return; }
+      btn.disabled = true; btn.textContent = 'Signing in…';
+      try { await signInWithEmailAndPassword(auth, email, password); }
+      catch (err) { errEl.textContent = authErrorMessage(err); errEl.classList.remove('hidden'); }
+      finally { btn.disabled = false; btn.textContent = 'Log in'; }
+    };
 
-      btn.disabled = true;
-      btn.textContent = 'Signing in…';
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-      } catch (err) {
-        console.error('Login error:', err.code, err.message);
-        errEl.textContent = authErrorMessage(err);
-        errEl.classList.remove('hidden');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Login';
-      }
-    });
-
-    // ---------- Signup ----------
-    document.getElementById('btn-signup').addEventListener('click', async () => {
+    document.getElementById('btn-signup').onclick = async () => {
       const email = document.getElementById('signup-email').value.trim();
       const password = document.getElementById('signup-password').value;
       const errEl = document.getElementById('signup-error');
       const btn = document.getElementById('btn-signup');
-
       errEl.classList.add('hidden');
-      if (!email || !password) {
-        errEl.textContent = 'Please enter email and password.';
-        errEl.classList.remove('hidden');
-        return;
-      }
-      if (password.length < 6) {
-        errEl.textContent = 'Password must be at least 6 characters.';
-        errEl.classList.remove('hidden');
-        return;
-      }
+      if (!email || !password) { errEl.textContent = 'Enter email and password.'; errEl.classList.remove('hidden'); return; }
+      if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.classList.remove('hidden'); return; }
+      btn.disabled = true; btn.textContent = 'Creating…';
+      try { await createUserWithEmailAndPassword(auth, email, password); toast('Account created. Setting up…', 'success'); }
+      catch (err) { errEl.textContent = authErrorMessage(err); errEl.classList.remove('hidden'); }
+      finally { btn.disabled = false; btn.textContent = 'Create account'; }
+    };
 
-      btn.disabled = true;
-      btn.textContent = 'Creating account…';
-      try {
-        await createUserWithEmailAndPassword(auth, email, password);
-      } catch (err) {
-        console.error('Signup error:', err.code, err.message);
-        errEl.textContent = authErrorMessage(err);
-        errEl.classList.remove('hidden');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Create Account';
-      }
-    });
+    document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btn-login').click(); });
+    document.getElementById('signup-password').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btn-signup').click(); });
 
-    // Enter key support
-    document.getElementById('login-password').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') document.getElementById('btn-login').click();
-    });
-    document.getElementById('signup-password').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') document.getElementById('btn-signup').click();
-    });
-
-    // PWA install prompt
     let deferredPrompt = null;
-    const installBtn = document.getElementById('btn-install');
     window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      if (installBtn) installBtn.classList.remove('hidden');
+      e.preventDefault(); deferredPrompt = e;
+      const b = document.getElementById('btn-install');
+      if (b) b.classList.remove('hidden');
     });
-    if (installBtn) {
-      installBtn.addEventListener('click', async () => {
-        if (!deferredPrompt) {
-          alert('To install: open browser menu → Add to Home Screen / Install app.');
-          return;
-        }
-        deferredPrompt.prompt();
-        await deferredPrompt.userChoice;
-        deferredPrompt = null;
-        installBtn.classList.add('hidden');
-      });
-    }
+    document.getElementById('btn-install')?.addEventListener('click', async () => {
+      if (!deferredPrompt) { alert('Use browser menu → Add to Home screen / Install app.'); return; }
+      deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null;
+      document.getElementById('btn-install').classList.add('hidden');
+    });
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/service-worker.js').catch(() => {});
-    }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(() => {});
   </script>
 </body>
 </html>
