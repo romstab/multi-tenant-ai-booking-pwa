@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super Admin — BookAI</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
+  <!-- Login -->
+  <div id="login-view" class="min-h-screen flex items-center justify-center px-4">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-xl">
+      <h1 class="text-xl font-semibold mb-1">Super Admin</h1>
+      <p class="text-sm text-slate-400 mb-5">Platform control panel</p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Email</label>
+          <input id="admin-email" type="email" class="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm outline-none focus:ring-2 focus:ring-violet-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Password</label>
+          <input id="admin-password" type="password" class="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm outline-none focus:ring-2 focus:ring-violet-500" />
+        </div>
+        <button id="btn-admin-login" class="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 font-medium text-sm">Sign in</button>
+        <p id="login-error" class="text-sm text-red-400 hidden"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="admin-app" class="hidden min-h-screen">
+    <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-20">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <div>
+          <p class="font-semibold text-sm">BookAI Super Admin</p>
+          <p id="admin-email-label" class="text-xs text-slate-400"></p>
+        </div>
+        <button id="btn-admin-logout" class="text-sm px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700">Logout</button>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+      <!-- Metrics -->
+      <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" id="metrics-grid">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3"><p class="text-[10px] uppercase text-slate-500">Total</p><p class="text-xl font-bold" id="m-total">—</p></div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3"><p class="text-[10px] uppercase text-slate-500">Active</p><p class="text-xl font-bold text-emerald-400" id="m-active">—</p></div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3"><p class="text-[10px] uppercase text-slate-500">Trial</p><p class="text-xl font-bold text-sky-400" id="m-trial">—</p></div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3"><p class="text-[10px] uppercase text-slate-500">Suspended</p><p class="text-xl font-bold text-amber-400" id="m-suspended">—</p></div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3"><p class="text-[10px] uppercase text-slate-500">Bookings</p><p class="text-xl font-bold" id="m-bookings">—</p></div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3"><p class="text-[10px] uppercase text-slate-500">Est. Revenue</p><p class="text-xl font-bold" id="m-revenue">—</p></div>
+      </section>
+      <p class="text-xs text-slate-500">Revenue = sum of service prices on confirmed bookings (not verified payments).</p>
+
+      <!-- Tenants table -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+          <h2 class="font-semibold text-sm">Tenants</h2>
+          <button id="btn-refresh" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700">Refresh</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-left text-xs text-slate-500 border-b border-slate-800">
+              <tr>
+                <th class="px-4 py-2">Business</th>
+                <th class="px-4 py-2">Email</th>
+                <th class="px-4 py-2">Status</th>
+                <th class="px-4 py-2">Trial end</th>
+                <th class="px-4 py-2">Bookings</th>
+                <th class="px-4 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tenants-body" class="divide-y divide-slate-800">
+              <tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const TOKEN_KEY = 'bookai_admin_jwt';
+    let token = localStorage.getItem(TOKEN_KEY) || '';
+
+    async function api(path, body) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token ? 'Bearer ' + token : ''
+        },
+        body: JSON.stringify(body || {})
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+
+    async function trySession() {
+      if (!token) return false;
+      try {
+        const r = await api('/api/admin-auth', { action: 'verify' });
+        document.getElementById('admin-email-label').textContent = r.email || '';
+        return true;
+      } catch {
+        token = '';
+        localStorage.removeItem(TOKEN_KEY);
+        return false;
+      }
+    }
+
+    function showApp() {
+      document.getElementById('login-view').classList.add('hidden');
+      document.getElementById('admin-app').classList.remove('hidden');
+      loadAll();
+    }
+
+    document.getElementById('btn-admin-login').addEventListener('click', async () => {
+      const err = document.getElementById('login-error');
+      err.classList.add('hidden');
+      const email = document.getElementById('admin-email').value.trim();
+      const password = document.getElementById('admin-password').value;
+      try {
+        const r = await api('/api/admin-auth', { email, password });
+        token = r.token;
+        localStorage.setItem(TOKEN_KEY, token);
+        document.getElementById('admin-email-label').textContent = email;
+        showApp();
+      } catch (e) {
+        err.textContent = e.message;
+        err.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('btn-admin-logout').addEventListener('click', () => {
+      token = '';
+      localStorage.removeItem(TOKEN_KEY);
+      location.reload();
+    });
+
+    document.getElementById('btn-refresh').addEventListener('click', loadAll);
+
+    async function loadAll() {
+      try {
+        const [metrics, list] = await Promise.all([
+          api('/api/admin', { action: 'metrics' }),
+          api('/api/admin', { action: 'listTenants' })
+        ]);
+        document.getElementById('m-total').textContent = metrics.total;
+        document.getElementById('m-active').textContent = metrics.active;
+        document.getElementById('m-trial').textContent = metrics.trial;
+        document.getElementById('m-suspended').textContent = metrics.suspended;
+        document.getElementById('m-bookings').textContent = metrics.totalBookings;
+        document.getElementById('m-revenue').textContent = Number(metrics.estimatedRevenue || 0).toLocaleString();
+        renderTenants(list.tenants || []);
+      } catch (e) {
+        document.getElementById('tenants-body').innerHTML =
+          '<tr><td colspan="6" class="px-4 py-6 text-center text-red-400">' + e.message + '</td></tr>';
+      }
+    }
+
+    function statusBadge(s) {
+      const map = {
+        trial: 'bg-sky-900/50 text-sky-300',
+        active: 'bg-emerald-900/50 text-emerald-300',
+        suspended: 'bg-amber-900/50 text-amber-300',
+        expired: 'bg-red-900/50 text-red-300'
+      };
+      return '<span class="text-xs px-2 py-0.5 rounded-full ' + (map[s] || 'bg-slate-800') + '">' + (s || '—') + '</span>';
+    }
+
+    function renderTenants(tenants) {
+      const body = document.getElementById('tenants-body');
+      if (!tenants.length) {
+        body.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">No tenants yet</td></tr>';
+        return;
+      }
+      body.innerHTML = tenants.map(function (t) {
+        const trialEnd = t.trialEnd ? new Date(t.trialEnd).toLocaleDateString() : '—';
+        return (
+          '<tr class="hover:bg-slate-800/40">' +
+          '<td class="px-4 py-3"><div class="font-medium">' + esc(t.businessName || '—') + '</div>' +
+          '<div class="text-xs text-slate-500 font-mono">' + esc((t.tenantId || '').slice(0, 12)) + '…</div></td>' +
+          '<td class="px-4 py-3 text-slate-300">' + esc(t.ownerEmail || '') + '</td>' +
+          '<td class="px-4 py-3">' + statusBadge(t.status) + '</td>' +
+          '<td class="px-4 py-3 text-slate-400">' + trialEnd + '</td>' +
+          '<td class="px-4 py-3">' + (t.totalBookings || 0) + '</td>' +
+          '<td class="px-4 py-3"><div class="flex flex-wrap gap-1">' +
+          btn(t.tenantId, 'active', 'Activate') +
+          btn(t.tenantId, 'suspended', 'Suspend') +
+          btn(t.tenantId, 'expired', 'Expire') +
+          '<button data-extend="' + esc(t.tenantId) + '" class="text-[10px] px-2 py-1 rounded bg-sky-900/40 text-sky-300 hover:bg-sky-800/50">+14d trial</button>' +
+          '<button data-sub="' + esc(t.tenantId) + '" class="text-[10px] px-2 py-1 rounded bg-violet-900/40 text-violet-300 hover:bg-violet-800/50">+30d sub</button>' +
+          '</div></td></tr>'
+        );
+      }).join('');
+
+      body.querySelectorAll('[data-status]').forEach(function (b) {
+        b.addEventListener('click', async function () {
+          const status = b.dataset.status;
+          const id = b.dataset.id;
+          if (!confirm('Set status to "' + status + '" for this tenant?')) return;
+          try {
+            await api('/api/admin', { action: 'setStatus', tenantId: id, status: status });
+            loadAll();
+          } catch (e) { alert(e.message); }
+        });
+      });
+      body.querySelectorAll('[data-extend]').forEach(function (b) {
+        b.addEventListener('click', async function () {
+          if (!confirm('Extend trial by 14 days?')) return;
+          try {
+            await api('/api/admin', { action: 'extendTrial', tenantId: b.dataset.extend, days: 14 });
+            loadAll();
+          } catch (e) { alert(e.message); }
+        });
+      });
+      body.querySelectorAll('[data-sub]').forEach(function (b) {
+        b.addEventListener('click', async function () {
+          if (!confirm('Extend subscription by 30 days and set active?')) return;
+          try {
+            await api('/api/admin', { action: 'extendSubscription', tenantId: b.dataset.sub, days: 30 });
+            loadAll();
+          } catch (e) { alert(e.message); }
+        });
+      });
+    }
+
+    function btn(id, status, label) {
+      return '<button data-status="' + status + '" data-id="' + esc(id) + '" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700">' + label + '</button>';
+    }
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+    }
+
+    (async function init() {
+      if (await trySession()) showApp();
+    })();
+  </script>
+</body>
+</html>

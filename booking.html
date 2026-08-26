@@ -110,6 +110,14 @@
             <p class="text-xs text-slate-500">Questions about services, hours, or what to choose</p>
           </div>
         </div>
+        
+        <div class="flex flex-wrap gap-2 mb-3" id="faq-buttons">
+          <button type="button" data-faq="hours" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">Store Hours</button>
+          <button type="button" data-faq="services" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">Services</button>
+          <button type="button" data-faq="prices" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">Price List</button>
+          <button type="button" data-faq="location" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">Location</button>
+        </div>
+
         <div id="chat-messages" class="space-y-2 max-h-48 overflow-y-auto mb-3 text-sm">
           <p class="text-slate-500 text-xs">Example: “What services do you offer?” or “What time do you open on Friday?”</p>
         </div>
@@ -137,7 +145,12 @@
     <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
       <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 text-2xl">✓</div>
       <h2 class="text-xl font-semibold mb-2">Booking confirmed!</h2>
-      <p id="success-details" class="text-sm text-slate-600 mb-5"></p>
+      <p id="success-details" class="text-sm text-slate-600 mb-3"></p>
+      <p id="success-booking-id" class="text-xs font-mono text-slate-500 mb-3"></p>
+      <div class="flex flex-col gap-2 mb-3">
+        <a id="btn-gcal" href="#" target="_blank" rel="noopener" class="w-full py-2 rounded-xl border border-slate-300 text-sm text-center hover:bg-slate-50">Add to Google Calendar</a>
+        <button id="btn-print-receipt" type="button" class="w-full py-2 rounded-xl border border-slate-300 text-sm hover:bg-slate-50">View / Print Receipt</button>
+      </div>
       <button id="btn-success-close" class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">
         Done
       </button>
@@ -156,7 +169,8 @@
     } from './app.js';
 
     const params = new URLSearchParams(window.location.search);
-    const tenantId = params.get('tenant');
+    let tenantId = params.get('tenant');
+    const handleParam = params.get('handle');
 
     let settings = null;
     let services = [];
@@ -167,12 +181,25 @@
 
     // ---------- Init ----------
     async function init() {
-      if (!tenantId || tenantId.length < 10) {
-        showError('Missing or invalid tenant ID. Please use the booking link provided by the business.');
-        return;
-      }
-
       try {
+        if ((!tenantId || tenantId.length < 10) && handleParam) {
+          const r = await fetch('/api/create-booking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'resolveHandle', handle: handleParam })
+          });
+          const d = await r.json();
+          if (!r.ok) {
+            showError(d.error || 'Business not found for this link.');
+            return;
+          }
+          tenantId = d.tenantId;
+        }
+        if (!tenantId || tenantId.length < 10) {
+          showError('Missing or invalid tenant ID. Please use the booking link provided by the business.');
+          return;
+        }
+
         const settingsRef = doc(db, 'tenants', tenantId, 'settings', 'config');
         const settingsSnap = await getDoc(settingsRef);
         if (!settingsSnap.exists()) {
@@ -217,6 +244,7 @@
         logo.innerHTML = `<img src="${escapeAttr(settings.logoUrl)}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<span>${(settings.businessName||'B').charAt(0)}</span>'" />`;
       }
       document.title = `Book — ${settings.businessName || 'Appointment'}`;
+      applyTenantTheme(settings);
     }
 
     function renderServices() {
@@ -421,8 +449,31 @@
           throw new Error(data.error || 'Booking failed');
         }
 
+        const bid = data.bookingId || data.appointmentId || '';
         document.getElementById('success-details').textContent =
-          `${selectedService.name} on ${formatDisplayDate(selectedDate)} at ${selectedSlot.startTime}. A confirmation was recorded.`;
+          `${selectedService.name} on ${formatDisplayDate(selectedDate)} at ${selectedSlot.startTime}. Status: ${data.status || 'confirmed'}.`;
+        const idEl = document.getElementById('success-booking-id');
+        if (idEl) idEl.textContent = bid ? ('Booking ID: ' + bid) : '';
+        // Google Calendar link
+        const gcal = document.getElementById('btn-gcal');
+        if (gcal) {
+          const start = selectedDate.replace(/-/g,'') + 'T' + selectedSlot.startTime.replace(':','') + '00';
+          const end = selectedDate.replace(/-/g,'') + 'T' + selectedSlot.endTime.replace(':','') + '00';
+          const title = encodeURIComponent((settings.businessName || 'Appointment') + ' — ' + selectedService.name);
+          const details = encodeURIComponent('Booking ' + bid + (settings.address ? '\n' + settings.address : ''));
+          gcal.href = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + title + '&dates=' + start + '/' + end + '&details=' + details;
+        }
+        window.__lastReceipt = {
+          businessName: settings.businessName,
+          bookingId: bid,
+          customerName: name,
+          serviceName: selectedService.name,
+          price: selectedService.price,
+          date: selectedDate,
+          startTime: selectedSlot.startTime,
+          endTime: selectedSlot.endTime,
+          status: data.status || 'confirmed'
+        };
         document.getElementById('success-modal').classList.remove('hidden');
       } catch (err) {
         console.error(err);
@@ -435,6 +486,29 @@
         btn.disabled = false;
         btn.textContent = 'Confirm Booking';
       }
+    });
+
+    
+    document.getElementById('btn-print-receipt')?.addEventListener('click', () => {
+      const r = window.__lastReceipt;
+      if (!r) return;
+      const w = window.open('', '_blank');
+      w.document.write(`<!DOCTYPE html><html><head><title>Receipt ${r.bookingId||''}</title>
+        <style>body{font-family:system-ui;padding:24px;max-width:420px;margin:auto}h1{font-size:18px}table{width:100%;font-size:14px}td{padding:4px 0;border-bottom:1px solid #eee}.muted{color:#666;font-size:12px}</style></head><body>
+        <h1>${r.businessName||'Booking Receipt'}</h1>
+        <p class="muted">This is a booking record — not a proof of payment unless verified by the business.</p>
+        <table>
+          <tr><td>Booking ID</td><td><strong>${r.bookingId||'—'}</strong></td></tr>
+          <tr><td>Customer</td><td>${r.customerName||''}</td></tr>
+          <tr><td>Service</td><td>${r.serviceName||''}</td></tr>
+          <tr><td>Price</td><td>${r.price!=null?r.price:'—'}</td></tr>
+          <tr><td>Date</td><td>${r.date||''}</td></tr>
+          <tr><td>Time</td><td>${r.startTime||''} – ${r.endTime||''}</td></tr>
+          <tr><td>Status</td><td>${r.status||''}</td></tr>
+        </table>
+        <p class="muted" style="margin-top:16px">Generated by BookAI Scheduler</p>
+        <script>window.print()<\/script></body></html>`);
+      w.document.close();
     });
 
     document.getElementById('btn-success-close').addEventListener('click', () => {
@@ -490,7 +564,7 @@
         const res = await fetch('/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantContext, userMessage: message })
+          body: JSON.stringify({ tenantId, tenantContext, userMessage: message })
         });
         const data = await res.json();
         thinking.remove();
@@ -522,6 +596,42 @@
     function formatPrice(p) {
       if (p == null || p === '') return '';
       return Number(p).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    }
+
+
+    // FAQ zero-cost answers
+    document.getElementById('faq-buttons')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-faq]');
+      if (!btn || !settings) return;
+      const type = btn.dataset.faq;
+      const messages = document.getElementById('chat-messages');
+      let answer = '';
+      if (type === 'hours') {
+        const h = settings.operatingHours || {};
+        answer = Object.keys(h).map(day => {
+          const x = h[day];
+          return day + ': ' + (x && x.enabled ? (x.open + '–' + x.close) : 'Closed');
+        }).join('\n');
+      } else if (type === 'services') {
+        answer = services.length ? services.map(s => s.name).join(', ') : 'No services listed.';
+      } else if (type === 'prices') {
+        answer = services.length ? services.map(s => s.name + ': ' + (s.price != null ? s.price : 'n/a')).join('\n') : 'No prices listed.';
+      } else if (type === 'location') {
+        answer = settings.address || 'Address not provided. Contact the business for directions.';
+      }
+      messages.innerHTML += '<div class="text-left"><span class="inline-block bg-violet-50 text-slate-800 px-3 py-1.5 rounded-xl text-sm whitespace-pre-wrap">' + escapeHtml(answer) + '</span></div>';
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+    function applyTenantTheme(s) {
+      const theme = s.theme || {};
+      const root = document.documentElement;
+      if (theme.mode === 'dark') {
+        document.body.classList.add('bg-slate-900', 'text-slate-100');
+      }
+      if (theme.primaryColor) {
+        root.style.setProperty('--primary', theme.primaryColor);
+      }
     }
 
     init();

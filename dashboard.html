@@ -7,6 +7,7 @@
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#0f172a" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased">
   <!-- Auth loading overlay -->
@@ -47,6 +48,8 @@
         <button data-section="services" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Services</button>
         <button data-section="hours" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Hours</button>
         <button data-section="appointments" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Appointments</button>
+        <button data-section="analytics" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">Analytics</button>
+        <button data-section="qr" class="nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100">QR / Share</button>
       </div>
     </nav>
 
@@ -204,6 +207,36 @@
           </div>
         </div>
       </section>
+
+      <!-- ANALYTICS -->
+      <section id="section-analytics" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h2 class="text-lg font-semibold mb-4">Analytics</h2>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div class="p-3 rounded-xl bg-slate-50 border"><p class="text-xs text-slate-500">This week</p><p class="text-xl font-bold" id="an-week">0</p></div>
+            <div class="p-3 rounded-xl bg-slate-50 border"><p class="text-xs text-slate-500">This month</p><p class="text-xl font-bold" id="an-month">0</p></div>
+            <div class="p-3 rounded-xl bg-slate-50 border"><p class="text-xs text-slate-500">Upcoming</p><p class="text-xl font-bold" id="an-upcoming">0</p></div>
+            <div class="p-3 rounded-xl bg-slate-50 border"><p class="text-xs text-slate-500">Cancelled</p><p class="text-xl font-bold" id="an-cancelled">0</p></div>
+          </div>
+          <p class="text-sm text-slate-600" id="an-insight">Insights appear when you have bookings.</p>
+          <p class="text-sm mt-2" id="an-popular"></p>
+        </div>
+      </section>
+
+      <!-- QR / SHARE -->
+      <section id="section-qr" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm text-center">
+          <h2 class="text-lg font-semibold mb-2">Booking QR Code</h2>
+          <p class="text-sm text-slate-500 mb-4">Customers can scan this to open your booking page.</p>
+          <canvas id="qr-canvas" class="mx-auto border rounded-xl bg-white"></canvas>
+          <div class="flex flex-wrap justify-center gap-2 mt-4">
+            <button id="btn-dl-qr" class="px-4 py-2 rounded-xl bg-sky-600 text-white text-sm font-medium">Download QR</button>
+            <button id="btn-print-qr" class="px-4 py-2 rounded-xl bg-slate-200 text-sm font-medium">Print</button>
+          </div>
+          <p class="text-xs text-slate-400 mt-3 break-all" id="qr-url-label"></p>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -327,6 +360,23 @@
         };
         await setDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), data);
         settings = { ...data, createdAt: new Date(), updatedAt: new Date() };
+        // Register platform tenant (14-day trial) via Admin SDK
+        try {
+          const idToken = await auth.currentUser.getIdToken();
+          await fetch('/api/create-booking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'registerTenant',
+              idToken,
+              businessName: data.businessName,
+              ownerEmail: data.contactEmail || auth.currentUser.email,
+              handle: ''
+            })
+          });
+        } catch (regErr) {
+          console.warn('platform register', regErr);
+        }
         document.getElementById('setup-modal').classList.add('hidden');
         applySettingsToUI();
       } catch (err) {
@@ -440,6 +490,8 @@
         const today = new Date().toISOString().slice(0, 10);
         const upcoming = list.filter(a => a.date >= today && a.status !== 'cancelled').length;
         document.getElementById('stat-upcoming').textContent = upcoming;
+        computeAnalytics(list);
+        drawQr();
       }, (err) => {
         console.error(err);
         document.getElementById('appointments-list').innerHTML = '<p class="text-sm text-red-600">Could not load appointments.</p>';
@@ -586,7 +638,7 @@
           b.className = 'nav-btn px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100';
         });
         btn.className = 'nav-btn px-3 py-1.5 rounded-lg bg-sky-100 text-sky-700 font-medium';
-        ['overview','settings','services','hours','appointments'].forEach(s => {
+        ['overview','settings','services','hours','appointments','analytics','qr'].forEach(s => {
           document.getElementById('section-' + s).classList.toggle('hidden', s !== section);
         });
       });
@@ -602,6 +654,74 @@
     });
 
     // ---------- Logout ----------
+    
+    function computeAnalytics(list) {
+      const now = new Date();
+      const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const today = now.toISOString().slice(0, 10);
+      let week = 0, month = 0, upcoming = 0, cancelled = 0;
+      const byService = {}, byDay = {}, byHour = {};
+      list.forEach(a => {
+        const d = a.date || '';
+        const st = a.status || 'confirmed';
+        if (st === 'cancelled') { cancelled++; return; }
+        if (d >= today) upcoming++;
+        const dt = new Date(d + 'T12:00:00');
+        if (dt >= weekAgo) week++;
+        if (dt >= monthStart) month++;
+        byService[a.serviceName || 'Service'] = (byService[a.serviceName || 'Service'] || 0) + 1;
+        const dayName = dt.toLocaleDateString(undefined, { weekday: 'long' });
+        byDay[dayName] = (byDay[dayName] || 0) + 1;
+        const hour = (a.startTime || '00:00').slice(0, 2);
+        byHour[hour] = (byHour[hour] || 0) + 1;
+      });
+      const el = (id) => document.getElementById(id);
+      if (el('an-week')) el('an-week').textContent = week;
+      if (el('an-month')) el('an-month').textContent = month;
+      if (el('an-upcoming')) el('an-upcoming').textContent = upcoming;
+      if (el('an-cancelled')) el('an-cancelled').textContent = cancelled;
+      const topSvc = Object.entries(byService).sort((a,b)=>b[1]-a[1])[0];
+      const topDay = Object.entries(byDay).sort((a,b)=>b[1]-a[1])[0];
+      const topHour = Object.entries(byHour).sort((a,b)=>b[1]-a[1])[0];
+      if (el('an-popular')) {
+        el('an-popular').textContent = topSvc ? ('Most popular: ' + topSvc[0] + ' (' + topSvc[1] + ' bookings)') : '';
+      }
+      if (el('an-insight')) {
+        if (topDay && topHour) {
+          el('an-insight').textContent = 'Your busiest time is ' + topDay[0] + ' around ' + topHour[0] + ':00.';
+        } else {
+          el('an-insight').textContent = 'Insights appear when you have bookings.';
+        }
+      }
+    }
+
+    function drawQr() {
+      const canvas = document.getElementById('qr-canvas');
+      const url = document.getElementById('booking-link')?.value;
+      if (!canvas || !url || typeof QRCode === 'undefined') return;
+      QRCode.toCanvas(canvas, url, { width: 200, margin: 2 }, function (err) {
+        if (err) console.error(err);
+      });
+      const lab = document.getElementById('qr-url-label');
+      if (lab) lab.textContent = url;
+    }
+
+    document.getElementById('btn-dl-qr')?.addEventListener('click', () => {
+      const canvas = document.getElementById('qr-canvas');
+      if (!canvas) return;
+      const a = document.createElement('a');
+      a.download = 'booking-qr.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    });
+    document.getElementById('btn-print-qr')?.addEventListener('click', () => {
+      const canvas = document.getElementById('qr-canvas');
+      if (!canvas) return;
+      const w = window.open('');
+      w.document.write('<img src="' + canvas.toDataURL() + '" onload="window.print()" />');
+    });
+
     document.getElementById('btn-logout').addEventListener('click', async () => {
       if (servicesUnsub) servicesUnsub();
       if (appointmentsUnsub) appointmentsUnsub();
