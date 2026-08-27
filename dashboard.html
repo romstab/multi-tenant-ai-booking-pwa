@@ -150,6 +150,17 @@
           <input id="booking-link" readonly class="input text-xs font-mono bg-slate-50" />
           <p id="copy-msg" class="text-xs text-emerald-600 mt-2 hidden">Copied</p>
         </div>
+        
+        <div class="card p-4">
+          <h2 class="font-semibold text-sm mb-3">Quick actions</h2>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" id="qa-walkin" class="btn btn-secondary text-xs py-2">Walk-in</button>
+            <button type="button" id="qa-block" class="btn btn-secondary text-xs py-2">Block time</button>
+            <button type="button" id="qa-emergency" class="btn btn-secondary text-xs py-2 col-span-2">Emergency closure</button>
+          </div>
+          <p id="emergency-status" class="text-xs text-slate-500 mt-2"></p>
+        </div>
+
         <div class="card p-4">
           <h2 class="font-semibold text-sm mb-3">Upcoming appointments</h2>
           <div id="home-upcoming" class="space-y-2"><p class="text-sm text-slate-500">Loading…</p></div>
@@ -240,13 +251,49 @@
     </nav>
   </div>
 
+  
+  <!-- Walk-in modal -->
+  <div id="modal-walkin" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-end sm:items-center justify-center p-4">
+    <div class="card w-full max-w-md p-5 space-y-3">
+      <h3 class="font-semibold">Add walk-in</h3>
+      <div><label class="label">Customer name</label><input id="wi-name" class="input" placeholder="Walk-in" /></div>
+      <div><label class="label">Service</label><select id="wi-service" class="select"></select></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="label">Date</label><input id="wi-date" type="date" class="input" /></div>
+        <div><label class="label">Start time</label><input id="wi-time" type="time" class="input" /></div>
+      </div>
+      <div class="flex gap-2">
+        <button type="button" id="wi-cancel" class="btn btn-secondary flex-1">Cancel</button>
+        <button type="button" id="wi-save" class="btn btn-primary flex-1">Save walk-in</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Block time modal -->
+  <div id="modal-block" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-end sm:items-center justify-center p-4">
+    <div class="card w-full max-w-md p-5 space-y-3">
+      <h3 class="font-semibold">Block time</h3>
+      <div><label class="label">Date</label><input id="bl-date" type="date" class="input" /></div>
+      <label class="flex items-center gap-2 text-sm"><input id="bl-allday" type="checkbox" /> Full day</label>
+      <div class="grid grid-cols-2 gap-2" id="bl-times">
+        <div><label class="label">Start</label><input id="bl-start" type="time" class="input" value="12:00" /></div>
+        <div><label class="label">End</label><input id="bl-end" type="time" class="input" value="13:00" /></div>
+      </div>
+      <div><label class="label">Reason</label><input id="bl-reason" class="input" placeholder="Lunch break" /></div>
+      <div class="flex gap-2">
+        <button type="button" id="bl-cancel" class="btn btn-secondary flex-1">Cancel</button>
+        <button type="button" id="bl-save" class="btn btn-primary flex-1">Block</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-wrap" id="toasts"></div>
 
   <script type="module">
     import {
       auth, db, onAuthStateChanged, signOut,
       doc, getDoc, setDoc, updateDoc, deleteDoc,
-      collection, addDoc, onSnapshot, serverTimestamp
+      collection, addDoc, getDocs, onSnapshot, serverTimestamp
     } from './firebase-config.js';
     import { getDefaultOperatingHours, copyToClipboard, formatDisplayDate } from './app.js';
 
@@ -477,6 +524,12 @@
       renderHoursForm(settings?.operatingHours || getDefaultOperatingHours());
       startListeners();
       drawQr();
+      const es = document.getElementById('emergency-status');
+      if (es) {
+        es.textContent = settings?.emergencyClosure?.isClosed
+          ? 'Status: CLOSED for online bookings'
+          : '';
+      }
     }
 
     let unsubSvc = null, unsubAppt = null;
@@ -546,8 +599,10 @@
         const st = a.status || 'confirmed';
         let actions = '';
         if (st === 'pending' || st === 'pending_verification') actions = `<button data-act="confirmed" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700">Confirm</button>`;
-        if (st === 'confirmed') actions = `<button data-act="completed" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-sky-50 text-sky-700">Complete</button>
+        if (st === 'confirmed') actions = `<button data-act="checked_in" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700">Check in</button>
+          <button data-act="completed" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-sky-50 text-sky-700">Complete</button>
           <button data-act="no_show" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-600">No show</button>`;
+        if (st === 'checked_in') actions = `<button data-act="completed" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-sky-50 text-sky-700">Complete</button>`;
         if (st !== 'cancelled' && st !== 'completed') actions += ` <button data-act="cancelled" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-600">Cancel</button>`;
         return `<div class="card p-4">
           <div class="flex justify-between gap-2 mb-1">
@@ -563,10 +618,24 @@
         btn.onclick = async () => {
           const act = btn.dataset.act;
           if (act === 'cancelled' && !confirm('Cancel this appointment?')) return;
+          if (act === 'no_show' && !confirm('Mark as no-show?')) return;
           try {
-            await updateDoc(doc(db, 'tenants', tenantId, 'appointments', btn.dataset.id), { status: act, updatedAt: serverTimestamp() });
+            const idToken = await auth.currentUser.getIdToken();
+            const res = await fetch('/api/create-booking', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'updateStatus',
+                idToken,
+                tenantId,
+                appointmentId: btn.dataset.id,
+                status: act
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Update failed');
             toast('Status updated', 'success');
-          } catch (e) { toast('Could not update status', 'error'); }
+          } catch (e) { toast(e.message || 'Could not update status', 'error'); }
         };
       });
     }
@@ -748,6 +817,117 @@
         });
       });
     });
+
+    
+    // Quick actions
+    function openModal(id) { document.getElementById(id)?.classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
+
+    document.getElementById('qa-walkin')?.addEventListener('click', async () => {
+      const sel = document.getElementById('wi-service');
+      if (sel) {
+        const snap = await getDocs(collection(db, 'tenants', tenantId, 'services'));
+        sel.innerHTML = '';
+        snap.forEach(d => {
+          const s = d.data();
+          if (s.active === false) return;
+          const o = document.createElement('option');
+          o.value = d.id; o.textContent = s.name + ' (' + (s.duration||30) + 'm)';
+          sel.appendChild(o);
+        });
+      }
+      document.getElementById('wi-date').value = new Date().toISOString().slice(0, 10);
+      openModal('modal-walkin');
+    });
+    document.getElementById('wi-cancel')?.addEventListener('click', () => closeModal('modal-walkin'));
+    document.getElementById('wi-save')?.addEventListener('click', async () => {
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const res = await fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'walkIn',
+            idToken,
+            tenantId,
+            serviceId: document.getElementById('wi-service').value,
+            date: document.getElementById('wi-date').value,
+            startTime: document.getElementById('wi-time').value,
+            customerName: document.getElementById('wi-name').value.trim() || 'Walk-in'
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        toast('Walk-in saved', 'success');
+        closeModal('modal-walkin');
+      } catch (e) { toast(e.message, 'error'); }
+    });
+
+    document.getElementById('qa-block')?.addEventListener('click', () => {
+      document.getElementById('bl-date').value = new Date().toISOString().slice(0, 10);
+      openModal('modal-block');
+    });
+    document.getElementById('bl-cancel')?.addEventListener('click', () => closeModal('modal-block'));
+    document.getElementById('bl-allday')?.addEventListener('change', (e) => {
+      document.getElementById('bl-times').classList.toggle('opacity-40', e.target.checked);
+    });
+    document.getElementById('bl-save')?.addEventListener('click', async () => {
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const res = await fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'blockTime',
+            idToken,
+            tenantId,
+            date: document.getElementById('bl-date').value,
+            allDay: document.getElementById('bl-allday').checked,
+            startTime: document.getElementById('bl-start').value,
+            endTime: document.getElementById('bl-end').value,
+            reason: document.getElementById('bl-reason').value.trim() || 'Blocked'
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        toast('Time blocked', 'success');
+        closeModal('modal-block');
+      } catch (e) { toast(e.message, 'error'); }
+    });
+
+    document.getElementById('qa-emergency')?.addEventListener('click', async () => {
+      const currently = settings?.emergencyClosure?.isClosed;
+      const next = !currently;
+      const msg = next
+        ? 'Close online bookings now? Existing appointments are kept.'
+        : 'Re-open online bookings?';
+      if (!confirm(msg)) return;
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const res = await fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'setEmergencyClosure',
+            idToken,
+            tenantId,
+            isClosed: next,
+            closureMessage: 'This business is temporarily unavailable for online bookings.'
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        if (!settings) settings = {};
+        settings.emergencyClosure = data.emergencyClosure;
+        document.getElementById('emergency-status').textContent = next
+          ? 'Status: CLOSED for online bookings'
+          : 'Status: Open';
+        toast(next ? 'Emergency closure ON' : 'Bookings re-opened', next ? 'error' : 'success');
+      } catch (e) { toast(e.message, 'error'); }
+    });
+
+    // Show emergency status on enter
+    const _enterApp = enterApp;
 
     document.getElementById('btn-logout').onclick = async () => {
       if (unsubSvc) unsubSvc(); if (unsubAppt) unsubAppt();

@@ -4,6 +4,12 @@
     { "source": "/b/:handle", "destination": "/booking.html?handle=:handle" },
     { "source": "/admin", "destination": "/admin.html" }
   ],
+  "crons": [
+    {
+      "path": "/api/cron-noshow",
+      "schedule": "*/15 * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/service-worker.js",
