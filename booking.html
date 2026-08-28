@@ -215,6 +215,15 @@
       });
     }
 
+    
+      function applyPublicTheme(mode) {
+        const m = mode || 'light';
+        document.documentElement.setAttribute('data-theme', m);
+        const meta = document.querySelector('meta[name="theme-color"]');
+        const colors = { light:'#0ea5e9', dark:'#0b1220', blue:'#2563eb', pink:'#db2777', gold:'#d97706' };
+        if (meta) meta.setAttribute('content', colors[m] || '#0ea5e9');
+      }
+
     async function init() {
       try {
         if ((!tenantId || tenantId.length < 10) && handleParam) {
@@ -674,10 +683,9 @@
 
     function applyTenantTheme(s) {
       const theme = s.theme || {};
+      applyPublicTheme(theme.mode || 'light');
       const root = document.documentElement;
-      if (theme.mode === 'dark') {
-        document.body.classList.add('bg-slate-900', 'text-slate-100');
-      }
+      applyPublicTheme(theme.mode || 'light');
       if (theme.primaryColor) {
         root.style.setProperty('--primary', theme.primaryColor);
       }

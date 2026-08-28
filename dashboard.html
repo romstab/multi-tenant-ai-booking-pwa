@@ -269,6 +269,21 @@
       </section>
     </main>
 
+    <div id="install-banner" class="install-banner hidden">
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold">Install BookAI</p>
+        <p class="text-xs text-slate-500">Add to your home screen for faster access</p>
+      </div>
+      <button type="button" id="btn-install-app" class="btn btn-primary text-xs px-3">Install</button>
+      <button type="button" id="btn-install-dismiss" class="btn btn-ghost text-xs px-2" aria-label="Dismiss">✕</button>
+    </div>
+    <div id="notif-panel" class="notif-panel hidden" role="dialog" aria-label="Notifications">
+      <div class="flex justify-between items-center px-2 py-1">
+        <p class="text-xs font-semibold">Notifications</p>
+        <button type="button" id="btn-notif-readall" class="text-xs text-sky-600 font-semibold">Mark all read</button>
+      </div>
+      <div id="notif-list"><p class="text-xs text-slate-500 p-3">You're all caught up.</p></div>
+    </div>
     <nav class="bottom-nav md:max-w-5xl md:mx-auto md:left-0 md:right-0">
       <button type="button" data-panel="home" class="nav-item active"><span>⌂</span>Home</button>
       <button type="button" data-panel="bookings" class="nav-item"><span>☰</span>Bookings</button>
@@ -451,13 +466,25 @@
       }).join('');
     }
 
+    function applyTheme(mode) {
+      const m = mode || 'light';
+      document.documentElement.setAttribute('data-theme', m);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      const colors = { light:'#0ea5e9', dark:'#0b1220', blue:'#2563eb', pink:'#db2777', gold:'#d97706' };
+      if (meta) meta.setAttribute('content', colors[m] || colors.light);
+    }
     document.getElementById('ob-themes').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-theme]');
       if (!btn) return;
       obTheme = btn.dataset.theme;
-      document.querySelectorAll('.theme-opt').forEach(b => b.classList.toggle('border-sky-500', b === btn));
-      document.querySelectorAll('.theme-opt').forEach(b => { if (b !== btn) b.classList.remove('border-sky-500'); b.classList.toggle('border-transparent', b !== btn); });
+      applyTheme(obTheme);
+      document.querySelectorAll('.theme-opt').forEach(b => {
+        const on = b === btn;
+        b.classList.toggle('border-sky-500', on);
+        b.classList.toggle('border-transparent', !on);
+      });
     });
+    applyTheme(obTheme);
 
     document.getElementById('ob-back').onclick = () => { if (obStep > 1) showObStep(obStep - 1); };
     document.getElementById('ob-next').onclick = async () => {
@@ -552,6 +579,10 @@
     };
 
     function enterApp() {
+      try {
+        const mode = (settings && settings.theme && settings.theme.mode) || obTheme || 'light';
+        applyTheme(mode);
+      } catch (e) {}
       document.getElementById('app').classList.remove('hidden');
       document.getElementById('header-business-name').textContent = settings?.businessName || 'Dashboard';
       document.getElementById('set-name').value = settings?.businessName || '';
@@ -1116,6 +1147,98 @@
     document.getElementById('btn-refresh-crm')?.addEventListener('click', () => { loadCRM(); loadBusinessSummary(); });
 
     // load summary when entering app
+
+    
+    // ----- PWA install (real beforeinstallprompt only) -----
+    let deferredInstallPrompt = null;
+    const installBanner = document.getElementById('install-banner');
+    function isStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+    function updateInstallUI() {
+      if (!installBanner) return;
+      if (isStandalone()) {
+        installBanner.classList.add('hidden');
+        return;
+      }
+      if (deferredInstallPrompt) installBanner.classList.remove('hidden');
+    }
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      updateInstallUI();
+    });
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      if (installBanner) installBanner.classList.add('hidden');
+      toast('BookAI installed', 'success');
+    });
+    document.getElementById('btn-install-app')?.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) {
+        toast('Use browser menu → Install app / Add to Home screen', 'info');
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      if (installBanner) installBanner.classList.add('hidden');
+      if (choice && choice.outcome === 'accepted') toast('Installing…', 'success');
+    });
+    document.getElementById('btn-install-dismiss')?.addEventListener('click', () => {
+      if (installBanner) installBanner.classList.add('hidden');
+    });
+    updateInstallUI();
+
+    // ----- Real notifications -----
+    let unsubNotif = null;
+    function bindNotifications() {
+      if (!tenantId || unsubNotif) return;
+      const badge = document.getElementById('notif-badge');
+      const list = document.getElementById('notif-list');
+      unsubNotif = onSnapshot(collection(db, 'tenants', tenantId, 'notifications'), (snap) => {
+        const items = [];
+        snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+        items.sort((a, b) => {
+          const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+          const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+          return tb - ta;
+        });
+        const unread = items.filter(i => !i.read).length;
+        if (badge) badge.classList.toggle('hidden', unread === 0);
+        if (list) {
+          if (!items.length) {
+            list.innerHTML = '<p class="text-xs text-slate-500 p-3">You\'re all caught up.</p>';
+          } else {
+            list.innerHTML = items.slice(0, 30).map(n => `
+              <div class="notif-item ${n.read ? '' : 'unread'}" data-nid="${n.id}">
+                <p class="font-medium">${esc(n.title || 'Update')}</p>
+                <p class="text-slate-500">${esc(n.message || '')}</p>
+              </div>`).join('');
+            list.querySelectorAll('[data-nid]').forEach(el => {
+              el.onclick = async () => {
+                try {
+                  await updateDoc(doc(db, 'tenants', tenantId, 'notifications', el.dataset.nid), { read: true });
+                } catch (e) {}
+              };
+            });
+          }
+        }
+      }, (err) => console.warn('notif', err));
+    }
+    document.getElementById('btn-notif')?.addEventListener('click', () => {
+      document.getElementById('notif-panel')?.classList.toggle('hidden');
+    });
+    document.getElementById('btn-notif-readall')?.addEventListener('click', async () => {
+      try {
+        const snap = await getDocs(collection(db, 'tenants', tenantId, 'notifications'));
+        const batch = [];
+        snap.forEach(d => {
+          if (!d.data().read) batch.push(updateDoc(d.ref, { read: true }));
+        });
+        await Promise.all(batch);
+        toast('All marked read', 'success');
+      } catch (e) { toast('Could not update', 'error'); }
+    });
 
     document.getElementById('btn-logout').onclick = async () => {
       if (unsubSvc) unsubSvc(); if (unsubAppt) unsubAppt();
