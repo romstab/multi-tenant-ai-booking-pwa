@@ -1,19 +1,17 @@
 /**
- * BookAI Service Worker v4
- * Cache app shell only. Never cache /api or Firebase/Google responses.
+ * BookAI SW v7 — network-first HTML to avoid stale production after deploy
  */
-const CACHE_NAME = 'bookai-static-v6';
-const STATIC_ASSETS = [
-  '/index.html',
-  '/dashboard.html',
-  '/booking.html',
-  '/admin.html',
+const CACHE_NAME = 'bookai-static-v7';
+const PRECACHE = [
+  '/offline.html',
   '/styles.css',
-  '/firebase-config.js',
-  '/app.js',
   '/manifest.json',
   '/manifest-admin.json',
   '/manifest-booking.json',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/icon-maskable-192.png',
+  '/icon-maskable-512.png',
   '/assets/icons/icon-192.png',
   '/assets/icons/icon-512.png'
 ];
@@ -21,11 +19,7 @@ const STATIC_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
-      Promise.all(
-        STATIC_ASSETS.map((url) =>
-          cache.add(url).catch((err) => console.warn('SW cache skip', url, err && err.message))
-        )
-      )
+      Promise.all(PRECACHE.map((u) => cache.add(u).catch(() => null)))
     ).then(() => self.skipWaiting())
   );
 });
@@ -38,10 +32,15 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
+  // Never cache API / Firebase / Google
   if (
     url.pathname.startsWith('/api/') ||
     url.hostname.includes('googleapis.com') ||
@@ -51,31 +50,36 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+  // HTML / navigation: network-first
+  const isNav = event.request.mode === 'navigate' || event.request.destination === 'document' ||
+    url.pathname.endsWith('.html') || url.pathname === '/';
+
+  if (isNav) {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, copy)).catch(() => {});
           return res;
         })
-        .catch(() => caches.match(event.request).then((r) => r || caches.match('/index.html')))
+        .catch(() =>
+          caches.match(event.request).then((r) => r || caches.match('/offline.html'))
+        )
     );
     return;
   }
 
+  // Static: cache-first with network fallback
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return res;
-        })
-        .catch(() => cached);
+      const net = fetch(event.request).then((res) => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, copy)).catch(() => {});
+        }
+        return res;
+      }).catch(() => cached);
+      return cached || net;
     })
   );
 });

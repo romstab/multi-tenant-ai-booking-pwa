@@ -1,7 +1,7 @@
 {
   "name": "BookAI — Business",
   "short_name": "BookAI Biz",
-  "description": "Manage bookings for your business",
+  "description": "Manage your bookings and business",
   "start_url": "/dashboard.html",
   "scope": "/",
   "display": "standalone",
