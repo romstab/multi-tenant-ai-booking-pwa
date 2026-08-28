@@ -1,12 +1,14 @@
 /**
- * BookAI Service Worker — resilient install for PWA criteria
+ * BookAI Service Worker v4
+ * Cache app shell only. Never cache /api or Firebase/Google responses.
  */
-const CACHE_NAME = 'bookai-static-v3';
+const CACHE_NAME = 'bookai-static-v4';
 const STATIC_ASSETS = [
   '/index.html',
   '/dashboard.html',
   '/booking.html',
   '/admin.html',
+  '/styles.css',
   '/firebase-config.js',
   '/app.js',
   '/manifest.json',
@@ -19,9 +21,7 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then((cache) =>
       Promise.all(
         STATIC_ASSETS.map((url) =>
-          cache.add(url).catch((err) => {
-            console.warn('SW cache skip', url, err);
-          })
+          cache.add(url).catch((err) => console.warn('SW cache skip', url, err && err.message))
         )
       )
     ).then(() => self.skipWaiting())
@@ -37,15 +37,14 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
   if (
     url.pathname.startsWith('/api/') ||
-    url.hostname.includes('firestore.googleapis.com') ||
-    url.hostname.includes('identitytoolkit.googleapis.com') ||
-    url.hostname.includes('securetoken.googleapis.com') ||
-    url.hostname.includes('generativelanguage.googleapis.com') ||
-    url.hostname.includes('googleapis.com')
+    url.hostname.includes('googleapis.com') ||
+    url.hostname.includes('firebase') ||
+    url.hostname.includes('gstatic.com')
   ) {
     return;
   }
@@ -58,9 +57,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return res;
         })
-        .catch(() =>
-          caches.match(event.request).then((r) => r || caches.match('/index.html'))
-        )
+        .catch(() => caches.match(event.request).then((r) => r || caches.match('/index.html')))
     );
     return;
   }
@@ -68,13 +65,15 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
-      return fetch(event.request).then((res) => {
-        if (res.ok && event.request.method === 'GET') {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        }
-        return res;
-      }).catch(() => cached);
+      return fetch(event.request)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return res;
+        })
+        .catch(() => cached);
     })
   );
 });
