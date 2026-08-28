@@ -164,6 +164,18 @@
   </div>
 
   <script type="module">
+    function formatTime12(hhmm) {
+      if (!hhmm) return '';
+      const parts = String(hhmm).trim().split(':');
+      let h = parseInt(parts[0], 10);
+      const m = (parts[1] || '00').toString().padStart(2, '0');
+      if (Number.isNaN(h)) return String(hhmm);
+      const ap = h >= 12 ? 'PM' : 'AM';
+      h = h % 12;
+      if (h === 0) h = 12;
+      return h + ':' + m + ' ' + ap;
+    }
+
     import {
       db, doc, getDoc, collection, getDocs, query, where
     } from './firebase-config.js';
@@ -414,8 +426,8 @@
 
         container.innerHTML = slots.map(s => `
           <button type="button" data-start="${s.startTime}" data-end="${s.endTime}"
-            class="slot-btn px-3 py-2 rounded-xl border border-slate-300 text-sm hover:border-sky-500 hover:bg-sky-50 transition">
-            ${s.startTime}
+            class="slot-btn px-3.5 py-2.5 rounded-xl border-2 border-slate-300 text-sm font-semibold text-slate-800 hover:border-sky-500 hover:bg-sky-50 transition min-w-[5.5rem]">
+            <span class="block">${formatTime12(s.startTime)}</span>
           </button>
         `).join('');
 
@@ -446,10 +458,10 @@
         } else {
           container.innerHTML = slots.map(s => `
             <button type="button" data-start="${s.startTime}" data-end="${s.endTime}"
-              class="slot-btn px-3 py-2 rounded-xl border border-slate-300 text-sm hover:border-sky-500 hover:bg-sky-50 transition">
-              ${s.startTime}
+              class="slot-btn px-3.5 py-2.5 rounded-xl border-2 border-slate-300 text-sm font-semibold text-slate-800 hover:border-sky-500 hover:bg-sky-50 transition min-w-[5.5rem]">
+              <span class="block">${formatTime12(s.startTime)}</span>
             </button>
-          `).join('') + '<p class="w-full text-xs text-slate-400 mt-2">Availability is approximate; final check happens on confirm.</p>';
+          `).join('') + '<p class="w-full text-xs text-slate-400 mt-2">Times shown in AM/PM. Final check on confirm.</p>';
           container.querySelectorAll('.slot-btn').forEach(btn => {
             btn.addEventListener('click', () => {
               container.querySelectorAll('.slot-btn').forEach(b => {
@@ -467,19 +479,34 @@
     function updateSummary() {
       const summary = document.getElementById('summary');
       const btn = document.getElementById('btn-confirm');
-      if (selectedService && selectedDate && selectedSlot) {
+      const hint = document.getElementById('confirm-hint');
+      const name = (document.getElementById('cust-name')?.value || '').trim();
+      const email = (document.getElementById('cust-email')?.value || '').trim();
+      const readySlot = !!(selectedService && selectedDate && selectedSlot);
+      const readyForm = name.length >= 2 && email.includes('@');
+      if (readySlot) {
         summary.innerHTML = `
           <strong>${escapeHtml(selectedService.name)}</strong> on
-          ${formatDisplayDate(selectedDate)} at <strong>${formatTime12(selectedSlot.startTime)}</strong>
+          ${formatDisplayDate(selectedDate)} at <strong class="text-sky-700">${formatTime12(selectedSlot.startTime)}</strong>
           (${selectedService.duration || 0} min)
         `;
         summary.classList.remove('hidden');
-        btn.disabled = false;
       } else {
         summary.classList.add('hidden');
-        btn.disabled = true;
+      }
+      btn.disabled = !(readySlot && readyForm);
+      if (hint) {
+        if (!readySlot) hint.textContent = 'Select a service, date, and time first.';
+        else if (!readyForm) hint.textContent = 'Enter your full name and email to enable Confirm.';
+        else hint.textContent = 'Ready — tap Confirm Booking.';
+        hint.classList.toggle('text-emerald-600', readySlot && readyForm);
+        hint.classList.toggle('text-slate-500', !(readySlot && readyForm));
       }
     }
+
+    ['cust-name', 'cust-email'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', updateSummary);
+    });
 
     // Confirm booking
     document.getElementById('btn-confirm').addEventListener('click', async () => {
