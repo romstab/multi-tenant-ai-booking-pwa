@@ -8,6 +8,15 @@
 
 const admin = require('firebase-admin');
 
+function cleanField(v, maxLen) {
+  if (v == null) return '';
+  let s = String(v).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
+  if (!s || s === 'undefined' || s === 'null' || s === 'N/A') return '';
+  if (maxLen) s = s.slice(0, maxLen);
+  return s;
+}
+
+
 const MAX_AI_PER_DAY = 20;
 
 function initAdmin() {
@@ -153,15 +162,17 @@ module.exports = async function handler(req, res) {
       'You are a helpful booking assistant for a business.\n' +
       'Answer ONLY using the business context below. Do not invent services, prices, or hours.\n' +
       'Do not claim a booking is confirmed.\n' +
+      'If information is Not provided, say the business has not added it yet.\n' +
+      'Never invent medical, legal, or unrelated facts.\n' +
       'Keep answers concise and friendly.\n\n' +
       'BUSINESS NAME: ' +
-      (tenantContext.businessName || 'Unknown') +
+      (cleanField(tenantContext.businessName, 120) || 'This business') +
       '\nCATEGORY: ' +
-      (tenantContext.businessCategory || 'N/A') +
+      (cleanField(tenantContext.businessCategory, 80) || 'Not specified') +
       '\nDESCRIPTION: ' +
-      (tenantContext.businessDescription || 'N/A') +
+      (cleanField(tenantContext.businessDescription, 500) || 'Not provided') +
       '\nADDRESS: ' +
-      (tenantContext.address || 'N/A') +
+      (cleanField(tenantContext.address, 200) || 'Not provided by the business yet') +
       '\n\nSERVICES:\n' +
       servicesText +
       '\n\nOPERATING HOURS:\n' +
