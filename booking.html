@@ -337,7 +337,9 @@
         }
         const slots = data.slots || [];
         if (!slots.length) {
-          container.innerHTML = '<p class="text-sm text-amber-600">No available times on this date. Try another day.</p>';
+          container.innerHTML = '<p class="text-sm text-amber-600 mb-3">No available times on this date.</p>' +
+            '<button type="button" id="btn-join-waitlist" class="w-full py-2.5 rounded-xl border border-sky-300 text-sky-700 text-sm font-medium">Join waitlist for this day</button>';
+          document.getElementById('btn-join-waitlist')?.addEventListener('click', () => openWaitlist());
           document.getElementById('date-hint').textContent = '';
           return;
         }

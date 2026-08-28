@@ -9,7 +9,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == tenantId;
     }
 
-    // Server-only (Firebase Admin SDK)
     match /platformTenants/{id} {
       allow read, write: if false;
     }
@@ -18,29 +17,23 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      // Public business profile (hours, theme, emergency message). No customer PII here.
       match /settings/{docId} {
         allow read: if true;
         allow create, update, delete: if isTenantOwner(tenantId) && docId == 'config';
       }
 
-      // Public service catalog
       match /services/{serviceId} {
         allow read: if true;
         allow create, update, delete: if isTenantOwner(tenantId);
       }
 
-      // Appointments: owner may READ only. All creates/updates go through Admin SDK
-      // (/api/create-booking) so status transitions and conflicts stay server-enforced.
       match /appointments/{appointmentId} {
         allow read: if isTenantOwner(tenantId);
         allow create, update, delete: if false;
       }
 
       match /blockedSlots/{id} {
-        allow read: if isTenantOwner(tenantId);
-        // Prefer API, but owner client write is still tenant-scoped
-        allow create, update, delete: if isTenantOwner(tenantId);
+        allow read, write: if isTenantOwner(tenantId);
       }
 
       match /staff/{staffId} {
@@ -49,8 +42,7 @@ service cloud.firestore {
       }
 
       match /notifications/{id} {
-        allow read, update: if isTenantOwner(tenantId);
-        allow create, delete: if isTenantOwner(tenantId);
+        allow read, write: if isTenantOwner(tenantId);
       }
 
       match /closureEvents/{id} {
@@ -60,6 +52,21 @@ service cloud.firestore {
 
       match /idempotency/{id} {
         allow read, write: if false;
+      }
+
+      match /customers/{customerId} {
+        allow read: if isTenantOwner(tenantId);
+        allow write: if false;
+      }
+
+      match /waitlist/{id} {
+        allow read: if isTenantOwner(tenantId);
+        allow write: if false;
+      }
+
+      match /slotOffers/{id} {
+        allow read: if isTenantOwner(tenantId);
+        allow write: if false;
       }
 
       match /aiCache/{id} {

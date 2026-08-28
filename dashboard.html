@@ -136,6 +136,12 @@
     <!-- Panels -->
     <main class="max-w-5xl mx-auto px-4 py-5 space-y-5">
       <section id="panel-home" class="space-y-4">
+        <div class="card p-4" id="today-summary">
+          <h2 class="font-semibold text-sm mb-2">Today's summary</h2>
+          <div class="grid grid-cols-2 gap-2 text-sm" id="today-summary-body">
+            <div>Loading…</div>
+          </div>
+        </div>
         <div class="grid grid-cols-2 gap-3">
           <div class="card p-4"><p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Bookings</p><p class="text-2xl font-bold mt-1" id="m-total">0</p></div>
           <div class="card p-4"><p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Upcoming</p><p class="text-2xl font-bold mt-1" id="m-upcoming">0</p></div>
@@ -198,6 +204,23 @@
         <div id="services-list" class="space-y-3"></div>
       </section>
 
+      
+      <section id="panel-customers" class="hidden space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="font-semibold">Customers</h2>
+          <button type="button" id="btn-refresh-crm" class="text-xs font-semibold text-sky-600">Refresh</button>
+        </div>
+        <div class="card p-3">
+          <p class="text-xs text-slate-500 mb-2">Due for rebooking</p>
+          <div id="due-rebook-list" class="text-sm text-slate-600">—</div>
+        </div>
+        <div class="card p-3">
+          <p class="text-xs text-slate-500 mb-2">Waitlist</p>
+          <div id="waitlist-owner" class="text-sm space-y-2">—</div>
+        </div>
+        <div id="customers-list" class="space-y-2"></div>
+      </section>
+
       <section id="panel-analytics" class="hidden space-y-4">
         <div class="grid grid-cols-2 gap-3">
           <div class="card p-4"><p class="text-[11px] text-slate-500 uppercase">This week</p><p class="text-xl font-bold" id="an-week">0</p></div>
@@ -246,6 +269,7 @@
       <button type="button" data-panel="home" class="nav-item active"><span>⌂</span>Home</button>
       <button type="button" data-panel="bookings" class="nav-item"><span>☰</span>Bookings</button>
       <button type="button" data-panel="services" class="nav-item nav-fab" title="Services">+</button>
+      <button type="button" data-panel="customers" class="nav-item"><span>◎</span>CRM</button>
       <button type="button" data-panel="analytics" class="nav-item"><span>▣</span>Insights</button>
       <button type="button" data-panel="settings" class="nav-item"><span>⚙</span>Settings</button>
     </nav>
@@ -524,6 +548,7 @@
       renderHoursForm(settings?.operatingHours || getDefaultOperatingHours());
       startListeners();
       drawQr();
+      loadBusinessSummary();
       const es = document.getElementById('emergency-status');
       if (es) {
         es.textContent = settings?.emergencyClosure?.isClosed
@@ -621,20 +646,32 @@
           if (act === 'no_show' && !confirm('Mark as no-show?')) return;
           try {
             const idToken = await auth.currentUser.getIdToken();
-            const res = await fetch('/api/create-booking', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'updateStatus',
-                idToken,
-                tenantId,
-                appointmentId: btn.dataset.id,
-                status: act
-              })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Update failed');
-            toast('Status updated', 'success');
+            if (act === 'cancelled') {
+              const res = await fetch('/api/business', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'cancelAppointment', idToken, tenantId, appointmentId: btn.dataset.id })
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || 'Cancel failed');
+              if (data.waitlistOffer) toast('Cancelled · Waitlist: ' + data.waitlistOffer.customerName, 'success');
+              else toast('Appointment cancelled', 'success');
+            } else {
+              const res = await fetch('/api/create-booking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'updateStatus',
+                  idToken,
+                  tenantId,
+                  appointmentId: btn.dataset.id,
+                  status: act
+                })
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || 'Update failed');
+              toast('Status updated', 'success');
+            }
           } catch (e) { toast(e.message || 'Could not update status', 'error'); }
         };
       });
@@ -812,9 +849,11 @@
         const panel = btn.dataset.panel;
         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        ['home','bookings','services','analytics','settings'].forEach(p => {
+        ['home','bookings','services','customers','analytics','settings'].forEach(p => {
           document.getElementById('panel-' + p)?.classList.toggle('hidden', p !== panel);
         });
+        if (panel === 'customers') loadCRM();
+        if (panel === 'home') loadBusinessSummary();
       });
     });
 
@@ -928,6 +967,95 @@
 
     // Show emergency status on enter
     const _enterApp = enterApp;
+
+    
+    async function loadBusinessSummary() {
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const res = await fetch('/api/business', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'dashboardSummary', idToken, tenantId })
+        });
+        const data = await res.json();
+        if (!res.ok) return;
+        const t = data.today || {};
+        const el = document.getElementById('today-summary-body');
+        if (el) {
+          el.innerHTML = `
+            <div><span class="text-slate-500">Total</span> <strong>${t.total||0}</strong></div>
+            <div><span class="text-slate-500">Upcoming</span> <strong>${t.upcoming||0}</strong></div>
+            <div><span class="text-slate-500">Done</span> <strong>${t.completed||0}</strong></div>
+            <div><span class="text-slate-500">No-show</span> <strong>${t.noShows||0}</strong></div>
+            <div class="col-span-2 text-xs text-slate-500 mt-1">Month est. revenue: ${(data.month&&data.month.estimatedRevenue)||0}</div>`;
+        }
+        const due = document.getElementById('due-rebook-list');
+        if (due) {
+          const list = (data.retention && data.retention.dueList) || [];
+          due.innerHTML = list.length
+            ? list.map(c => `<div class="py-1 border-b border-slate-100">${esc(c.name)} · ${esc(c.phone||c.email||'')}</div>`).join('')
+            : '<span class="text-slate-400">None right now</span>';
+        }
+        // service performance into analytics if present
+        if (data.services && document.getElementById('an-popular')) {
+          const top = data.services[0];
+          if (top) document.getElementById('an-popular').textContent = 'Top service: ' + top.name + ' (' + top.total + ' bookings)';
+        }
+      } catch (e) { console.warn(e); }
+    }
+
+    async function loadCRM() {
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const [custRes, wlRes] = await Promise.all([
+          fetch('/api/business', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'listCustomers', idToken, tenantId }) }),
+          fetch('/api/business', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'listWaitlist', idToken, tenantId }) })
+        ]);
+        const cust = await custRes.json();
+        const wl = await wlRes.json();
+        const list = document.getElementById('customers-list');
+        if (list) {
+          const items = cust.items || [];
+          list.innerHTML = items.length ? items.map(c => `
+            <div class="card p-3">
+              <div class="flex justify-between gap-2">
+                <div>
+                  <p class="font-medium text-sm">${esc(c.name)}</p>
+                  <p class="text-xs text-slate-500">${esc(c.phone||'')} ${esc(c.email||'')}</p>
+                  <p class="text-xs mt-1">Visits: ${c.completedBookings||0} · Spent: ${c.totalSpent||0} · ${esc((c.tags||[]).join(', '))}</p>
+                </div>
+              </div>
+              <textarea data-notes="${esc(c.id)}" class="input text-xs mt-2" rows="2" placeholder="Private notes…">${esc(c.notes||'')}</textarea>
+              <button type="button" data-save-notes="${esc(c.id)}" class="text-xs text-sky-600 font-semibold mt-1">Save notes</button>
+            </div>`).join('') : '<p class="text-sm text-slate-500 text-center py-6">No customers yet — they appear after bookings</p>';
+          list.querySelectorAll('[data-save-notes]').forEach(btn => {
+            btn.onclick = async () => {
+              const id = btn.dataset.saveNotes;
+              const ta = list.querySelector(`[data-notes="${id}"]`);
+              const idToken2 = await auth.currentUser.getIdToken();
+              const r = await fetch('/api/business', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveCustomerNotes', idToken: idToken2, tenantId, customerId: id, notes: ta.value })
+              });
+              if (r.ok) toast('Notes saved', 'success');
+              else toast('Save failed', 'error');
+            };
+          });
+        }
+        const wle = document.getElementById('waitlist-owner');
+        if (wle) {
+          const items = wl.items || [];
+          wle.innerHTML = items.length
+            ? items.map(w => `<div class="py-1">${esc(w.customerName)} · ${esc(w.preferredDate)} ${esc(w.preferredStartTime)}–${esc(w.preferredEndTime)} · <span class="badge badge-pending">${esc(w.status)}</span></div>`).join('')
+            : '<span class="text-slate-400">No active waitlist</span>';
+        }
+      } catch (e) { console.warn(e); }
+    }
+
+    document.getElementById('btn-refresh-crm')?.addEventListener('click', () => { loadCRM(); loadBusinessSummary(); });
+
+    // load summary when entering app
 
     document.getElementById('btn-logout').onclick = async () => {
       if (unsubSvc) unsubSvc(); if (unsubAppt) unsubAppt();
