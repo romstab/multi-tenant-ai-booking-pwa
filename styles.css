@@ -525,3 +525,38 @@ html[data-theme="dark"] body {
   color: #991b1b;
   border-color: #fca5a5;
 }
+
+/* Theme surfaces that override Tailwind on themed pages */
+html[data-theme] body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+html[data-theme] .bk-card,
+html[data-theme] #booking-app section,
+html[data-theme] .bg-white {
+  background: var(--bg-elevated) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+html[data-theme] .bk-btn-primary,
+html[data-theme] #btn-confirm:not(:disabled) {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #fff !important;
+}
+html[data-theme] .slot-btn.border-sky-500,
+html[data-theme] .slot-btn.bg-sky-100 {
+  background: var(--primary-soft) !important;
+  border-color: var(--primary) !important;
+  color: var(--text) !important;
+}
+html[data-theme] header.bg-slate-900 {
+  background: #0f172a !important;
+}
+.sw-update-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: #0ea5e9; color: #fff; padding: 0.5rem 1rem;
+  display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+  font-size: 0.8rem; font-weight: 600;
+}
+.sw-update-bar.hidden { display: none !important; }

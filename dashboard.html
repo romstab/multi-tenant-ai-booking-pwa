@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Dashboard — BookAI</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/assets/icons/icon-192.png" />
   <meta name="theme-color" content="#0f172a" />
@@ -11,6 +12,12 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
+
+  <div id="sw-update-bar" class="sw-update-bar hidden">
+    <span>New version available</span>
+    <button type="button" id="btn-sw-update" class="underline">Refresh</button>
+  </div>
+
 <body class="bg-slate-50 text-slate-900 antialiased">
   <div id="auth-loading" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
     <div class="text-center text-white">
@@ -913,40 +920,29 @@
     }
 
     function drawQr() {
-      const urlEl = document.getElementById('booking-link');
-      const url = urlEl ? urlEl.value : '';
+      const box = document.getElementById('qr-box') || document.getElementById('qr-container');
       const status = document.getElementById('qr-status');
-      const img = document.getElementById('qr-img');
-      const canvas = document.getElementById('qr-canvas');
-      if (!url || url.length < 8) {
-        if (status) status.textContent = 'Booking link not ready yet.';
+      const linkEl = document.getElementById('booking-link');
+      const url = (linkEl && linkEl.value) || (linkEl && linkEl.textContent) || '';
+      if (!box) return;
+      if (!url || !url.includes('http')) {
+        box.innerHTML = '<p class="text-sm text-slate-500 p-4 text-center">Booking link not ready yet. Complete setup first.</p>';
+        if (status) status.textContent = 'Waiting for booking URL…';
         return;
       }
+      box.innerHTML = '';
       if (status) status.textContent = 'Generating QR…';
-      // Reliable image QR (works on all mobile browsers)
-      if (img) {
-        const src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=' + encodeURIComponent(url);
-        img.onload = function () {
-          img.classList.remove('hidden');
-          if (status) status.textContent = '';
-        };
-        img.onerror = function () {
-          if (status) status.textContent = 'Unable to generate QR. Copy the link instead.';
-          // Fallback library
-          if (canvas && typeof QRCode !== 'undefined') {
-            canvas.classList.remove('hidden');
-            QRCode.toCanvas(canvas, url, { width: 180, margin: 2, color: { dark: '#0f172a', light: '#ffffff' } }, function (err) {
-              if (!err && status) status.textContent = '';
-            });
-          }
-        };
-        img.src = src;
-      } else if (canvas && typeof QRCode !== 'undefined') {
-        QRCode.toCanvas(canvas, url, { width: 180, margin: 2 }, function (err) {
-          if (status) status.textContent = err ? 'QR failed' : '';
-        });
+      try {
+        if (typeof QRCode === 'undefined') throw new Error('QR library missing');
+        new QRCode(box, { text: url.trim(), width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+        if (status) status.textContent = 'Scan to open booking page';
+        box.dataset.qrUrl = url.trim();
+      } catch (e) {
+        box.innerHTML = '<p class="text-sm text-red-600 p-3">Could not generate QR. URL: ' + url + '</p>';
+        if (status) status.textContent = e.message || 'QR failed';
       }
     }
+
     document.getElementById('btn-dl-qr')?.addEventListener('click', () => {
       const img = document.getElementById('qr-img');
       const c = document.getElementById('qr-canvas');
@@ -1383,5 +1379,7 @@
 
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
   </script>
+<script src="/pwa-register.js"></script>
+<p id="app-version" class="text-center text-xs text-slate-400 py-2"></p>
 </body>
 </html>

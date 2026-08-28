@@ -8,6 +8,12 @@
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
+  <div id="sw-update-bar" class="sw-update-bar hidden">
+    <span>New version available</span>
+    <button type="button" id="btn-sw-update" class="underline">Refresh</button>
+  </div>
+
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
   <!-- Login -->
   <div id="login-view" class="min-h-screen flex items-center justify-center px-4">
@@ -303,5 +309,6 @@
   document.getElementById('btn-install-app')?.addEventListener('click',async()=>{if(!d)return;d.prompt();await d.userChoice;d=null;if(b)b.classList.add('hidden');});
 })();
 </script>
+<script src="/pwa-register.js"></script>
 </body>
 </html>

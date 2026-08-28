@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Offline — BookAI</title>
+  <style>
+    body{font-family:system-ui,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#f1f5f9;padding:1.5rem;text-align:center}
+    .card{max-width:22rem;background:#1e293b;border-radius:1rem;padding:1.5rem;border:1px solid #334155}
+    h1{font-size:1.15rem;margin:0 0 .5rem}
+    p{font-size:.875rem;color:#94a3b8;margin:0 0 1rem;line-height:1.45}
+    button{background:#0ea5e9;color:#fff;border:0;border-radius:.75rem;padding:.75rem 1.25rem;font-weight:600;width:100%;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>You're offline</h1>
+    <p>BookAI needs a connection for bookings and live data. Check your network and try again.</p>
+    <button type="button" onclick="location.reload()">Retry</button>
+  </div>
+</body>
+</html>

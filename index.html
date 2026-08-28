@@ -13,6 +13,12 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config={theme:{extend:{colors:{brand:{500:'#0ea5e9',600:'#0284c7'}}}}}</script>
 </head>
+
+  <div id="sw-update-bar" class="sw-update-bar hidden">
+    <span>New version available</span>
+    <button type="button" id="btn-sw-update" class="underline">Refresh</button>
+  </div>
+
 <body class="overflow-x-hidden bg-slate-50 text-slate-900 antialiased">
   <div class="min-h-screen flex flex-col">
     <header class="bg-slate-900 text-white">
@@ -178,5 +184,7 @@
 
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(() => {});
   </script>
+<script src="/pwa-register.js"></script>
+<p id="app-version" class="text-center text-xs text-slate-400 py-2"></p>
 </body>
 </html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manage booking — BookAI</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="robots" content="noindex" />
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 antialiased">
+  <div class="max-w-md mx-auto px-4 py-8">
+    <h1 class="text-xl font-bold mb-1">Your appointment</h1>
+    <p class="text-sm text-slate-500 mb-6">View or cancel using your secure link. No account required.</p>
+
+    <div id="loading" class="text-sm text-slate-500">Loading…</div>
+    <div id="error" class="hidden card p-4 text-red-700 text-sm border border-red-200 bg-red-50"></div>
+
+    <div id="panel" class="hidden space-y-4">
+      <div class="card p-4 space-y-2">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">Reference</p>
+        <p id="m-ref" class="font-mono font-semibold text-lg"></p>
+        <p id="m-status" class="text-sm font-medium text-sky-700"></p>
+        <hr class="border-slate-200" />
+        <p id="m-service" class="font-medium"></p>
+        <p id="m-when" class="text-sm text-slate-600"></p>
+        <p id="m-name" class="text-sm text-slate-600"></p>
+        <p class="text-xs text-slate-500 mt-2">Payment: Pay at venue</p>
+      </div>
+      <button type="button" id="btn-cancel" class="btn btn-secondary btn-block">Cancel appointment</button>
+      <p class="text-xs text-slate-500 text-center">Reschedule: cancel then book a new time on the business page.</p>
+      <a id="book-again" class="btn btn-primary btn-block text-center" href="/">Book again</a>
+    </div>
+  </div>
+  <p class="text-center text-xs text-slate-400 pb-6" id="app-version"></p>
+  <script src="/pwa-register.js"></script>
+  <script>
+  function formatTime12(hhmm) {
+    if (!hhmm) return '';
+    const p = String(hhmm).split(':');
+    let h = parseInt(p[0], 10);
+    const m = (p[1] || '00').padStart(2, '0');
+    if (isNaN(h)) return hhmm;
+    const ap = h >= 12 ? 'PM' : 'AM';
+    h = h % 12; if (h === 0) h = 12;
+    return h + ':' + m + ' ' + ap;
+  }
+  (async function () {
+    const q = new URLSearchParams(location.search);
+    const tenantId = q.get('tenant') || '';
+    const ref = q.get('ref') || '';
+    const token = q.get('token') || '';
+    const loading = document.getElementById('loading');
+    const err = document.getElementById('error');
+    const panel = document.getElementById('panel');
+    if (!tenantId || !token || token.length < 16) {
+      loading.classList.add('hidden');
+      err.textContent = 'This management link is invalid or incomplete.';
+      err.classList.remove('hidden');
+      return;
+    }
+    try {
+      const res = await fetch('/api/create-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getManagedBooking', tenantId, ref, token })
+      });
+      const data = await res.json();
+      loading.classList.add('hidden');
+      if (!res.ok) throw new Error(data.error || 'Not found');
+      document.getElementById('m-ref').textContent = data.bookingRef || ref;
+      document.getElementById('m-status').textContent = data.status || '';
+      document.getElementById('m-service').textContent = data.serviceName || 'Service';
+      document.getElementById('m-when').textContent = (data.date || '') + ' · ' + formatTime12(data.startTime);
+      document.getElementById('m-name').textContent = data.customerName || '';
+      document.getElementById('book-again').href = '/booking.html?tenant=' + encodeURIComponent(tenantId);
+      panel.classList.remove('hidden');
+      if (['cancelled', 'completed', 'no_show'].includes(data.status)) {
+        document.getElementById('btn-cancel').disabled = true;
+        document.getElementById('btn-cancel').textContent = 'Cannot cancel';
+      }
+    } catch (e) {
+      loading.classList.add('hidden');
+      err.textContent = e.message || 'Failed to load';
+      err.classList.remove('hidden');
+    }
+    document.getElementById('btn-cancel').onclick = async () => {
+      if (!confirm('Cancel this appointment?')) return;
+      try {
+        const res = await fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'cancelManagedBooking', tenantId, ref, token })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Cancel failed');
+        document.getElementById('m-status').textContent = 'cancelled';
+        document.getElementById('btn-cancel').disabled = true;
+        alert('Appointment cancelled.');
+      } catch (e) {
+        alert(e.message || 'Cancel failed');
+      }
+    };
+  })();
+  </script>
+</body>
+</html>
