@@ -2,7 +2,7 @@
  * BookAI Service Worker v4
  * Cache app shell only. Never cache /api or Firebase/Google responses.
  */
-const CACHE_NAME = 'bookai-static-v4';
+const CACHE_NAME = 'bookai-static-v5';
 const STATIC_ASSETS = [
   '/index.html',
   '/dashboard.html',

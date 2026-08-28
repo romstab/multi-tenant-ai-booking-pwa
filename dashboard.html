@@ -945,6 +945,7 @@
         });
         if (panel === 'customers') loadCRM();
         if (panel === 'home') loadBusinessSummary();
+        if (panel === 'analytics') { try { drawQr(); } catch(e) {} }
       });
     });
 
