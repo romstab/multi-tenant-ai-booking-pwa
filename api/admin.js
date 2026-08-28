@@ -115,15 +115,15 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'listTenants') {
-      const snap = await db.collection('platformTenants').orderBy('createdAt', 'desc').limit(200).get();
+      const snap = await db.collection('platformTenants').limit(200).get();
       const tenants = [];
       snap.forEach((d) => tenants.push(Object.assign({ tenantId: d.id }, d.data())));
-      // serialize timestamps
       tenants.forEach((t) => {
         ['trialStart', 'trialEnd', 'subscriptionEnd', 'createdAt', 'updatedAt'].forEach((k) => {
           if (t[k] && t[k].toDate) t[k] = t[k].toDate().toISOString();
         });
       });
+      tenants.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
       return res.status(200).json({ tenants });
     }
 

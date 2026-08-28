@@ -619,7 +619,7 @@ module.exports = async function handler(req, res) {
       if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
       const snap = await db.doc('platformTenants/' + tenantId).get();
       if (!snap.exists) {
-        return res.status(200).json({ status: 'active', daysLeft: null, trialExpired: false });
+        return res.status(200).json({ status: 'unregistered', daysLeft: null, trialExpired: false });
       }
       const p = snap.data();
       let status = p.status || 'trial';

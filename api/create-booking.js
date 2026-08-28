@@ -1,3 +1,10 @@
+
+function makeManageToken() {
+  return require('crypto').randomBytes(24).toString('hex');
+}
+function makeBookingRef() {
+  return 'BK-' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
+}
 /**
  * POST /api/create-booking
  * Actions:
@@ -524,6 +531,8 @@ module.exports = async function handler(req, res) {
         }
 
         const bookingId = makeBookingId();
+        const bookingRef = makeBookingRef();
+        const manageToken = makeManageToken();
         const tzOff = (settings.timezoneOffsetMinutes != null) ? Number(settings.timezoneOffsetMinutes) : 480;
         const startLocal = parseBusinessLocalDateTime(date, startTime, tzOff);
         const graceEnds = new Date(startLocal.getTime() + 15 * 60 * 1000);
@@ -532,6 +541,10 @@ module.exports = async function handler(req, res) {
         const newRef = appointmentsCol.doc();
         const appointment = {
           bookingId,
+          bookingRef,
+          manageToken,
+          paymentMode: 'pay_at_venue',
+          statusLabel: 'Confirmed — Pay at Venue',
           customerName: String(customerName).trim(),
           customerEmail: String(customerEmail).trim().toLowerCase(),
           customerPhone: String(customerPhone).trim().slice(0, 40),
@@ -562,13 +575,17 @@ module.exports = async function handler(req, res) {
           tx.set(db.doc('tenants/' + tenantId + '/idempotency/' + idempotencyKey), {
             appointmentId: newRef.id,
             bookingId,
+            bookingRef,
             status,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
           });
         }
 
-        return { id: newRef.id, bookingId, status, price };
+        return { id: newRef.id, bookingId, bookingRef, manageToken, status, price };
       });
+
+      let bookingRef = result.bookingRef || null;
+      let manageToken = result.manageToken || null;
 
       if (!result.duplicate) {
         try {
@@ -590,8 +607,9 @@ module.exports = async function handler(req, res) {
           await db.collection('tenants/' + tenantId + '/notifications').add({
             type: 'new_booking',
             title: 'New booking',
-            message: result.bookingId + ' was created',
+            message: (customerName || 'Customer') + ' — ' + (bookingRef || result.bookingId || ''),
             read: false,
+            meta: { appointmentId: result.id, bookingRef },
             createdAt: admin.firestore.FieldValue.serverTimestamp()
           });
         } catch (e) {}
@@ -602,18 +620,27 @@ module.exports = async function handler(req, res) {
           success: true,
           appointmentId: result.id,
           bookingId: result.bookingId,
+          bookingRef,
           status: result.status,
           message: 'Booking already recorded',
           duplicate: true
         });
       }
 
+      const manageUrl = manageToken
+        ? ('/manage-booking.html?tenant=' + encodeURIComponent(tenantId) + '&ref=' + encodeURIComponent(bookingRef || '') + '&token=' + encodeURIComponent(manageToken))
+        : null;
+
       return res.status(201).json({
         success: true,
         appointmentId: result.id,
         bookingId: result.bookingId,
+        bookingRef,
+        manageToken,
+        manageUrl,
         status: result.status,
-        message: 'Booking confirmed'
+        paymentMode: 'pay_at_venue',
+        message: 'Booking confirmed — Pay at Venue'
       });
     }
 
@@ -688,7 +715,17 @@ module.exports = async function handler(req, res) {
         return { id: newRef.id, bookingId };
       });
 
-      return res.status(201).json({ success: true, appointmentId: result.id, bookingId: result.bookingId });
+      
+      try {
+        await db.collection('tenants/' + tenantId + '/notifications').add({
+          type: 'walk_in',
+          title: 'Walk-in added',
+          message: (customerName || 'Walk-in') + ' at ' + startTime,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e) {}
+return res.status(201).json({ success: true, appointmentId: result.id, bookingId: result.bookingId });
     }
 
     // ---------- blockTime ----------
@@ -787,16 +824,18 @@ module.exports = async function handler(req, res) {
             ...closure,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
           });
-          await db.collection('tenants/' + tenantId + '/notifications').add({
-            type: 'emergency_closure',
-            title: 'Emergency closure activated',
-            message: closure.closureMessage,
-            read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
-          });
         } catch (e) {}
       }
 
+      try {
+        await db.collection('tenants/' + tenantId + '/notifications').add({
+          type: 'emergency',
+          title: isClosed ? 'Emergency closure ON' : 'Emergency closure OFF',
+          message: isClosed ? 'Online bookings are paused.' : 'Online bookings are open again.',
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e) {}
       return res.status(200).json({ success: true, emergencyClosure: { isClosed: closure.isClosed, closureMessage: closure.closureMessage } });
     }
 
@@ -841,6 +880,18 @@ module.exports = async function handler(req, res) {
         tx.update(ref, patch);
       });
 
+      try {
+        const snap = await ref.get();
+        const appt = snap.exists ? snap.data() : {};
+        await db.collection('tenants/' + tenantId + '/notifications').add({
+          type: 'status',
+          title: 'Booking ' + newStatus.replace('_', ' '),
+          message: (appt.bookingRef || appt.bookingId || appointmentId) + ' → ' + newStatus,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e) {}
+
       // CRM sync for completed / no_show
       if (newStatus === 'completed' || newStatus === 'no_show') {
         try {
@@ -873,6 +924,92 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({ success: true, status: newStatus });
     }
+
+    
+    // ---------- Client self-service (token auth) ----------
+    if (action === 'getManagedBooking') {
+      const tenantId = String(body.tenantId || '').trim();
+      const token = String(body.token || '').trim();
+      const ref = String(body.ref || body.bookingRef || '').trim();
+      if (!tenantId || !token || token.length < 20) {
+        return res.status(400).json({ error: 'Invalid management link' });
+      }
+      let snap;
+      if (ref) {
+        const q = await db.collection('tenants/' + tenantId + '/appointments')
+          .where('bookingRef', '==', ref).limit(5).get();
+        snap = null;
+        q.forEach((d) => {
+          if (d.data().manageToken === token) snap = d;
+        });
+      }
+      if (!snap) {
+        // fallback scan limited — prefer index on manageToken later
+        return res.status(404).json({ error: 'Booking not found or link expired' });
+      }
+      const a = snap.data();
+      return res.status(200).json({
+        appointmentId: snap.id,
+        bookingRef: a.bookingRef || ref,
+        status: a.status,
+        date: a.date,
+        startTime: a.startTime,
+        endTime: a.endTime,
+        serviceName: a.serviceName || '',
+        customerName: a.customerName || '',
+        businessName: a.businessName || '',
+        paymentMode: a.paymentMode || 'pay_at_venue'
+      });
+    }
+
+    if (action === 'cancelManagedBooking') {
+      const tenantId = String(body.tenantId || '').trim();
+      const token = String(body.token || '').trim();
+      const ref = String(body.ref || '').trim();
+      if (!tenantId || !token || token.length < 20 || !ref) {
+        return res.status(400).json({ error: 'Invalid request' });
+      }
+      const q = await db.collection('tenants/' + tenantId + '/appointments')
+        .where('bookingRef', '==', ref).limit(5).get();
+      let doc = null;
+      q.forEach((d) => { if (d.data().manageToken === token) doc = d; });
+      if (!doc) return res.status(404).json({ error: 'Booking not found' });
+      const a = doc.data();
+      if (['cancelled', 'completed', 'no_show'].includes(a.status)) {
+        return res.status(400).json({ error: 'Booking cannot be cancelled' });
+      }
+      await db.runTransaction(async (tx) => {
+        const fresh = await tx.get(doc.ref);
+        if (!fresh.exists) {
+          const err = new Error('Booking not found');
+          err.status = 404;
+          throw err;
+        }
+        const cur = fresh.data().status;
+        if (['cancelled', 'completed', 'no_show'].includes(cur)) {
+          const err = new Error('Booking cannot be cancelled');
+          err.status = 400;
+          throw err;
+        }
+        tx.set(doc.ref, {
+          status: 'cancelled',
+          cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+          cancelledBy: 'customer',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      });
+      try {
+        await db.collection('tenants/' + tenantId + '/notifications').add({
+          type: 'cancelled',
+          title: 'Booking cancelled',
+          message: (a.bookingRef || ref) + ' was cancelled by customer',
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e) {}
+      return res.status(200).json({ success: true, status: 'cancelled' });
+    }
+
 
     return res.status(400).json({ error: 'Unknown action' });
   } catch (err) {
