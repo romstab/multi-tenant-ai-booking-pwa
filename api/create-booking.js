@@ -72,6 +72,33 @@ function sanitizeIdempotencyKey(key) {
   return String(key || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
 }
 
+function customerIdFromContact(email, phone) {
+  const crypto = require('crypto');
+  const key = (String(email || '').trim().toLowerCase() || String(phone || '').trim()).slice(0, 120);
+  if (!key) return null;
+  return crypto.createHash('sha256').update(key).digest('hex').slice(0, 28);
+}
+
+async function upsertCustomerCreated(db, tenantId, appointment) {
+  const cid = customerIdFromContact(appointment.customerEmail, appointment.customerPhone);
+  if (!cid) return;
+  const ref = db.doc('tenants/' + tenantId + '/customers/' + cid);
+  await ref.set({
+    name: appointment.customerName || '',
+    email: (appointment.customerEmail || '').toLowerCase(),
+    phone: appointment.customerPhone || '',
+    totalBookings: admin.firestore.FieldValue.increment(1),
+    completedBookings: admin.firestore.FieldValue.increment(0),
+    cancelledBookings: admin.firestore.FieldValue.increment(0),
+    noShowCount: admin.firestore.FieldValue.increment(0),
+    totalSpent: admin.firestore.FieldValue.increment(0),
+    lastBookingAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
+
 
 function clientIp(req) {
   const xf = req.headers['x-forwarded-for'];
@@ -545,6 +572,13 @@ module.exports = async function handler(req, res) {
 
       if (!result.duplicate) {
         try {
+          await upsertCustomerCreated(db, tenantId, {
+            customerName: String(customerName).trim(),
+            customerEmail: String(customerEmail).trim().toLowerCase(),
+            customerPhone: String(customerPhone).trim()
+          });
+        } catch (e) { console.warn('crm', e.message); }
+        try {
           await db.doc('platformTenants/' + tenantId).set({
             totalBookings: admin.firestore.FieldValue.increment(1),
             estimatedRevenue: admin.firestore.FieldValue.increment(result.price || 0),
@@ -806,6 +840,37 @@ module.exports = async function handler(req, res) {
         }
         tx.update(ref, patch);
       });
+
+      // CRM sync for completed / no_show
+      if (newStatus === 'completed' || newStatus === 'no_show') {
+        try {
+          const snap = await ref.get();
+          if (snap.exists) {
+            const appt = snap.data();
+            const cid = customerIdFromContact(appt.customerEmail, appt.customerPhone);
+            if (cid) {
+              const cref = db.doc('tenants/' + tenantId + '/customers/' + cid);
+              if (newStatus === 'completed') {
+                await cref.set({
+                  completedBookings: admin.firestore.FieldValue.increment(1),
+                  totalSpent: admin.firestore.FieldValue.increment(Number(appt.servicePrice || 0)),
+                  lastVisitAt: admin.firestore.FieldValue.serverTimestamp(),
+                  nextRecommendedBookingAt: admin.firestore.Timestamp.fromDate(
+                    new Date(Date.now() + 30 * 86400000)
+                  ),
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+              } else {
+                await cref.set({
+                  noShowCount: admin.firestore.FieldValue.increment(1),
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+              }
+            }
+          }
+        } catch (e) { console.warn('crm status', e.message); }
+      }
+
       return res.status(200).json({ success: true, status: newStatus });
     }
 
