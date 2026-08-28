@@ -15,6 +15,9 @@ service cloud.firestore {
     match /platformRateLimits/{id} {
       allow read, write: if false;
     }
+    match /platformSupport/{id} {
+      allow read, write: if false;
+    }
 
     match /tenants/{tenantId} {
       match /settings/{docId} {

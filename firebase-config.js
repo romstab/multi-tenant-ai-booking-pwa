@@ -1,17 +1,16 @@
 /**
  * Firebase Configuration & Modular SDK Exports
- * ---------------------------------------------
- * Replace the placeholder values below with your real Firebase web config
- * from the Firebase Console → Project Settings → Your apps → Web app.
  */
-
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut
+  signOut,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
   getFirestore,
@@ -30,9 +29,6 @@ import {
   Timestamp
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
-// ============================================================
-// Firebase project: ai-booking-scheduler
-// ============================================================
 const firebaseConfig = {
   apiKey: "AIzaSyCj8NMD_FgvA4I5BqdGOU74xVucTS-zL6U",
   authDomain: "ai-booking-scheduler.firebaseapp.com",
@@ -54,6 +50,9 @@ export {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
   doc,
   getDoc,
   setDoc,

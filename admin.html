@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Super Admin — BookAI</title>
   <meta name="robots" content="noindex,nofollow" />
+  <link rel="stylesheet" href="/styles.css" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
@@ -241,5 +242,20 @@
       if (await trySession()) showApp();
     })();
   </script>
+
+<div id="install-banner" class="install-banner hidden" style="bottom:1rem;max-width:22rem">
+  <div class="min-w-0 flex-1"><p style="margin:0;font-weight:600;font-size:14px">Install Admin PWA</p>
+  <p style="margin:0;font-size:12px;opacity:.7">Home screen access</p></div>
+  <button type="button" id="btn-install-app" class="btn btn-primary" style="font-size:12px">Install</button>
+</div>
+<script>
+(function(){
+  let d=null;
+  const b=document.getElementById('install-banner');
+  const st=window.matchMedia('(display-mode: standalone)').matches;
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();d=e;if(b&&!st)b.classList.remove('hidden');});
+  document.getElementById('btn-install-app')?.addEventListener('click',async()=>{if(!d)return;d.prompt();await d.userChoice;d=null;if(b)b.classList.add('hidden');});
+})();
+</script>
 </body>
 </html>

@@ -2,7 +2,7 @@
  * BookAI Service Worker v4
  * Cache app shell only. Never cache /api or Firebase/Google responses.
  */
-const CACHE_NAME = 'bookai-static-v5';
+const CACHE_NAME = 'bookai-static-v6';
 const STATIC_ASSETS = [
   '/index.html',
   '/dashboard.html',
@@ -12,6 +12,8 @@ const STATIC_ASSETS = [
   '/firebase-config.js',
   '/app.js',
   '/manifest.json',
+  '/manifest-admin.json',
+  '/manifest-booking.json',
   '/assets/icons/icon-192.png',
   '/assets/icons/icon-512.png'
 ];

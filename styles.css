@@ -476,3 +476,52 @@ html[data-theme="gold"] {
   cursor: pointer;
 }
 .notif-item.unread { background: var(--primary-soft); }
+
+/* Strong readable surfaces for all themes */
+.card, .input, .select, .textarea {
+  background: var(--bg-elevated) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+body { background: var(--bg); color: var(--text); }
+h1, h2, h3, h4, p, label, span, a { color: inherit; }
+.text-slate-500, .text-slate-400, .text-slate-600 {
+  color: var(--text-secondary) !important;
+}
+.app-header, header.bg-slate-900 {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+}
+html[data-theme="dark"] .card {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+html[data-theme="dark"] .input,
+html[data-theme="dark"] .select,
+html[data-theme="dark"] .textarea {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+html[data-theme="dark"] body {
+  background: #0b1220 !important;
+  color: #f1f5f9 !important;
+}
+/* Metric cards readable */
+.metric-grid .card, [class*="grid"] .card {
+  color: var(--text);
+}
+.trial-banner {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-size: 0.875rem;
+}
+.trial-banner.expired {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
