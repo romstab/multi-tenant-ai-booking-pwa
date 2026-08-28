@@ -13,13 +13,11 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config={theme:{extend:{colors:{brand:{500:'#0ea5e9',600:'#0284c7'}}}}}</script>
 </head>
-
+<body class="overflow-x-hidden bg-slate-50 text-slate-900 antialiased">
   <div id="sw-update-bar" class="sw-update-bar hidden">
     <span>New version available</span>
     <button type="button" id="btn-sw-update" class="underline">Refresh</button>
   </div>
-
-<body class="overflow-x-hidden bg-slate-50 text-slate-900 antialiased">
   <div class="min-h-screen flex flex-col">
     <header class="bg-slate-900 text-white">
       <div class="max-w-lg mx-auto px-5 py-4 flex items-center justify-between">

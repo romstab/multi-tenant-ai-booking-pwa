@@ -12,13 +12,11 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
-
+<body class="bg-slate-50 text-slate-900 antialiased">
   <div id="sw-update-bar" class="sw-update-bar hidden">
     <span>New version available</span>
     <button type="button" id="btn-sw-update" class="underline">Refresh</button>
   </div>
-
-<body class="bg-slate-50 text-slate-900 antialiased">
   <div id="auth-loading" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
     <div class="text-center text-white">
       <div class="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
@@ -597,7 +595,7 @@
         const ob = document.getElementById('ob-qr');
         if (ob) {
           if (ob.tagName === 'CANVAS' && typeof QRCode !== 'undefined') {
-            QRCode.toCanvas(ob, link, { width: 180, margin: 2 });
+            /* toCanvas not in qrcodejs */
           }
         }
         // also set img sibling if present
