@@ -3,7 +3,7 @@
  * Include as classic script (not module) before </body>
  */
 (function () {
-  const VERSION = '2.2.0-pwa';
+  const VERSION = '2.4.0-final';
   window.BOOKAI_VERSION = VERSION;
 
   function isStandalone() {
@@ -62,9 +62,6 @@
         });
       }).catch(() => {});
     });
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      // soft reload once after SW claims
-    });
   }
 
   document.addEventListener('click', (e) => {
@@ -75,7 +72,6 @@
     location.reload();
   });
 
-  // Version footer if element exists
   document.addEventListener('DOMContentLoaded', () => {
     const v = document.getElementById('app-version');
     if (v) v.textContent = 'BookAI v' + VERSION;
