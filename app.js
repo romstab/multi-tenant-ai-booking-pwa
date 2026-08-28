@@ -167,3 +167,28 @@ export function getDefaultOperatingHours() {
     sunday:    { enabled: false, open: '',      close: '' }
   };
 }
+
+export function formatMoney(amount, currency) {
+  const n = Number(amount);
+  if (Number.isNaN(n)) return '—';
+  const c = (currency || 'PHP').toUpperCase();
+  const symbols = { PHP: '₱', USD: '$', EUR: '€', GBP: '£', JPY: '¥', KRW: '₩', SGD: 'S$', AUD: 'A$' };
+  const sym = symbols[c] || (c + ' ');
+  try {
+    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(n);
+  } catch (e) {
+    return sym + n.toLocaleString();
+  }
+}
+
+export function formatTime12(hhmm) {
+  if (!hhmm) return '';
+  const p = String(hhmm).split(':');
+  let h = parseInt(p[0], 10);
+  const m = p[1] || '00';
+  if (Number.isNaN(h)) return hhmm;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return h + ':' + m + ' ' + ampm;
+}

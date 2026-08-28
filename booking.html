@@ -470,7 +470,7 @@
       if (selectedService && selectedDate && selectedSlot) {
         summary.innerHTML = `
           <strong>${escapeHtml(selectedService.name)}</strong> on
-          ${formatDisplayDate(selectedDate)} at <strong>${selectedSlot.startTime}</strong>
+          ${formatDisplayDate(selectedDate)} at <strong>${formatTime12(selectedSlot.startTime)}</strong>
           (${selectedService.duration || 0} min)
         `;
         summary.classList.remove('hidden');
@@ -537,7 +537,7 @@
 
         const bid = data.bookingId || data.appointmentId || '';
         document.getElementById('success-details').textContent =
-          `${selectedService.name} on ${formatDisplayDate(selectedDate)} at ${selectedSlot.startTime}. Status: ${data.status || 'confirmed'}.`;
+          `${selectedService.name} on ${formatDisplayDate(selectedDate)} at ${formatTime12(selectedSlot.startTime)}. Status: ${data.status || 'confirmed'}.`;
         const idEl = document.getElementById('success-booking-id');
         if (idEl) idEl.textContent = bid ? ('Booking ID: ' + bid) : '';
         // Google Calendar link

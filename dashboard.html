@@ -75,6 +75,16 @@
       <!-- Step 4 Theme -->
       <div class="ob-step hidden" data-step="4">
         <h1 class="text-xl font-semibold mb-1">Booking page style</h1>
+        <div class="mb-4">
+          <label class="label">Currency (prices shown to customers)</label>
+          <select id="ob-currency" class="input">
+            <option value="PHP" selected>Philippine Peso (₱)</option>
+            <option value="USD">US Dollar ($)</option>
+            <option value="EUR">Euro (€)</option>
+            <option value="SGD">Singapore Dollar (S$)</option>
+            <option value="JPY">Japanese Yen (¥)</option>
+          </select>
+        </div>
         <p class="text-sm text-slate-500 mb-4">Choose a clean theme for customers.</p>
         <div class="grid grid-cols-2 gap-3" id="ob-themes">
           <button type="button" data-theme="light" class="theme-opt card p-4 text-left border-2 border-sky-500"><p class="font-semibold text-sm">Light</p><p class="text-xs text-slate-500">Clean & minimal</p></button>
@@ -257,17 +267,31 @@
             <div><label class="label">Phone</label><input id="set-phone" class="input" /></div>
           </div>
           <div><label class="label">Address</label><input id="set-address" class="input" /></div>
-          <button id="btn-save-settings" class="btn btn-primary btn-block">Save settings</button>
-        <div class="card p-4 space-y-3 mt-4">
-          <h3 class="font-semibold text-sm">Change password</h3>
+          <div class="mt-3">
+          <label class="label">Currency</label>
+          <select id="set-currency" class="input">
+            <option value="PHP" selected>Philippine Peso (₱)</option>
+            <option value="USD">US Dollar ($)</option>
+            <option value="EUR">Euro (€)</option>
+            <option value="SGD">Singapore Dollar (S$)</option>
+            <option value="JPY">Japanese Yen (¥)</option>
+          </select>
+          <p class="text-xs text-slate-500 mt-1">Prices on the booking page use this currency.</p>
+        </div>
+        <button type="button" id="btn-save-settings" class="btn btn-primary btn-block mt-3">Save settings</button>
+        <details id="advanced-account" class="card p-4 mt-4">
+          <summary class="font-semibold text-sm cursor-pointer">Account security (password)</summary>
+          <div class="space-y-3 mt-3">
+          <h3 class="font-semibold text-sm sr-only">Change password</h3>
           <input id="pw-current" type="password" class="input" placeholder="Current password" autocomplete="current-password" />
           <input id="pw-new" type="password" class="input" placeholder="New password (min 6)" autocomplete="new-password" />
           <input id="pw-confirm" type="password" class="input" placeholder="Confirm new password" autocomplete="new-password" />
           <button type="button" id="btn-change-password" class="btn btn-secondary btn-block">Update password</button>
-        </div>
+          </div>
+        </details>
         <div class="card p-4 space-y-2 mt-4">
-          <h3 class="font-semibold text-sm">Contact platform admin</h3>
-          <p class="text-xs text-slate-500">Trial ended or need more time? Send a message.</p>
+          <h3 class="font-semibold text-sm">Need help / trial ended?</h3>
+          <p class="text-xs text-slate-500">Write your request or problem. The platform admin will see it in their panel.</p>
           <textarea id="support-msg" class="input" rows="3" placeholder="Message / feedback…"></textarea>
           <button type="button" id="btn-support-msg" class="btn btn-primary btn-block">Send message</button>
         </div>
@@ -352,7 +376,7 @@
       doc, getDoc, setDoc, updateDoc, deleteDoc,
       collection, addDoc, getDocs, onSnapshot, serverTimestamp
     } from './firebase-config.js';
-    import { getDefaultOperatingHours, copyToClipboard, formatDisplayDate } from './app.js';
+    import { getDefaultOperatingHours, copyToClipboard, formatDisplayDate, formatMoney, formatTime12 } from './app.js';
 
     const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
     const DAY_LABELS = { monday:'Mon', tuesday:'Tue', wednesday:'Wed', thursday:'Thu', friday:'Fri', saturday:'Sat', sunday:'Sun' };
@@ -538,6 +562,7 @@
           logoUrl: '',
           handle: handle || null,
           theme: { mode: obTheme, primaryColor: '' },
+          currency: (document.getElementById('ob-currency')?.value || 'PHP'),
           bookingRules: { bufferMinutes: 0, minAdvanceHours: 0, maxAdvanceDays: 60, allowSameDay: true },
           depositSettings: { enabled: false },
           operatingHours,
@@ -596,6 +621,8 @@
       try {
         const mode = (settings && settings.theme && settings.theme.mode) || obTheme || 'light';
         applyTheme(mode);
+        const curEl = document.getElementById('set-currency');
+        if (curEl && settings.currency) curEl.value = settings.currency;
       } catch (e) {}
       document.getElementById('app').classList.remove('hidden');
       document.getElementById('header-business-name').textContent = settings?.businessName || 'Dashboard';
@@ -847,6 +874,7 @@
           address: document.getElementById('set-address').value.trim(),
           updatedAt: serverTimestamp()
         };
+        if (document.getElementById('set-currency')) data.currency = document.getElementById('set-currency').value || 'PHP';
         await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), data);
         settings = { ...settings, ...data };
         document.getElementById('header-business-name').textContent = data.businessName;
