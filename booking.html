@@ -18,7 +18,8 @@
     <span>New version available</span>
     <button type="button" id="btn-sw-update" class="underline">Refresh</button>
   </div>
-  <!-- Error state -->
+
+<!-- Error state -->
   <div id="error-state" class="hidden min-h-screen flex items-center justify-center px-4">
     <div class="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm">
       <div class="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">!</div>
@@ -104,8 +105,9 @@
       <!-- Confirm -->
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <div id="summary" class="text-sm text-slate-600 mb-4 hidden"></div>
+        <p id="confirm-hint" class="text-xs text-slate-500 mb-2 text-center">Select a service, date, and time first.</p>
         <button id="btn-confirm" disabled
-          class="w-full py-3 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium text-sm transition">
+          class="w-full py-3.5 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold text-sm transition">
           Confirm Booking
         </button>
         <p id="booking-msg" class="text-sm mt-3 hidden text-center"></p>
@@ -254,8 +256,8 @@
           background_color: '#0f172a',
           theme_color: '#0ea5e9',
           icons: [
-            { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-            { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }
+            { src: '/assets/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/assets/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }
           ]
         };
         const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
@@ -722,7 +724,12 @@
     }
     function formatPrice(p) {
       if (p == null || p === '') return '';
-      return Number(p).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+      const cur = (settings && settings.currency) || 'PHP';
+      try {
+        return Number(p).toLocaleString(undefined, { style: 'currency', currency: cur, maximumFractionDigits: 0 });
+      } catch {
+        return cur + ' ' + Number(p);
+      }
     }
 
 

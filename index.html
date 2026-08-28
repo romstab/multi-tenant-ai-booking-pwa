@@ -18,7 +18,8 @@
     <span>New version available</span>
     <button type="button" id="btn-sw-update" class="underline">Refresh</button>
   </div>
-  <div class="min-h-screen flex flex-col">
+
+<div class="min-h-screen flex flex-col">
     <header class="bg-slate-900 text-white">
       <div class="max-w-lg mx-auto px-5 py-4 flex items-center justify-between">
         <div class="flex items-center gap-2.5">
@@ -92,7 +93,8 @@
   <script type="module">
     import { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from './firebase-config.js';
 
-    onAuthStateChanged(auth, (user) => { if (user) location.replace('/dashboard.html'); });
+    let signupLock = false;
+    onAuthStateChanged(auth, (user) => { if (user && !signupLock) location.replace('/dashboard.html'); });
 
     function toast(msg, type) {
       const el = document.createElement('div');
@@ -160,9 +162,35 @@
       if (!email || !password) { errEl.textContent = 'Enter email and password.'; errEl.classList.remove('hidden'); return; }
       if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.classList.remove('hidden'); return; }
       btn.disabled = true; btn.textContent = 'Creating…';
-      try { await createUserWithEmailAndPassword(auth, email, password); toast('Account created. Setting up…', 'success'); }
-      catch (err) { errEl.textContent = authErrorMessage(err); errEl.classList.remove('hidden'); }
-      finally { btn.disabled = false; btn.textContent = 'Create account'; }
+      signupLock = true;
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const idToken = await cred.user.getIdToken();
+        const reg = await fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'registerTenant',
+            idToken,
+            ownerEmail: email,
+            businessName: email.split('@')[0]
+          })
+        });
+        const regData = await reg.json().catch(() => ({}));
+        if (!reg.ok) {
+          toast('Account created but business registration failed: ' + (regData.error || reg.status) + '. Finish setup and contact support if the business does not appear in admin.', 'error');
+        } else {
+          toast('Account created. Setting up…', 'success');
+        }
+        location.replace('/dashboard.html');
+      } catch (err) {
+        signupLock = false;
+        errEl.textContent = authErrorMessage(err);
+        errEl.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create account';
+      }
     };
 
     document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btn-login').click(); });

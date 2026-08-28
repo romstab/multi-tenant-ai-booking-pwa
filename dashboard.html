@@ -10,14 +10,14 @@
   <meta name="theme-color" content="#0f172a" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-</head>
+  </head>
 <body class="bg-slate-50 text-slate-900 antialiased">
   <div id="sw-update-bar" class="sw-update-bar hidden">
     <span>New version available</span>
     <button type="button" id="btn-sw-update" class="underline">Refresh</button>
   </div>
-  <div id="auth-loading" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
+
+<div id="auth-loading" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
     <div class="text-center text-white">
       <div class="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
       <p class="text-sm">Loading…</p>
@@ -110,7 +110,7 @@
             <p class="text-xs text-slate-500 mb-1">Public booking link</p>
             <p class="text-sm font-mono break-all" id="ob-link"></p>
           </div>
-          <canvas id="ob-qr" class="mx-auto mb-4 rounded-xl border bg-white"></canvas>
+          <div id="ob-qr" class="mx-auto mb-4 flex justify-center"></div>
           <div class="flex gap-2">
             <button type="button" id="ob-copy" class="btn btn-secondary flex-1">Copy link</button>
             <button type="button" id="ob-finish" class="btn btn-primary flex-1">Open dashboard</button>
@@ -249,10 +249,10 @@
         </div>
         <div class="card p-4 text-center">
           <h3 class="font-semibold text-sm mb-3">QR code</h3>
-          <div class="qr-wrap" id="qr-box">
+          <div class="qr-wrap">
             <p id="qr-status" class="text-xs text-slate-500 mb-2">Generating QR…</p>
-            <img id="qr-img" alt="Booking QR code" width="180" height="180" class="hidden" />
-            <canvas id="qr-canvas" class="hidden"></canvas>
+            <div id="qr-box" class="flex justify-center min-h-[200px]"></div>
+            <p id="qr-url-text" class="text-[11px] text-slate-500 break-all mt-2"></p>
           </div>
           <div class="flex gap-2 justify-center mt-3">
             <button id="btn-dl-qr" class="btn btn-secondary text-xs">Download</button>
@@ -282,6 +282,16 @@
             <option value="JPY">Japanese Yen (¥)</option>
           </select>
           <p class="text-xs text-slate-500 mt-1">Prices on the booking page use this currency.</p>
+        </div>
+        <div class="mt-3">
+          <label class="label">Booking page theme</label>
+          <div id="set-themes" class="grid grid-cols-5 gap-2 mt-1">
+            <button type="button" data-theme="light" class="set-theme-opt text-xs py-2 rounded-lg border-2">Light</button>
+            <button type="button" data-theme="dark" class="set-theme-opt text-xs py-2 rounded-lg border-2">Dark</button>
+            <button type="button" data-theme="blue" class="set-theme-opt text-xs py-2 rounded-lg border-2">Blue</button>
+            <button type="button" data-theme="pink" class="set-theme-opt text-xs py-2 rounded-lg border-2">Pink</button>
+            <button type="button" data-theme="gold" class="set-theme-opt text-xs py-2 rounded-lg border-2">Gold</button>
+          </div>
         </div>
         <button type="button" id="btn-save-settings" class="btn btn-primary btn-block mt-3">Save settings</button>
         <details id="advanced-account" class="card p-4 mt-4">
@@ -529,6 +539,28 @@
     });
     applyTheme(obTheme);
 
+    document.getElementById('set-themes')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-theme]');
+      if (!btn || !tenantId) return;
+      const mode = btn.dataset.theme;
+      applyTheme(mode);
+      obTheme = mode;
+      document.querySelectorAll('.set-theme-opt').forEach(b => {
+        b.classList.toggle('border-sky-500', b.dataset.theme === mode);
+        b.classList.toggle('border-transparent', b.dataset.theme !== mode);
+      });
+      try {
+        await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), {
+          theme: { mode, primaryColor: '' },
+          updatedAt: serverTimestamp()
+        });
+        settings = { ...(settings || {}), theme: { mode, primaryColor: '' } };
+        toast('Theme saved — booking page will use this look', 'success');
+      } catch (err) {
+        toast('Could not save theme', 'error');
+      }
+    });
+
     document.getElementById('ob-back').onclick = () => { if (obStep > 1) showObStep(obStep - 1); };
     document.getElementById('ob-next').onclick = async () => {
       if (obStep === 1) {
@@ -583,26 +615,25 @@
         }
         try {
           const idToken = await auth.currentUser.getIdToken();
-          await fetch('/api/create-booking', {
+          const reg = await fetch('/api/create-booking', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'registerTenant', idToken, businessName: data.businessName, ownerEmail: data.contactEmail || auth.currentUser.email, handle })
           });
-        } catch (e) { console.warn(e); }
+          const regData = await reg.json().catch(() => ({}));
+          if (!reg.ok) toast('Saved locally, but admin registration failed: ' + (regData.error || 'error'), 'error');
+        } catch (e) {
+          toast('Saved, but could not register with platform admin. Try saving settings again.', 'error');
+        }
 
         settings = data;
         const link = location.origin + '/booking.html?tenant=' + tenantId;
         document.getElementById('ob-link').textContent = link;
         const ob = document.getElementById('ob-qr');
-        if (ob) {
-          if (ob.tagName === 'CANVAS' && typeof QRCode !== 'undefined') {
-            /* toCanvas not in qrcodejs */
-          }
-        }
-        // also set img sibling if present
-        const obImg = document.getElementById('ob-qr-img');
-        if (obImg) {
-          obImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(link);
-          obImg.classList.remove('hidden');
+        if (ob && typeof QRCode !== 'undefined') {
+          ob.innerHTML = '';
+          try {
+            new QRCode(ob, { text: link, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
+          } catch (e) { console.warn(e); }
         }
         showObStep(5);
       } catch (err) {
@@ -639,6 +670,8 @@
       document.getElementById('set-address').value = settings?.address || '';
       renderHoursForm(settings?.operatingHours || getDefaultOperatingHours());
       startListeners();
+      bindNotifications();
+      loadTenantStatus();
       drawQr();
       loadBusinessSummary();
       const es = document.getElementById('emergency-status');
@@ -697,7 +730,7 @@
         <div class="flex items-start justify-between gap-2 py-2 border-b border-slate-100 last:border-0">
           <div class="min-w-0">
             <p class="text-sm font-medium truncate">${esc(a.customerName)}</p>
-            <p class="text-xs text-slate-500">${esc(a.serviceName)} · ${formatDisplayDate(a.date)} · ${a.startTime}</p>
+            <p class="text-xs text-slate-500">${esc(a.serviceName)} · ${formatDisplayDate(a.date)} · ${formatTime12(a.startTime)}</p>
           </div>
           <span class="badge badge-${esc(a.status||'confirmed')}">${esc(a.status||'confirmed')}</span>
         </div>`).join('');
@@ -880,6 +913,8 @@
           updatedAt: serverTimestamp()
         };
         if (document.getElementById('set-currency')) data.currency = document.getElementById('set-currency').value || 'PHP';
+        const themeMode = (settings && settings.theme && settings.theme.mode) || obTheme || 'light';
+        data.theme = { mode: themeMode, primaryColor: '' };
         await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), data);
         settings = { ...settings, ...data };
         document.getElementById('header-business-name').textContent = data.businessName;
@@ -918,52 +953,75 @@
     }
 
     function drawQr() {
-      const box = document.getElementById('qr-box') || document.getElementById('qr-container');
+      const box = document.getElementById('qr-box');
       const status = document.getElementById('qr-status');
       const linkEl = document.getElementById('booking-link');
-      const url = (linkEl && linkEl.value) || (linkEl && linkEl.textContent) || '';
+      let url = (linkEl && (linkEl.value || linkEl.textContent) || '').trim();
+      if (!url && auth.currentUser) {
+        url = location.origin + '/booking.html?tenant=' + auth.currentUser.uid;
+      }
       if (!box) return;
-      if (!url || !url.includes('http')) {
-        box.innerHTML = '<p class="text-sm text-slate-500 p-4 text-center">Booking link not ready yet. Complete setup first.</p>';
-        if (status) status.textContent = 'Waiting for booking URL…';
+      box.innerHTML = '';
+      if (!url || url.indexOf('http') !== 0) {
+        box.innerHTML = '<p class="text-sm text-slate-500 p-4 text-center">Booking link not ready. Finish setup first.</p>';
+        if (status) status.textContent = 'No booking URL yet';
         return;
       }
-      box.innerHTML = '';
       if (status) status.textContent = 'Generating QR…';
       try {
-        if (typeof QRCode === 'undefined') throw new Error('QR library missing');
-        new QRCode(box, { text: url.trim(), width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
-        if (status) status.textContent = 'Scan to open booking page';
-        box.dataset.qrUrl = url.trim();
+        if (typeof QRCode === 'undefined') throw new Error('QR library failed to load');
+        new QRCode(box, {
+          text: url,
+          width: 200,
+          height: 200,
+          colorDark: '#0f172a',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+        if (status) status.textContent = 'Scan to open your public booking page';
+        box.dataset.qrUrl = url;
+        const urlOut = document.getElementById('qr-url-text');
+        if (urlOut) urlOut.textContent = url;
       } catch (e) {
-        box.innerHTML = '<p class="text-sm text-red-600 p-3">Could not generate QR. URL: ' + url + '</p>';
-        if (status) status.textContent = e.message || 'QR failed';
+        console.error(e);
+        box.innerHTML = '<p class="text-sm text-red-600 p-3 text-center">QR failed: ' + (e.message || 'error') + '<br><span class="text-xs break-all">' + url + '</span></p>';
+        if (status) status.textContent = 'QR generation failed';
       }
     }
 
+    function qrImageSrc() {
+      const box = document.getElementById('qr-box');
+      if (!box) return '';
+      const img = box.querySelector('img');
+      if (img && img.src) return img.src;
+      const c = box.querySelector('canvas');
+      if (c && c.toDataURL) return c.toDataURL('image/png');
+      return '';
+    }
+
     document.getElementById('btn-dl-qr')?.addEventListener('click', () => {
-      const img = document.getElementById('qr-img');
-      const c = document.getElementById('qr-canvas');
+      const src = qrImageSrc();
+      if (!src) { toast('QR not ready', 'error'); return; }
       const a = document.createElement('a');
       a.download = 'booking-qr.png';
-      if (img && img.src && !img.classList.contains('hidden')) {
-        a.href = img.src;
-        a.target = '_blank';
-        a.click();
-        return;
-      }
-      if (c && c.width) { a.href = c.toDataURL(); a.click(); }
-      else toast('QR not ready', 'error');
+      a.href = src;
+      a.click();
     });
     document.getElementById('btn-print-qr')?.addEventListener('click', () => {
-      const img = document.getElementById('qr-img');
-      const c = document.getElementById('qr-canvas');
-      let src = '';
-      if (img && img.src && !img.classList.contains('hidden')) src = img.src;
-      else if (c && c.width) src = c.toDataURL();
+      const src = qrImageSrc();
+      const url = document.getElementById('booking-link')?.value || '';
+      const name = settings?.businessName || 'BookAI';
       if (!src) { toast('QR not ready', 'error'); return; }
       const w = window.open('');
-      if (w) { w.document.write('<img src="'+src+'" style="width:240px;height:240px" onload="print()" />'); }
+      if (w) {
+        w.document.write('<!DOCTYPE html><html><head><title>Scan to Book</title></head><body style="font-family:system-ui;text-align:center;padding:32px">');
+        w.document.write('<h1 style="font-size:20px">' + name.replace(/</g,'') + '</h1>');
+        w.document.write('<p>Scan to Book</p>');
+        w.document.write('<img src="'+src+'" style="width:240px;height:240px" />');
+        w.document.write('<p style="font-size:12px;word-break:break-all">' + url.replace(/</g,'') + '</p>');
+        w.document.write('<script>window.onload=function(){window.print()}<\/script></body></html>');
+        w.document.close();
+      }
     });
     document.getElementById('btn-copy-link').onclick = async () => {
       const ok = await copyToClipboard(document.getElementById('booking-link').value);
@@ -1352,6 +1410,22 @@
         });
         const d = await res.json();
         if (!res.ok) return;
+        if (d.status === 'unregistered') {
+          try {
+            const idToken2 = await auth.currentUser.getIdToken();
+            await fetch('/api/create-booking', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'registerTenant',
+                idToken: idToken2,
+                businessName: settings?.businessName || 'Business',
+                ownerEmail: auth.currentUser.email
+              })
+            });
+          } catch (e) {}
+          return;
+        }
         if (d.status === 'expired' || d.trialExpired) {
           el.classList.remove('hidden');
           el.classList.add('expired');
