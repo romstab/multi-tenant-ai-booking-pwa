@@ -89,6 +89,31 @@ module.exports = async function handler(req, res) {
   const action = body.action;
 
   try {
+    if (action === 'listSupportMessages') {
+      const snap = await db.collection('platformSupport').orderBy('createdAt', 'desc').limit(50).get();
+      const items = [];
+      snap.forEach((d) => {
+        const x = d.data();
+        items.push({
+          id: d.id,
+          tenantId: x.tenantId || '',
+          email: x.email || '',
+          businessName: x.businessName || '',
+          message: x.message || '',
+          status: x.status || 'open',
+          createdAt: x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().toISOString() : null
+        });
+      });
+      return res.status(200).json({ items });
+    }
+
+    if (action === 'resolveSupport') {
+      const id = body.id;
+      if (!id) return res.status(400).json({ error: 'id required' });
+      await db.doc('platformSupport/' + id).set({ status: 'resolved', resolvedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      return res.status(200).json({ success: true });
+    }
+
     if (action === 'listTenants') {
       const snap = await db.collection('platformTenants').orderBy('createdAt', 'desc').limit(200).get();
       const tenants = [];

@@ -612,6 +612,48 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    
+    if (action === 'tenantStatus') {
+      const uid = await verifyOwner(body.idToken);
+      const tenantId = body.tenantId || uid;
+      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+      const snap = await db.doc('platformTenants/' + tenantId).get();
+      if (!snap.exists) {
+        return res.status(200).json({ status: 'active', daysLeft: null, trialExpired: false });
+      }
+      const p = snap.data();
+      let status = p.status || 'trial';
+      let daysLeft = null;
+      let trialExpired = false;
+      if (p.trialEnd && p.trialEnd.toDate) {
+        const end = p.trialEnd.toDate().getTime();
+        daysLeft = Math.ceil((end - Date.now()) / 86400000);
+        if (status === 'trial' && end < Date.now()) {
+          trialExpired = true;
+          status = 'expired';
+        }
+      }
+      if (status === 'expired') trialExpired = true;
+      return res.status(200).json({ status, daysLeft, trialExpired, email: p.email || null, businessName: p.businessName || null });
+    }
+
+    if (action === 'supportMessage') {
+      const uid = await verifyOwner(body.idToken);
+      const tenantId = body.tenantId || uid;
+      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+      const message = String(body.message || '').trim().slice(0, 2000);
+      if (message.length < 5) return res.status(400).json({ error: 'Message too short' });
+      await db.collection('platformSupport').add({
+        tenantId,
+        email: body.email || '',
+        businessName: body.businessName || '',
+        message,
+        status: 'open',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      return res.status(201).json({ success: true });
+    }
+
     return res.status(400).json({ error: 'Unknown action' });
   } catch (err) {
     console.error('business API', err);
