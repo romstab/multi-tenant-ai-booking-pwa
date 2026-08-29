@@ -23,18 +23,43 @@
   <div id="error-state" class="hidden min-h-screen flex items-center justify-center px-4">
     <div class="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm">
       <div class="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">!</div>
-      <h1 class="text-xl font-semibold mb-2">Unable to load booking page</h1>
+      <h1 id="error-title" class="text-xl font-semibold mb-2">Unable to load booking page</h1>
       <p id="error-message" class="text-sm text-slate-600"></p>
+      <button type="button" id="btn-retry-load" class="mt-5 w-full py-3 rounded-xl bg-sky-600 text-white text-sm font-semibold">
+        Retry
+      </button>
+      <p class="text-xs text-slate-400 mt-3">If this keeps happening, ask the business for a fresh booking link.</p>
     </div>
   </div>
 
   <!-- Loading -->
   <div id="loading-state" class="min-h-screen flex items-center justify-center">
-    <div class="text-center">
+    <div class="text-center px-4">
       <div class="w-10 h-10 border-2 border-slate-300 border-t-sky-600 rounded-full animate-spin mx-auto mb-3"></div>
-      <p class="text-sm text-slate-500">Loading business…</p>
+      <p class="text-sm text-slate-500" id="loading-text">Loading business…</p>
+      <p class="text-xs text-slate-400 mt-2">Please wait a moment</p>
     </div>
   </div>
+
+  <!-- Watchdog: if the ES module never finishes (CDN/import hang), leave loading state -->
+  <script>
+    window.__bookaiLoadOk = false;
+    setTimeout(function () {
+      if (window.__bookaiLoadOk) return;
+      var loading = document.getElementById('loading-state');
+      var err = document.getElementById('error-state');
+      if (!loading || loading.classList.contains('hidden')) return;
+      if (err && !err.classList.contains('hidden')) return;
+      loading.classList.add('hidden');
+      if (err) {
+        err.classList.remove('hidden');
+        var msg = document.getElementById('error-message');
+        var title = document.getElementById('error-title');
+        if (title) title.textContent = 'Still loading';
+        if (msg) msg.textContent = 'The booking page took too long to load. Check your connection, then tap Retry.';
+      }
+    }, 18000);
+  </script>
 
   <!-- Main booking UI -->
   <div id="booking-app" class="hidden min-h-screen flex flex-col">
@@ -50,6 +75,19 @@
           </div>
         </div>
         <p id="biz-desc" class="mt-3 text-sm text-slate-300 leading-relaxed"></p>
+        <div id="biz-contact" class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-300 hidden">
+          <a id="biz-phone-link" href="#" class="underline decoration-slate-500 hover:text-white hidden"></a>
+          <a id="biz-email-link" href="#" class="underline decoration-slate-500 hover:text-white hidden"></a>
+        </div>
+        <div id="biz-location" class="mt-4 hidden">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Business location</p>
+          <p id="biz-address-text" class="text-sm text-slate-200 leading-relaxed"></p>
+          <a id="biz-maps-link" href="#" target="_blank" rel="noopener noreferrer"
+             class="inline-flex items-center gap-1.5 mt-2 text-sm font-semibold text-sky-300 underline">
+            Open in Maps
+          </a>
+          <p class="text-[11px] text-slate-500 mt-1">Map search for this address (not exact GPS unless pinned).</p>
+        </div>
       </div>
     </header>
 
@@ -192,23 +230,71 @@
       timeToMinutes,
       minutesToTime
     } from './app.js';
+    import { displayAddress, mapsSearchUrl } from './ph-address.js';
 
     const params = new URLSearchParams(window.location.search);
-    let tenantId = params.get('tenant');
-    const handleParam = params.get('handle');
+    // Support: ?tenant=, ?tenantId=, path /b/HANDLE → ?handle= (Vercel rewrite)
+    let tenantId = params.get('tenant') || params.get('tenantId') || '';
+    const handleParam = params.get('handle') || '';
 
     let settings = null;
     let services = [];
-    let existingAppointments = []; // loaded only for the selected date (via server or limited client read if rules allow)
+    let existingAppointments = [];
     let selectedService = null;
     let selectedDate = null;
     let selectedSlot = null;
+    let loadInFlight = false;
+
+    const LOAD_TIMEOUT_MS = 14000;
+
+    function withTimeout(promise, ms, label) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error((label || 'Request') + ' timed out. Check your connection.')), ms);
+        })
+      ]);
+    }
+
+    function setLoadingVisible(on, text) {
+      const loading = document.getElementById('loading-state');
+      const app = document.getElementById('booking-app');
+      const err = document.getElementById('error-state');
+      if (on) {
+        if (loading) loading.classList.remove('hidden');
+        if (app) app.classList.add('hidden');
+        if (err) err.classList.add('hidden');
+        const t = document.getElementById('loading-text');
+        if (t && text) t.textContent = text;
+      } else if (loading) {
+        loading.classList.add('hidden');
+      }
+    }
+
+    function showError(msg, title) {
+      window.__bookaiLoadOk = true;
+      setLoadingVisible(false);
+      document.getElementById('booking-app')?.classList.add('hidden');
+      const err = document.getElementById('error-state');
+      if (err) err.classList.remove('hidden');
+      const titleEl = document.getElementById('error-title');
+      if (titleEl) titleEl.textContent = title || 'Unable to load booking page';
+      const msgEl = document.getElementById('error-message');
+      if (msgEl) msgEl.textContent = msg || 'Something went wrong.';
+      console.warn('[BookAI booking]', title || 'error', msg);
+    }
+
+    function showSuccessUI() {
+      window.__bookaiLoadOk = true;
+      setLoadingVisible(false);
+      document.getElementById('error-state')?.classList.add('hidden');
+      document.getElementById('booking-app')?.classList.remove('hidden');
+    }
 
     // ---------- Init ----------
     
     function lockBookingUI(message) {
       const msg = message || 'This business is currently unavailable for online bookings.';
-      const root = document.getElementById('booking-flow') || document.querySelector('main') || document.body;
       const panel = document.getElementById('unavailable-panel');
       if (panel) {
         panel.classList.remove('hidden');
@@ -233,31 +319,33 @@
       });
     }
 
-    
-      function applyPublicTheme(mode) {
-        const m = mode || 'light';
-        document.documentElement.setAttribute('data-theme', m);
-        const meta = document.querySelector('meta[name="theme-color"]');
-        const colors = { light:'#0ea5e9', dark:'#0b1220', blue:'#2563eb', pink:'#db2777', gold:'#d97706' };
-        if (meta) meta.setAttribute('content', colors[m] || '#0ea5e9');
-      }
+    function applyPublicTheme(mode) {
+      const m = mode || 'light';
+      document.documentElement.setAttribute('data-theme', m);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      const colors = { light:'#0ea5e9', dark:'#0b1220', blue:'#2563eb', pink:'#db2777', gold:'#d97706' };
+      if (meta) meta.setAttribute('content', colors[m] || '#0ea5e9');
+    }
 
-    
     function updateBookingManifest(tid, bizName) {
       try {
+        if (!tid) return;
         const start = location.origin + '/booking.html?tenant=' + encodeURIComponent(tid);
         const manifest = {
           name: (bizName || 'Book') + ' — Book Online',
-          short_name: (bizName || 'Book').slice(0, 12),
-          description: 'Book an appointment',
+          short_name: String(bizName || 'Book').slice(0, 12),
+          description: 'Book an appointment with ' + (bizName || 'this business'),
           start_url: start,
           scope: '/',
           display: 'standalone',
+          orientation: 'portrait-primary',
           background_color: '#0f172a',
           theme_color: '#0ea5e9',
           icons: [
             { src: '/assets/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-            { src: '/assets/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }
+            { src: '/assets/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: '/assets/icons/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: '/assets/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
           ]
         };
         const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
@@ -270,39 +358,121 @@
           document.head.appendChild(link);
         }
         link.href = url;
-      } catch (e) { console.warn(e); }
+      } catch (e) { console.warn('manifest', e); }
+    }
+
+    /** Server-side tenant bookability (trial/suspended/expired) */
+    async function checkTenantBookable(tid) {
+      try {
+        const res = await withTimeout(fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'getSlots',
+            tenantId: tid,
+            // dummy serviceId — if business blocked, API returns 403 before service check
+            // if not blocked, may 404 service — that means bookable
+            serviceId: '__probe__',
+            date: new Date().toISOString().slice(0, 10)
+          })
+        }), 10000, 'Availability check');
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 403) {
+          return { ok: false, message: data.error || 'This business is currently unavailable for online bookings.' };
+        }
+        // 404 service or 200 closed/slots → tenant exists and is allowed to book (or emergency closed)
+        if (data.closed) {
+          return { ok: false, message: data.message || 'This business is temporarily closed for online bookings.' };
+        }
+        return { ok: true };
+      } catch (e) {
+        // Network failure on probe should not block showing the page; slot load will surface errors
+        console.warn('bookable probe', e.message);
+        return { ok: true, probeFailed: true };
+      }
+    }
+
+    async function resolveTenantId() {
+      let tid = (tenantId || '').trim();
+      const handle = (handleParam || '').trim().toLowerCase();
+
+      if (tid && tid.length >= 10) return tid;
+
+      if (handle) {
+        const r = await withTimeout(fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'resolveHandle', handle })
+        }), LOAD_TIMEOUT_MS, 'Business lookup');
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          const err = new Error(d.error || 'Business not found for this link.');
+          err.code = 'NOT_FOUND';
+          throw err;
+        }
+        if (!d.tenantId) {
+          const err = new Error('Business not found for this link.');
+          err.code = 'NOT_FOUND';
+          throw err;
+        }
+        return d.tenantId;
+      }
+
+      // path-style /b/handle without rewrite (fallback)
+      const path = location.pathname || '';
+      const m = path.match(/\/b\/([a-z0-9-]{3,40})\/?$/i);
+      if (m) {
+        const r = await withTimeout(fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'resolveHandle', handle: m[1].toLowerCase() })
+        }), LOAD_TIMEOUT_MS, 'Business lookup');
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.tenantId) return d.tenantId;
+      }
+
+      const err = new Error('This booking link is missing or invalid. Please use the link provided by the business.');
+      err.code = 'INVALID_LINK';
+      throw err;
     }
 
     async function init() {
+      if (loadInFlight) return;
+      loadInFlight = true;
+      setLoadingVisible(true, 'Loading business…');
       try {
-        if ((!tenantId || tenantId.length < 10) && handleParam) {
-          const r = await fetch('/api/create-booking', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'resolveHandle', handle: handleParam })
-          });
-          const d = await r.json();
-          if (!r.ok) {
-            showError(d.error || 'Business not found for this link.');
-            return;
-          }
-          tenantId = d.tenantId;
-        }
-        if (!tenantId || tenantId.length < 10) {
-          showError('Missing or invalid tenant ID. Please use the booking link provided by the business.');
-          return;
-        }
+        tenantId = await resolveTenantId();
+        setLoadingVisible(true, 'Loading business details…');
 
         const settingsRef = doc(db, 'tenants', tenantId, 'settings', 'config');
-        const settingsSnap = await getDoc(settingsRef);
+        const settingsSnap = await withTimeout(getDoc(settingsRef), LOAD_TIMEOUT_MS, 'Business settings');
         if (!settingsSnap.exists()) {
-          showError('This business was not found. The booking link may be incorrect or the business has not finished setup.');
+          showError(
+            'This business was not found. The booking link may be incorrect, or the owner has not finished setup yet.',
+            'Business not found'
+          );
           return;
         }
         settings = settingsSnap.data();
 
-        // Load active services
-        const svcSnap = await getDocs(collection(db, 'tenants', tenantId, 'services'));
+        // Bookability (suspended / expired trial)
+        setLoadingVisible(true, 'Checking availability…');
+        const bookable = await checkTenantBookable(tenantId);
+        if (!bookable.ok) {
+          // Still show header so client knows which business, but lock booking
+          services = [];
+          renderBusinessHeader();
+          showSuccessUI();
+          lockBookingUI(bookable.message);
+          return;
+        }
+
+        setLoadingVisible(true, 'Loading services…');
+        const svcSnap = await withTimeout(
+          getDocs(collection(db, 'tenants', tenantId, 'services')),
+          LOAD_TIMEOUT_MS,
+          'Services'
+        );
         services = [];
         svcSnap.forEach(d => {
           const data = d.data();
@@ -313,19 +483,33 @@
         renderBusinessHeader();
         renderServices();
         setupDateInput();
-        document.getElementById('loading-state').classList.add('hidden');
-        document.getElementById('booking-app').classList.remove('hidden');
+        showSuccessUI();
       } catch (err) {
-        console.error(err);
-        showError('Could not load business data. Please check your connection or try again later.');
+        console.error('[BookAI booking init]', err);
+        const code = err && err.code;
+        if (code === 'NOT_FOUND') {
+          showError(err.message, 'Business not found');
+        } else if (code === 'INVALID_LINK') {
+          showError(err.message, 'Invalid booking link');
+        } else if (String(err.message || '').toLowerCase().includes('timed out')) {
+          showError(err.message + ' Tap Retry to try again.', 'Connection timeout');
+        } else if (String(err.code || '').includes('permission')) {
+          showError('Could not read business data (permission). Ask the owner to publish Firestore rules.', 'Access error');
+        } else {
+          showError(
+            err.message || 'Could not load business data. Please check your connection or try again later.',
+            'Unable to load booking page'
+          );
+        }
+      } finally {
+        loadInFlight = false;
       }
     }
 
-    function showError(msg) {
-      document.getElementById('loading-state').classList.add('hidden');
-      document.getElementById('error-state').classList.remove('hidden');
-      document.getElementById('error-message').textContent = msg;
-    }
+    document.getElementById('btn-retry-load')?.addEventListener('click', () => {
+      window.__bookaiLoadOk = false;
+      init();
+    });
 
     function renderBusinessHeader() {
       document.getElementById('biz-name').textContent = settings.businessName || 'Business';
@@ -336,6 +520,58 @@
         const logo = document.getElementById('biz-logo');
         logo.innerHTML = `<img src="${escapeAttr(settings.logoUrl)}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<span>${(settings.businessName||'B').charAt(0)}</span>'" />`;
       }
+      // Public business contact only (settings.contactPhone / contactEmail — not Firebase Auth email)
+      const contactWrap = document.getElementById('biz-contact');
+      const phoneLink = document.getElementById('biz-phone-link');
+      const emailLink = document.getElementById('biz-email-link');
+      let hasContact = false;
+      const phone = (settings.contactPhone || '').trim();
+      const email = (settings.contactEmail || '').trim();
+      if (phoneLink) {
+        if (phone) {
+          const telHref = phone.replace(/[^\d+]/g, '');
+          phoneLink.href = 'tel:' + telHref;
+          phoneLink.textContent = phone;
+          phoneLink.classList.remove('hidden');
+          hasContact = true;
+        } else {
+          phoneLink.classList.add('hidden');
+        }
+      }
+      if (emailLink) {
+        if (email) {
+          emailLink.href = 'mailto:' + email;
+          emailLink.textContent = email;
+          emailLink.classList.remove('hidden');
+          hasContact = true;
+        } else {
+          emailLink.classList.add('hidden');
+        }
+      }
+      if (contactWrap) contactWrap.classList.toggle('hidden', !hasContact);
+
+      const locWrap = document.getElementById('biz-location');
+      const addrText = document.getElementById('biz-address-text');
+      const mapsLink = document.getElementById('biz-maps-link');
+      const fullAddr = displayAddress(settings);
+      if (locWrap && addrText) {
+        if (fullAddr) {
+          addrText.textContent = fullAddr;
+          locWrap.classList.remove('hidden');
+          if (mapsLink) {
+            const url = mapsSearchUrl(settings);
+            if (url) {
+              mapsLink.href = url;
+              mapsLink.classList.remove('hidden');
+            } else {
+              mapsLink.classList.add('hidden');
+            }
+          }
+        } else {
+          locWrap.classList.add('hidden');
+        }
+      }
+
       document.title = `Book — ${settings.businessName || 'Appointment'}`;
       applyTenantTheme(settings);
     }

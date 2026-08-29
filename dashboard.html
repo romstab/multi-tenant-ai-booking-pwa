@@ -25,7 +25,7 @@
   </div>
 
   <!-- ONBOARDING WIZARD -->
-  <div id="onboarding" class="hidden fixed inset-0 z-50 bg-slate-50 overflow-y-auto overflow-x-hidden" style="width:100%;max-width:100vw">
+  <div id="onboarding" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden" style="width:100%;max-width:100vw;background:var(--bg);color:var(--text)">
     <div class="setup-shell" style="max-width:28rem">
       <div class="flex items-center justify-between mb-6">
         <p class="text-sm font-semibold text-slate-900">Setup</p>
@@ -36,29 +36,94 @@
       <!-- Step 1 Business -->
       <div class="ob-step" data-step="1">
         <h1 class="text-xl font-semibold mb-1">Business information</h1>
-        <p class="text-sm text-slate-500 mb-5">This appears on your public booking page.</p>
+        <p class="text-sm text-slate-500 mb-5">Shown on your public booking page for customers.</p>
         <div class="space-y-3">
-          <div><label class="label">Business name *</label><input id="ob-name" class="input" placeholder="e.g. Northside Barbers" /></div>
-          <div><label class="label">Category</label>
+          <div>
+            <label class="label" for="ob-name">Business name *</label>
+            <input id="ob-name" class="input" placeholder="e.g. Northside Barbers" autocomplete="organization" />
+          </div>
+          <div>
+            <label class="label" for="ob-category">Business category *</label>
             <select id="ob-category" class="select">
               <option value="Barbershop">Barbershop</option>
-              <option value="Salon">Salon</option>
-              <option value="Spa">Spa</option>
-              <option value="Clinic">Clinic</option>
-              <option value="Tutor">Tutor</option>
-              <option value="Repair Shop">Repair Shop</option>
+              <option value="Hair Salon">Hair Salon</option>
+              <option value="Beauty Salon">Beauty Salon</option>
+              <option value="Nail Salon">Nail Salon</option>
+              <option value="Spa / Massage">Spa / Massage</option>
+              <option value="Skincare / Aesthetic Clinic">Skincare / Aesthetic Clinic</option>
+              <option value="Dental Clinic">Dental Clinic</option>
+              <option value="Medical / Health Clinic">Medical / Health Clinic</option>
+              <option value="Fitness / Personal Training">Fitness / Personal Training</option>
+              <option value="Gym / Sports Coaching">Gym / Sports Coaching</option>
+              <option value="Photography Studio">Photography Studio</option>
+              <option value="Tattoo Studio">Tattoo Studio</option>
+              <option value="Auto Service / Car Wash">Auto Service / Car Wash</option>
+              <option value="Repair Services">Repair Services</option>
+              <option value="Cleaning Services">Cleaning Services</option>
+              <option value="Home Services">Home Services</option>
+              <option value="Tutoring / Education">Tutoring / Education</option>
+              <option value="Consulting / Professional Services">Consulting / Professional Services</option>
+              <option value="Event Services">Event Services</option>
               <option value="Pet Grooming">Pet Grooming</option>
-              <option value="Consultant">Consultant</option>
+              <option value="Restaurant / Food Reservation">Restaurant / Food Reservation</option>
               <option value="Other">Other</option>
             </select>
           </div>
-          <div><label class="label">Description</label><textarea id="ob-desc" class="textarea" rows="3" placeholder="Short description for customers"></textarea></div>
-          <div class="grid grid-cols-2 gap-3">
-            <div><label class="label">Phone</label><input id="ob-phone" class="input" type="tel" /></div>
-            <div><label class="label">Email</label><input id="ob-email" class="input" type="email" /></div>
+          <div id="ob-category-other-wrap" class="hidden">
+            <label class="label" for="ob-category-other">Specify your business type *</label>
+            <input id="ob-category-other" class="input" placeholder="e.g. Mobile detailing, Vocal coaching" maxlength="80" />
+            <p class="field-hint">Required when category is Other.</p>
           </div>
-          <div><label class="label">Address</label><input id="ob-address" class="input" /></div>
-          <div><label class="label">Booking handle (optional)</label><input id="ob-handle" class="input" placeholder="johns-barbershop" /><p class="text-[11px] text-slate-400 mt-1">Letters, numbers, hyphens. Used in /b/your-handle</p></div>
+          <div>
+            <label class="label" for="ob-desc">Description</label>
+            <textarea id="ob-desc" class="textarea" rows="3" placeholder="Short description for customers"></textarea>
+          </div>
+          <div>
+            <label class="label" for="ob-email">Business email *</label>
+            <input id="ob-email" class="input" type="email" inputmode="email" autocomplete="email" placeholder="business@example.com" />
+            <p class="field-hint">Public contact email shown to customers. Format is checked; ownership is not verified by email code.</p>
+            <p id="ob-email-error" class="field-error hidden"></p>
+          </div>
+          <div>
+            <label class="label" for="ob-phone">Business phone number</label>
+            <input id="ob-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" placeholder="0917XXXXXXX or +63917XXXXXXX" />
+            <p class="field-hint">Public business contact number for customers (PH mobile: 09XX… or +639…).</p>
+            <p id="ob-phone-error" class="field-error hidden"></p>
+          </div>
+          <div class="ph-address-block" id="ob-address-block">
+            <p class="label" style="margin-bottom:0.5rem">Business location (Philippines) *</p>
+            <p class="field-hint mb-2">Select Region → Province → City → Barangay (PSGC list). Street details are not GPS-verified.</p>
+            <p id="ob-loc-status" class="field-hint ph-loc-status"></p>
+            <div class="space-y-2 mt-2">
+              <div>
+                <label class="label" for="ob-loc-region">Region *</label>
+                <select id="ob-loc-region" class="select" disabled><option value="">Loading…</option></select>
+              </div>
+              <div id="ob-loc-province-wrap">
+                <label class="label" for="ob-loc-province">Province *</label>
+                <select id="ob-loc-province" class="select" disabled><option value="">Select province</option></select>
+              </div>
+              <div>
+                <label class="label" for="ob-loc-city">City / Municipality *</label>
+                <select id="ob-loc-city" class="select" disabled><option value="">Select city / municipality</option></select>
+              </div>
+              <div>
+                <label class="label" for="ob-loc-barangay">Barangay *</label>
+                <select id="ob-loc-barangay" class="select" disabled><option value="">Select barangay</option></select>
+              </div>
+              <div>
+                <label class="label" for="ob-loc-specific">Specific address / street / building / unit</label>
+                <input id="ob-loc-specific" class="input" placeholder="e.g. 123 Mabini St., Unit 2B, near public market" autocomplete="street-address" />
+                <p class="field-hint">Optional details to help customers find you.</p>
+              </div>
+            </div>
+            <p id="ob-loc-error" class="field-error hidden"></p>
+          </div>
+          <div>
+            <label class="label" for="ob-handle">Booking handle (optional)</label>
+            <input id="ob-handle" class="input" placeholder="johns-barbershop" />
+            <p class="field-hint">Letters, numbers, hyphens. Used in /b/your-handle</p>
+          </div>
         </div>
       </div>
 
@@ -67,7 +132,7 @@
         <h1 class="text-xl font-semibold mb-1">Add services</h1>
         <p class="text-sm text-slate-500 mb-4">Suggested for your category — edit or remove freely.</p>
         <div id="ob-services" class="space-y-3 mb-3"></div>
-        <button type="button" id="ob-add-svc" class="btn btn-secondary btn-block text-sm">+ Add another service</button>
+        <button type="button" id="ob-add-svc" class="btn btn-secondary btn-block btn-add-svc">+ Add another service</button>
       </div>
 
       <!-- Step 3 Hours -->
@@ -118,7 +183,7 @@
         </div>
       </div>
 
-      <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4" id="ob-nav" style="padding-bottom:calc(1rem + env(safe-area-inset-bottom))">
+      <div class="fixed bottom-0 left-0 right-0 border-t p-4" id="ob-nav" style="padding-bottom:calc(1rem + env(safe-area-inset-bottom));background:var(--bg-elevated);border-color:var(--border)">
         <div class="max-w-lg mx-auto flex gap-3">
           <button type="button" id="ob-back" class="btn btn-secondary flex-1 hidden">Back</button>
           <button type="button" id="ob-next" class="btn btn-primary flex-1">Continue</button>
@@ -207,14 +272,27 @@
         </div>
         <div id="service-form-wrap" class="card p-4 hidden space-y-3">
           <input type="hidden" id="svc-id" />
-          <div><label class="label">Name *</label><input id="svc-name" class="input" /></div>
-          <div><label class="label">Description</label><textarea id="svc-desc" class="textarea" rows="2"></textarea></div>
-          <div class="grid grid-cols-2 gap-3">
-            <div><label class="label">Duration (min) *</label><input id="svc-duration" type="number" min="5" step="5" value="30" class="input" /></div>
-            <div><label class="label">Price</label><input id="svc-price" type="number" min="0" step="0.01" class="input" /></div>
+          <div><label class="label" for="svc-name">Service name *</label><input id="svc-name" class="input" placeholder="e.g. Haircut" /></div>
+          <div><label class="label" for="svc-desc">Description</label><textarea id="svc-desc" class="textarea" rows="2" placeholder="Optional details for customers"></textarea></div>
+          <div class="svc-fields">
+            <div class="svc-field">
+              <label class="label" for="svc-duration">Duration (minutes) *</label>
+              <div class="svc-input-wrap">
+                <input id="svc-duration" type="number" min="5" step="5" value="30" class="input svc-num" />
+                <span class="svc-suffix">min</span>
+              </div>
+            </div>
+            <div class="svc-field">
+              <label class="label" for="svc-price">Price</label>
+              <div class="svc-input-wrap">
+                <span class="svc-prefix" id="svc-price-prefix">₱</span>
+                <input id="svc-price" type="number" min="0" step="1" class="input svc-num" placeholder="0" />
+              </div>
+              <p class="text-[11px] text-slate-500 mt-1">Uses your business currency setting.</p>
+            </div>
           </div>
-          <label class="flex items-center gap-2 text-sm"><input id="svc-active" type="checkbox" checked class="rounded" /> Active</label>
-          <div class="flex gap-2"><button id="btn-save-service" class="btn btn-primary flex-1">Save</button><button id="btn-cancel-service" class="btn btn-secondary">Cancel</button></div>
+          <label class="flex items-center gap-2 text-sm"><input id="svc-active" type="checkbox" checked class="rounded" /> Active (shown on booking page)</label>
+          <div class="flex gap-2"><button id="btn-save-service" class="btn btn-primary flex-1">Save service</button><button id="btn-cancel-service" class="btn btn-secondary">Cancel</button></div>
         </div>
         <div id="services-list" class="space-y-3"></div>
       </section>
@@ -264,14 +342,81 @@
       <section id="panel-settings" class="hidden space-y-4">
         <div class="card p-4 space-y-3">
           <h2 class="font-semibold text-sm">Business settings</h2>
-          <div><label class="label">Business name</label><input id="set-name" class="input" /></div>
-          <div><label class="label">Category</label><input id="set-category" class="input" /></div>
-          <div><label class="label">Description</label><textarea id="set-description" class="textarea" rows="3"></textarea></div>
-          <div class="grid grid-cols-2 gap-3">
-            <div><label class="label">Email</label><input id="set-email" type="email" class="input" /></div>
-            <div><label class="label">Phone</label><input id="set-phone" class="input" /></div>
+          <div><label class="label" for="set-name">Business name</label><input id="set-name" class="input" /></div>
+          <div>
+            <label class="label" for="set-category">Business category</label>
+            <select id="set-category" class="select">
+              <option value="Barbershop">Barbershop</option>
+              <option value="Hair Salon">Hair Salon</option>
+              <option value="Beauty Salon">Beauty Salon</option>
+              <option value="Nail Salon">Nail Salon</option>
+              <option value="Spa / Massage">Spa / Massage</option>
+              <option value="Skincare / Aesthetic Clinic">Skincare / Aesthetic Clinic</option>
+              <option value="Dental Clinic">Dental Clinic</option>
+              <option value="Medical / Health Clinic">Medical / Health Clinic</option>
+              <option value="Fitness / Personal Training">Fitness / Personal Training</option>
+              <option value="Gym / Sports Coaching">Gym / Sports Coaching</option>
+              <option value="Photography Studio">Photography Studio</option>
+              <option value="Tattoo Studio">Tattoo Studio</option>
+              <option value="Auto Service / Car Wash">Auto Service / Car Wash</option>
+              <option value="Repair Services">Repair Services</option>
+              <option value="Cleaning Services">Cleaning Services</option>
+              <option value="Home Services">Home Services</option>
+              <option value="Tutoring / Education">Tutoring / Education</option>
+              <option value="Consulting / Professional Services">Consulting / Professional Services</option>
+              <option value="Event Services">Event Services</option>
+              <option value="Pet Grooming">Pet Grooming</option>
+              <option value="Restaurant / Food Reservation">Restaurant / Food Reservation</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
-          <div><label class="label">Address</label><input id="set-address" class="input" /></div>
+          <div id="set-category-other-wrap" class="hidden">
+            <label class="label" for="set-category-other">Specify your business type *</label>
+            <input id="set-category-other" class="input" maxlength="80" placeholder="Your business type" />
+          </div>
+          <div><label class="label" for="set-description">Description</label><textarea id="set-description" class="textarea" rows="3"></textarea></div>
+          <div>
+            <label class="label" for="set-email">Business email</label>
+            <input id="set-email" type="email" inputmode="email" class="input" placeholder="business@example.com" />
+            <p class="field-hint">Public contact for customers. Format validated only.</p>
+          </div>
+          <div>
+            <label class="label" for="set-phone">Business phone number</label>
+            <input id="set-phone" type="tel" inputmode="tel" class="input" placeholder="0917XXXXXXX or +63917XXXXXXX" />
+            <p class="field-hint">Public business number (PH: 09XX or +639).</p>
+          </div>
+          <div class="ph-address-block" id="set-address-block">
+            <p class="label" style="margin-bottom:0.5rem">Business location (Philippines)</p>
+            <p class="field-hint mb-2">Structured PH address. Legacy plain address is kept if present.</p>
+            <p id="set-loc-status" class="field-hint ph-loc-status"></p>
+            <div class="space-y-2 mt-2">
+              <div>
+                <label class="label" for="set-loc-region">Region</label>
+                <select id="set-loc-region" class="select" disabled><option value="">Loading…</option></select>
+              </div>
+              <div id="set-loc-province-wrap">
+                <label class="label" for="set-loc-province">Province</label>
+                <select id="set-loc-province" class="select" disabled><option value="">Select province</option></select>
+              </div>
+              <div>
+                <label class="label" for="set-loc-city">City / Municipality</label>
+                <select id="set-loc-city" class="select" disabled><option value="">Select city / municipality</option></select>
+              </div>
+              <div>
+                <label class="label" for="set-loc-barangay">Barangay</label>
+                <select id="set-loc-barangay" class="select" disabled><option value="">Select barangay</option></select>
+              </div>
+              <div>
+                <label class="label" for="set-loc-specific">Specific address / street / building / unit</label>
+                <input id="set-loc-specific" class="input" placeholder="Street, building, unit, landmark" />
+              </div>
+              <div>
+                <label class="label" for="set-address">Legacy address text</label>
+                <input id="set-address" class="input" placeholder="Previous free-text address (kept for compatibility)" />
+                <p class="field-hint">Shown only if structured location is incomplete.</p>
+              </div>
+            </div>
+          </div>
           <div class="mt-3">
           <label class="label">Currency</label>
           <select id="set-currency" class="input">
@@ -353,9 +498,11 @@
       <h3 class="font-semibold">Add walk-in</h3>
       <div><label class="label">Customer name</label><input id="wi-name" class="input" placeholder="Walk-in" /></div>
       <div><label class="label">Service</label><select id="wi-service" class="select"></select></div>
-      <div class="grid grid-cols-2 gap-2">
-        <div><label class="label">Date</label><input id="wi-date" type="date" class="input" /></div>
-        <div><label class="label">Start time</label><input id="wi-time" type="time" class="input" /></div>
+      <div><label class="label">Date</label><input id="wi-date" type="date" class="input" /></div>
+      <div>
+        <label class="label">Start time</label>
+        <input type="hidden" id="wi-time" value="09:00" />
+        <div id="wi-time-picker" class="time-ampm" data-time-for="wi-time"></div>
       </div>
       <div class="flex gap-2">
         <button type="button" id="wi-cancel" class="btn btn-secondary flex-1">Cancel</button>
@@ -370,15 +517,43 @@
       <h3 class="font-semibold">Block time</h3>
       <div><label class="label">Date</label><input id="bl-date" type="date" class="input" /></div>
       <label class="flex items-center gap-2 text-sm"><input id="bl-allday" type="checkbox" /> Full day</label>
-      <div class="grid grid-cols-2 gap-2" id="bl-times">
-        <div><label class="label">Start</label><input id="bl-start" type="time" class="input" value="12:00" /></div>
-        <div><label class="label">End</label><input id="bl-end" type="time" class="input" value="13:00" /></div>
+      <div id="bl-times" class="space-y-3">
+        <div>
+          <label class="label">Start</label>
+          <input type="hidden" id="bl-start" value="12:00" />
+          <div id="bl-start-picker" class="time-ampm" data-time-for="bl-start"></div>
+        </div>
+        <div>
+          <label class="label">End</label>
+          <input type="hidden" id="bl-end" value="13:00" />
+          <div id="bl-end-picker" class="time-ampm" data-time-for="bl-end"></div>
+        </div>
       </div>
       <div><label class="label">Reason</label><input id="bl-reason" class="input" placeholder="Lunch break" /></div>
       <div class="flex gap-2">
         <button type="button" id="bl-cancel" class="btn btn-secondary flex-1">Cancel</button>
         <button type="button" id="bl-save" class="btn btn-primary flex-1">Block</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Support chat modal (trial expired / contact admin) -->
+  <div id="modal-support-chat" class="support-chat-modal hidden" role="dialog" aria-labelledby="support-chat-title" aria-modal="true">
+    <div class="support-chat-sheet">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <h3 id="support-chat-title" class="font-semibold text-base">Message platform admin</h3>
+        <button type="button" id="support-chat-close" class="btn btn-ghost text-sm px-2" aria-label="Close">✕</button>
+      </div>
+      <p id="support-chat-reason" class="support-chat-hint">
+        Your free trial has ended. You can message the platform administrator here to request activation or ask for assistance.
+      </p>
+      <label class="label" for="support-chat-text">Your message</label>
+      <textarea id="support-chat-text" class="input" rows="4" placeholder="Example: Please activate my account / I need help with…"></textarea>
+      <div class="flex gap-2 mt-3">
+        <button type="button" id="support-chat-dismiss" class="btn btn-secondary flex-1">Not now</button>
+        <button type="button" id="support-chat-send" class="btn btn-primary flex-1">Send message</button>
+      </div>
+      <p class="text-xs text-slate-500 mt-2 text-center">Messages go to the Super Admin panel. You can open this again from Settings.</p>
     </div>
   </div>
 
@@ -392,6 +567,10 @@
       collection, addDoc, getDocs, onSnapshot, serverTimestamp
     } from './firebase-config.js';
     import { getDefaultOperatingHours, copyToClipboard, formatDisplayDate, formatMoney, formatTime12 } from './app.js';
+    import { mountPhAddressForm, displayAddress } from './ph-address.js';
+
+    let obAddressForm = null;
+    let setAddressForm = null;
 
     const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
     const DAY_LABELS = { monday:'Mon', tuesday:'Tue', wednesday:'Wed', thursday:'Thu', friday:'Fri', saturday:'Sat', sunday:'Sun' };
@@ -401,24 +580,92 @@
         { name: 'Beard Trim', description: 'Beard shaping', duration: 20, price: 150 },
         { name: 'Haircut + Beard', description: 'Full grooming', duration: 45, price: 350 }
       ],
-      Salon: [
+      'Hair Salon': [
         { name: 'Haircut', description: 'Styled cut', duration: 45, price: 400 },
         { name: 'Hair Coloring', description: 'Color service', duration: 90, price: 1200 },
         { name: 'Hair Treatment', description: 'Treatment', duration: 60, price: 800 }
       ],
-      Spa: [
+      'Beauty Salon': [
+        { name: 'Make-up', description: 'Full make-up', duration: 60, price: 800 },
+        { name: 'Facial', description: 'Facial treatment', duration: 45, price: 600 }
+      ],
+      'Nail Salon': [
+        { name: 'Manicure', description: 'Classic manicure', duration: 45, price: 350 },
+        { name: 'Pedicure', description: 'Classic pedicure', duration: 60, price: 450 }
+      ],
+      'Spa / Massage': [
         { name: 'Massage 60 min', description: 'Relaxation massage', duration: 60, price: 900 },
         { name: 'Facial', description: 'Facial treatment', duration: 45, price: 700 }
       ],
-      Clinic: [
+      'Skincare / Aesthetic Clinic': [
+        { name: 'Consultation', description: 'Skin consult', duration: 30, price: 500 },
+        { name: 'Facial Treatment', description: 'Clinic facial', duration: 60, price: 1200 }
+      ],
+      'Dental Clinic': [
+        { name: 'Consultation', description: 'Dental consult', duration: 30, price: 500 },
+        { name: 'Cleaning', description: 'Oral prophylaxis', duration: 45, price: 1500 }
+      ],
+      'Medical / Health Clinic': [
         { name: 'Consultation', description: 'Initial consult', duration: 30, price: 500 },
         { name: 'Follow-up', description: 'Follow-up visit', duration: 20, price: 300 }
       ],
+      'Fitness / Personal Training': [
+        { name: '1-on-1 Training', description: 'Personal training session', duration: 60, price: 800 }
+      ],
+      'Gym / Sports Coaching': [
+        { name: 'Coaching Session', description: 'Sports coaching', duration: 60, price: 700 }
+      ],
+      'Photography Studio': [
+        { name: 'Portrait Session', description: 'Studio portrait', duration: 60, price: 1500 }
+      ],
+      'Tattoo Studio': [
+        { name: 'Small Tattoo', description: 'Consultation + small piece', duration: 60, price: 2000 }
+      ],
+      'Auto Service / Car Wash': [
+        { name: 'Car Wash', description: 'Exterior wash', duration: 45, price: 300 },
+        { name: 'Full Detail', description: 'Interior + exterior', duration: 120, price: 1500 }
+      ],
+      'Repair Services': [
+        { name: 'Diagnostics', description: 'Assessment', duration: 30, price: 200 }
+      ],
+      'Cleaning Services': [
+        { name: 'Home Cleaning', description: 'Standard clean', duration: 120, price: 1200 }
+      ],
+      'Home Services': [
+        { name: 'Service Call', description: 'On-site visit', duration: 60, price: 500 }
+      ],
+      'Tutoring / Education': [
+        { name: '1-hour Session', description: 'Private tutoring', duration: 60, price: 600 }
+      ],
+      'Consulting / Professional Services': [
+        { name: 'Consultation', description: '1-hour consult', duration: 60, price: 1500 }
+      ],
+      'Event Services': [
+        { name: 'Event Planning Session', description: 'Planning meeting', duration: 60, price: 1000 }
+      ],
+      'Pet Grooming': [
+        { name: 'Full Groom', description: 'Bath + trim', duration: 90, price: 800 }
+      ],
+      'Restaurant / Food Reservation': [
+        { name: 'Table Reservation', description: 'Reserved seating', duration: 90, price: 0 }
+      ],
+      Other: [
+        { name: 'Standard Service', description: 'Default service', duration: 30, price: 300 }
+      ],
+      // legacy keys from older tenants
+      Salon: [
+        { name: 'Haircut', description: 'Styled cut', duration: 45, price: 400 },
+        { name: 'Hair Coloring', description: 'Color service', duration: 90, price: 1200 }
+      ],
+      Spa: [
+        { name: 'Massage 60 min', description: 'Relaxation massage', duration: 60, price: 900 }
+      ],
+      Clinic: [
+        { name: 'Consultation', description: 'Initial consult', duration: 30, price: 500 }
+      ],
       Tutor: [{ name: '1-hour Session', description: 'Private tutoring', duration: 60, price: 600 }],
       'Repair Shop': [{ name: 'Diagnostics', description: 'Assessment', duration: 30, price: 200 }],
-      'Pet Grooming': [{ name: 'Full Groom', description: 'Bath + trim', duration: 90, price: 800 }],
-      Consultant: [{ name: 'Consultation', description: '1-hour consult', duration: 60, price: 1500 }],
-      Other: [{ name: 'Standard Service', description: 'Default service', duration: 30, price: 300 }]
+      Consultant: [{ name: 'Consultation', description: '1-hour consult', duration: 60, price: 1500 }]
     };
 
     let tenantId = null, settings = null, allAppointments = [], bookingFilter = 'all', obStep = 1, obTheme = 'light', obServices = [];
@@ -459,6 +706,9 @@
       renderObHours(getDefaultOperatingHours());
       loadTemplateServices();
       showObStep(1);
+      if (!obAddressForm) {
+        obAddressForm = mountPhAddressForm('ob-loc', null);
+      }
     }
 
     function renderObDots() {
@@ -477,22 +727,51 @@
       renderObDots();
     }
 
-    document.getElementById('ob-category').addEventListener('change', loadTemplateServices);
     function loadTemplateServices() {
       const cat = document.getElementById('ob-category').value;
       obServices = (TEMPLATES[cat] || TEMPLATES.Other).map(s => ({ ...s, active: true }));
       renderObServices();
     }
+    function currencySymbol(code) {
+      const c = (code || 'PHP').toUpperCase();
+      return ({ PHP: '₱', USD: '$', EUR: '€', SGD: 'S$', JPY: '¥' })[c] || c + ' ';
+    }
+    function currentCurrencyCode() {
+      return (
+        document.getElementById('ob-currency')?.value ||
+        document.getElementById('set-currency')?.value ||
+        settings?.currency ||
+        'PHP'
+      ).toUpperCase();
+    }
+
     function renderObServices() {
       const el = document.getElementById('ob-services');
+      const cur = currentCurrencyCode();
+      const sym = currencySymbol(cur);
       el.innerHTML = obServices.map((s, i) => `
-        <div class="card p-3 space-y-2">
-          <input data-i="${i}" data-f="name" class="input text-sm" value="${esc(s.name)}" placeholder="Service name" />
-          <div class="grid grid-cols-2 gap-2">
-            <input data-i="${i}" data-f="duration" type="number" class="input text-sm" value="${s.duration}" placeholder="Minutes" />
-            <input data-i="${i}" data-f="price" type="number" class="input text-sm" value="${s.price}" placeholder="Price" />
+        <div class="svc-card card p-3 space-y-3">
+          <div>
+            <label class="label" for="ob-svc-name-${i}">Service name</label>
+            <input id="ob-svc-name-${i}" data-i="${i}" data-f="name" class="input" value="${esc(s.name)}" placeholder="e.g. Haircut" />
           </div>
-          <button type="button" data-del="${i}" class="text-xs text-red-600">Remove</button>
+          <div class="svc-fields">
+            <div class="svc-field">
+              <label class="label" for="ob-svc-dur-${i}">Duration (minutes)</label>
+              <div class="svc-input-wrap">
+                <input id="ob-svc-dur-${i}" data-i="${i}" data-f="duration" type="number" min="5" step="5" class="input svc-num" value="${s.duration ?? 30}" placeholder="30" />
+                <span class="svc-suffix">min</span>
+              </div>
+            </div>
+            <div class="svc-field">
+              <label class="label" for="ob-svc-price-${i}">Price (${cur})</label>
+              <div class="svc-input-wrap">
+                <span class="svc-prefix">${sym}</span>
+                <input id="ob-svc-price-${i}" data-i="${i}" data-f="price" type="number" min="0" step="1" class="input svc-num" value="${s.price ?? 0}" placeholder="0" />
+              </div>
+            </div>
+          </div>
+          <button type="button" data-del="${i}" class="btn-remove-svc">Remove service</button>
         </div>`).join('');
       el.querySelectorAll('[data-f]').forEach(inp => {
         inp.addEventListener('input', () => {
@@ -500,23 +779,62 @@
           obServices[i][f] = f === 'name' ? inp.value : Number(inp.value) || 0;
         });
       });
-      el.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { obServices.splice(+b.dataset.del, 1); renderObServices(); });
+      el.querySelectorAll('[data-del]').forEach(b => {
+        b.onclick = () => {
+          if (obServices.length <= 1) {
+            toast('Keep at least one service', 'error');
+            return;
+          }
+          if (!confirm('Remove this service from the list?')) return;
+          obServices.splice(+b.dataset.del, 1);
+          renderObServices();
+        };
+      });
     }
     document.getElementById('ob-add-svc').onclick = () => {
       obServices.push({ name: '', description: '', duration: 30, price: 0, active: true });
       renderObServices();
     };
+    // When currency changes later in setup, refresh service price labels if still on step 2 later
+    document.getElementById('ob-currency')?.addEventListener('change', () => {
+      if (obStep === 2) renderObServices();
+    });
 
     function renderObHours(hours) {
-      document.getElementById('ob-hours').innerHTML = DAYS.map(day => {
+      const el = document.getElementById('ob-hours');
+      el.innerHTML = DAYS.map(day => {
         const h = hours[day] || { enabled: false, open: '09:00', close: '17:00' };
-        return `<div class="flex flex-wrap items-center gap-2 card p-3">
-          <label class="flex items-center gap-2 w-16 text-sm font-medium"><input type="checkbox" data-day="${day}" class="ob-en" ${h.enabled?'checked':''}/> ${DAY_LABELS[day]}</label>
-          <input type="time" data-day="${day}" data-field="open" value="${h.open||'09:00'}" class="input text-sm py-1.5 w-auto" />
-          <span class="text-slate-400 text-xs">to</span>
-          <input type="time" data-day="${day}" data-field="close" value="${h.close||'17:00'}" class="input text-sm py-1.5 w-auto" />
+        const closed = !h.enabled;
+        return `<div class="hour-row ${closed ? 'hour-row-closed' : ''}" data-hour-row="${day}">
+          <label class="hour-day">
+            <input type="checkbox" data-day="${day}" class="ob-en hour-day-check" ${h.enabled ? 'checked' : ''} />
+            <span class="hour-day-name">${DAY_LABELS[day]}</span>
+            <span class="hour-day-state">${h.enabled ? 'Open' : 'Closed'}</span>
+          </label>
+          <div class="hour-times">
+            <div class="hour-time-block">
+              <span class="hour-time-label">Open</span>
+              <input type="time" data-day="${day}" data-field="open" value="${h.open || '09:00'}" class="hour-time-input" ${closed ? 'disabled' : ''} />
+            </div>
+            <span class="hour-arrow" aria-hidden="true">→</span>
+            <div class="hour-time-block">
+              <span class="hour-time-label">Close</span>
+              <input type="time" data-day="${day}" data-field="close" value="${h.close || '17:00'}" class="hour-time-input" ${closed ? 'disabled' : ''} />
+            </div>
+          </div>
         </div>`;
       }).join('');
+      el.querySelectorAll('.ob-en').forEach((cb) => {
+        cb.addEventListener('change', () => {
+          const row = cb.closest('.hour-row');
+          if (!row) return;
+          const on = cb.checked;
+          row.classList.toggle('hour-row-closed', !on);
+          const state = row.querySelector('.hour-day-state');
+          if (state) state.textContent = on ? 'Open' : 'Closed';
+          row.querySelectorAll('.hour-time-input').forEach((inp) => { inp.disabled = !on; });
+        });
+      });
     }
 
     function applyTheme(mode) {
@@ -525,6 +843,12 @@
       const meta = document.querySelector('meta[name="theme-color"]');
       const colors = { light:'#0ea5e9', dark:'#0b1220', blue:'#2563eb', pink:'#db2777', gold:'#d97706' };
       if (meta) meta.setAttribute('content', colors[m] || colors.light);
+      // Keep wizard shell readable under the selected theme
+      const onboarding = document.getElementById('onboarding');
+      if (onboarding) {
+        onboarding.style.background = '';
+        onboarding.classList.remove('bg-slate-50');
+      }
     }
     document.getElementById('ob-themes').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-theme]');
@@ -535,6 +859,8 @@
         const on = b === btn;
         b.classList.toggle('border-sky-500', on);
         b.classList.toggle('border-transparent', !on);
+        b.classList.toggle('theme-opt-active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
     });
     applyTheme(obTheme);
@@ -561,11 +887,116 @@
       }
     });
 
+    function isValidEmailFormat(email) {
+      const e = String(email || '').trim();
+      // Format only — does not prove the address exists or is owned by the user
+      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+    }
+
+    /** Normalize PH mobile to +63XXXXXXXXXX when possible; otherwise return trimmed digits-friendly value */
+    function normalizePhPhone(raw) {
+      let s = String(raw || '').trim();
+      if (!s) return '';
+      s = s.replace(/[\s()-]/g, '');
+      if (s.startsWith('09') && s.length === 11 && /^09\d{9}$/.test(s)) {
+        return '+63' + s.slice(1);
+      }
+      if (s.startsWith('+639') && s.length === 13 && /^\+639\d{9}$/.test(s)) {
+        return s;
+      }
+      if (s.startsWith('639') && s.length === 12 && /^639\d{9}$/.test(s)) {
+        return '+' + s;
+      }
+      return s;
+    }
+
+    function isValidPhPhone(raw) {
+      const s = String(raw || '').trim();
+      if (!s) return true; // optional field
+      const n = normalizePhPhone(s);
+      return /^\+639\d{9}$/.test(n) || /^09\d{9}$/.test(s.replace(/[\s()-]/g, ''));
+    }
+
+    function setFieldError(id, msg) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (msg) {
+        el.textContent = msg;
+        el.classList.remove('hidden');
+      } else {
+        el.textContent = '';
+        el.classList.add('hidden');
+      }
+    }
+
+    function toggleOtherCategoryField(selectId, wrapId) {
+      const sel = document.getElementById(selectId);
+      const wrap = document.getElementById(wrapId);
+      if (!sel || !wrap) return;
+      const isOther = sel.value === 'Other';
+      wrap.classList.toggle('hidden', !isOther);
+    }
+
+    document.getElementById('ob-category')?.addEventListener('change', () => {
+      toggleOtherCategoryField('ob-category', 'ob-category-other-wrap');
+      loadTemplateServices();
+    });
+    document.getElementById('set-category')?.addEventListener('change', () => {
+      toggleOtherCategoryField('set-category', 'set-category-other-wrap');
+    });
+
+    function resolveCategoryValue(selectId, otherId) {
+      const cat = document.getElementById(selectId)?.value || '';
+      if (cat === 'Other') {
+        const custom = (document.getElementById(otherId)?.value || '').trim();
+        return custom || 'Other';
+      }
+      return cat;
+    }
+
     document.getElementById('ob-back').onclick = () => { if (obStep > 1) showObStep(obStep - 1); };
     document.getElementById('ob-next').onclick = async () => {
       if (obStep === 1) {
-        if (!document.getElementById('ob-name').value.trim()) { toast('Business name is required', 'error'); return; }
-        showObStep(2); return;
+        setFieldError('ob-email-error', '');
+        setFieldError('ob-phone-error', '');
+        if (!document.getElementById('ob-name').value.trim()) {
+          toast('Business name is required', 'error');
+          return;
+        }
+        if (document.getElementById('ob-category').value === 'Other') {
+          if (!(document.getElementById('ob-category-other').value || '').trim()) {
+            toast('Please specify your business type', 'error');
+            document.getElementById('ob-category-other')?.focus();
+            return;
+          }
+        }
+        const email = document.getElementById('ob-email').value.trim();
+        if (!email) {
+          setFieldError('ob-email-error', 'Business email is required.');
+          toast('Business email is required', 'error');
+          return;
+        }
+        if (!isValidEmailFormat(email)) {
+          setFieldError('ob-email-error', 'Enter a valid email format (example@domain.com).');
+          toast('Invalid email format', 'error');
+          return;
+        }
+        const phone = document.getElementById('ob-phone').value.trim();
+        if (phone && !isValidPhPhone(phone)) {
+          setFieldError('ob-phone-error', 'Use a valid PH mobile: 09XXXXXXXXX or +639XXXXXXXXX.');
+          toast('Invalid phone number', 'error');
+          return;
+        }
+        setFieldError('ob-loc-error', '');
+        if (!obAddressForm) obAddressForm = mountPhAddressForm('ob-loc', null);
+        const locCheck = obAddressForm?.validate?.() || { ok: false, message: 'Complete the business location.' };
+        if (!locCheck.ok) {
+          setFieldError('ob-loc-error', locCheck.message);
+          toast(locCheck.message, 'error');
+          return;
+        }
+        showObStep(2);
+        return;
       }
       if (obStep === 2) {
         if (!obServices.filter(s => s.name.trim()).length) { toast('Add at least one service', 'error'); return; }
@@ -588,14 +1019,21 @@
           };
         });
         const handle = document.getElementById('ob-handle').value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
+        const categorySelect = document.getElementById('ob-category').value;
+        const categoryCustom = categorySelect === 'Other'
+          ? (document.getElementById('ob-category-other').value || '').trim()
+          : '';
         const data = {
           ownerId: tenantId,
           businessName: document.getElementById('ob-name').value.trim(),
-          businessCategory: document.getElementById('ob-category').value,
+          businessCategory: resolveCategoryValue('ob-category', 'ob-category-other'),
+          businessCategoryKey: categorySelect,
+          businessCategoryCustom: categoryCustom || null,
           businessDescription: document.getElementById('ob-desc').value.trim(),
-          contactEmail: document.getElementById('ob-email').value.trim(),
-          contactPhone: document.getElementById('ob-phone').value.trim(),
-          address: document.getElementById('ob-address').value.trim(),
+          contactEmail: document.getElementById('ob-email').value.trim().toLowerCase(),
+          contactPhone: normalizePhPhone(document.getElementById('ob-phone').value.trim()),
+          location: (obAddressForm && obAddressForm.getValue()) || null,
+          address: (obAddressForm && obAddressForm.getValue()?.formatted) || '',
           logoUrl: '',
           handle: handle || null,
           theme: { mode: obTheme, primaryColor: '' },
@@ -663,11 +1101,30 @@
       document.getElementById('app').classList.remove('hidden');
       document.getElementById('header-business-name').textContent = settings?.businessName || 'Dashboard';
       document.getElementById('set-name').value = settings?.businessName || '';
-      document.getElementById('set-category').value = settings?.businessCategory || '';
+      // Category select + Other custom field
+      {
+        const catSel = document.getElementById('set-category');
+        const key = settings?.businessCategoryKey || settings?.businessCategory || '';
+        const known = catSel && [...catSel.options].some(o => o.value === key);
+        if (catSel) {
+          if (known) catSel.value = key;
+          else if (settings?.businessCategoryCustom || (settings?.businessCategory && !known)) {
+            catSel.value = 'Other';
+            document.getElementById('set-category-other').value =
+              settings.businessCategoryCustom || settings.businessCategory || '';
+          } else if (settings?.businessCategory) {
+            catSel.value = settings.businessCategory;
+          }
+        }
+        toggleOtherCategoryField('set-category', 'set-category-other-wrap');
+      }
       document.getElementById('set-description').value = settings?.businessDescription || '';
       document.getElementById('set-email').value = settings?.contactEmail || '';
       document.getElementById('set-phone').value = settings?.contactPhone || '';
       document.getElementById('set-address').value = settings?.address || '';
+      if (!setAddressForm) {
+        setAddressForm = mountPhAddressForm('set-loc', settings?.location || null);
+      }
       renderHoursForm(settings?.operatingHours || getDefaultOperatingHours());
       startListeners();
       bindNotifications();
@@ -813,16 +1270,24 @@
     });
     document.getElementById('search-bookings')?.addEventListener('input', renderBookings);
 
+    function syncSvcPricePrefix() {
+      const prefix = document.getElementById('svc-price-prefix');
+      if (prefix) prefix.textContent = currencySymbol(currentCurrencyCode());
+      const priceLabel = document.querySelector('label[for="svc-price"]');
+      if (priceLabel) priceLabel.textContent = 'Price (' + currentCurrencyCode() + ')';
+    }
+
     function renderServices(list) {
       const el = document.getElementById('services-list');
       if (!list.length) { el.innerHTML = '<p class="text-sm text-slate-500 text-center py-6">No services yet</p>'; return; }
+      const cur = currentCurrencyCode();
       el.innerHTML = list.map(s => `
         <div class="card p-4 flex justify-between gap-3">
           <div><p class="font-medium text-sm">${esc(s.name)} ${s.active===false?'<span class="text-amber-600 text-xs">(inactive)</span>':''}</p>
-          <p class="text-xs text-slate-500">${s.duration||0} min · ${s.price!=null?s.price:'—'}</p></div>
+          <p class="text-xs text-slate-500">${s.duration||0} minutes · ${formatMoney(s.price, cur)}</p></div>
           <div class="flex gap-2 shrink-0">
             <button data-edit="${s.id}" class="text-xs px-2 py-1 rounded-lg border">Edit</button>
-            <button data-del="${s.id}" class="text-xs px-2 py-1 rounded-lg border border-red-200 text-red-600">Delete</button>
+            <button data-del="${s.id}" class="btn-remove-svc text-xs px-3 py-1.5">Delete</button>
           </div>
         </div>`).join('');
       el.querySelectorAll('[data-edit]').forEach(b => {
@@ -835,12 +1300,13 @@
           document.getElementById('svc-duration').value = s.duration || 30;
           document.getElementById('svc-price').value = s.price ?? '';
           document.getElementById('svc-active').checked = s.active !== false;
+          syncSvcPricePrefix();
           document.getElementById('service-form-wrap').classList.remove('hidden');
         };
       });
       el.querySelectorAll('[data-del]').forEach(b => {
         b.onclick = async () => {
-          if (!confirm('Delete this service?')) return;
+          if (!confirm('Delete this service? Customers will no longer see it on the booking page.')) return;
           try { await deleteDoc(doc(db, 'tenants', tenantId, 'services', b.dataset.del)); toast('Service deleted', 'success'); }
           catch { toast('Delete failed', 'error'); }
         };
@@ -854,6 +1320,7 @@
       document.getElementById('svc-duration').value = 30;
       document.getElementById('svc-price').value = '';
       document.getElementById('svc-active').checked = true;
+      syncSvcPricePrefix();
       document.getElementById('service-form-wrap').classList.remove('hidden');
     };
     document.getElementById('btn-cancel-service').onclick = () => document.getElementById('service-form-wrap').classList.add('hidden');
@@ -876,15 +1343,41 @@
     };
 
     function renderHoursForm(hours) {
-      document.getElementById('hours-form').innerHTML = DAYS.map(day => {
+      const el = document.getElementById('hours-form');
+      if (!el) return;
+      el.innerHTML = DAYS.map(day => {
         const h = hours[day] || { enabled: false, open: '09:00', close: '17:00' };
-        return `<div class="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100">
-          <label class="flex items-center gap-2 w-16 text-sm"><input type="checkbox" data-day="${day}" class="hour-enabled" ${h.enabled?'checked':''}/> ${DAY_LABELS[day]}</label>
-          <input type="time" data-day="${day}" data-field="open" value="${h.open||'09:00'}" class="input text-sm py-1 w-auto" />
-          <span class="text-xs text-slate-400">–</span>
-          <input type="time" data-day="${day}" data-field="close" value="${h.close||'17:00'}" class="input text-sm py-1 w-auto" />
+        const closed = !h.enabled;
+        return `<div class="hour-row ${closed ? 'hour-row-closed' : ''}" data-hour-row="${day}">
+          <label class="hour-day">
+            <input type="checkbox" data-day="${day}" class="hour-enabled hour-day-check" ${h.enabled ? 'checked' : ''} />
+            <span class="hour-day-name">${DAY_LABELS[day]}</span>
+            <span class="hour-day-state">${h.enabled ? 'Open' : 'Closed'}</span>
+          </label>
+          <div class="hour-times">
+            <div class="hour-time-block">
+              <span class="hour-time-label">Open</span>
+              <input type="time" data-day="${day}" data-field="open" value="${h.open || '09:00'}" class="hour-time-input" ${closed ? 'disabled' : ''} />
+            </div>
+            <span class="hour-arrow" aria-hidden="true">→</span>
+            <div class="hour-time-block">
+              <span class="hour-time-label">Close</span>
+              <input type="time" data-day="${day}" data-field="close" value="${h.close || '17:00'}" class="hour-time-input" ${closed ? 'disabled' : ''} />
+            </div>
+          </div>
         </div>`;
       }).join('');
+      el.querySelectorAll('.hour-enabled').forEach((cb) => {
+        cb.addEventListener('change', () => {
+          const row = cb.closest('.hour-row');
+          if (!row) return;
+          const on = cb.checked;
+          row.classList.toggle('hour-row-closed', !on);
+          const state = row.querySelector('.hour-day-state');
+          if (state) state.textContent = on ? 'Open' : 'Closed';
+          row.querySelectorAll('.hour-time-input').forEach((inp) => { inp.disabled = !on; });
+        });
+      });
     }
     document.getElementById('btn-save-hours').onclick = async () => {
       const operatingHours = {};
@@ -903,13 +1396,48 @@
     };
     document.getElementById('btn-save-settings').onclick = async () => {
       try {
+        const email = document.getElementById('set-email').value.trim();
+        if (email && !isValidEmailFormat(email)) {
+          toast('Enter a valid business email format', 'error');
+          return;
+        }
+        const phoneRaw = document.getElementById('set-phone').value.trim();
+        if (phoneRaw && !isValidPhPhone(phoneRaw)) {
+          toast('Use a valid PH mobile: 09XXXXXXXXX or +639XXXXXXXXX', 'error');
+          return;
+        }
+        if (document.getElementById('set-category').value === 'Other') {
+          if (!(document.getElementById('set-category-other').value || '').trim()) {
+            toast('Please specify your business type', 'error');
+            return;
+          }
+        }
+        const catKey = document.getElementById('set-category').value;
+        const catCustom = catKey === 'Other'
+          ? (document.getElementById('set-category-other').value || '').trim()
+          : '';
+        let location = null;
+        if (setAddressForm) {
+          const locCheck = setAddressForm.validate();
+          if (locCheck.ok) {
+            location = setAddressForm.getValue();
+          } else if (document.getElementById('set-loc-region')?.value) {
+            // Partial selection — still save what we can, or require complete
+            toast(locCheck.message, 'error');
+            return;
+          }
+        }
+        const legacyAddress = document.getElementById('set-address').value.trim();
         const data = {
           businessName: document.getElementById('set-name').value.trim(),
-          businessCategory: document.getElementById('set-category').value.trim(),
+          businessCategory: resolveCategoryValue('set-category', 'set-category-other'),
+          businessCategoryKey: catKey,
+          businessCategoryCustom: catCustom || null,
           businessDescription: document.getElementById('set-description').value.trim(),
-          contactEmail: document.getElementById('set-email').value.trim(),
-          contactPhone: document.getElementById('set-phone').value.trim(),
-          address: document.getElementById('set-address').value.trim(),
+          contactEmail: email.toLowerCase(),
+          contactPhone: normalizePhPhone(phoneRaw),
+          location: location,
+          address: (location && location.formatted) || legacyAddress,
           updatedAt: serverTimestamp()
         };
         if (document.getElementById('set-currency')) data.currency = document.getElementById('set-currency').value || 'PHP';
@@ -1048,6 +1576,98 @@
     function openModal(id) { document.getElementById(id)?.classList.remove('hidden'); }
     function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
 
+    /** Parse "HH:MM" → { h12, minute, period } */
+    function parseHHMM(val) {
+      const parts = String(val || '09:00').split(':');
+      let h = parseInt(parts[0], 10);
+      let m = parseInt(parts[1], 10);
+      if (isNaN(h)) h = 9;
+      if (isNaN(m)) m = 0;
+      h = Math.max(0, Math.min(23, h));
+      m = Math.max(0, Math.min(59, m));
+      const period = h >= 12 ? 'PM' : 'AM';
+      let h12 = h % 12;
+      if (h12 === 0) h12 = 12;
+      return { h12, minute: m, period, h24: h };
+    }
+    function toHHMM(h12, minute, period) {
+      let h = Number(h12);
+      const m = Number(minute);
+      if (period === 'AM') {
+        if (h === 12) h = 0;
+      } else {
+        if (h !== 12) h += 12;
+      }
+      return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    }
+
+    /**
+     * Build custom AM/PM time UI into container.
+     * Writes 24h HH:MM into hidden input #inputId
+     */
+    function mountAmPmPicker(containerId, inputId, initialHHMM) {
+      const box = document.getElementById(containerId);
+      const input = document.getElementById(inputId);
+      if (!box || !input) return;
+      const init = parseHHMM(initialHHMM || input.value || '09:00');
+      input.value = toHHMM(init.h12, init.minute, init.period);
+
+      const hourOpts = Array.from({ length: 12 }, (_, i) => {
+        const n = i + 1;
+        return `<option value="${n}" ${n === init.h12 ? 'selected' : ''}>${n}</option>`;
+      }).join('');
+      const roundedMin = Math.min(55, Math.round(init.minute / 5) * 5);
+      const minOptsClean = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((n) => {
+        const s = String(n).padStart(2, '0');
+        return `<option value="${n}" ${n === roundedMin ? 'selected' : ''}>${s}</option>`;
+      }).join('');
+
+      box.innerHTML = `
+        <div class="time-ampm-row">
+          <select id="${inputId}-hour" class="input" aria-label="Hour">${hourOpts}</select>
+          <select id="${inputId}-min" class="input" aria-label="Minute">${minOptsClean}</select>
+        </div>
+        <div class="time-ampm-period" role="group" aria-label="AM or PM">
+          <button type="button" data-period="AM" class="${init.period === 'AM' ? 'ampm-active' : ''}">AM</button>
+          <button type="button" data-period="PM" class="${init.period === 'PM' ? 'ampm-active' : ''}">PM</button>
+        </div>
+        <p class="time-ampm-preview">Selected: <strong id="${inputId}-preview">${formatTime12(input.value)}</strong></p>
+      `;
+
+      function sync() {
+        const hEl = document.getElementById(inputId + '-hour');
+        const mEl = document.getElementById(inputId + '-min');
+        const active = box.querySelector('.time-ampm-period button.ampm-active');
+        const period = active ? active.dataset.period : 'AM';
+        input.value = toHHMM(hEl.value, mEl.value, period);
+        const prev = document.getElementById(inputId + '-preview');
+        if (prev) prev.textContent = formatTime12(input.value);
+      }
+
+      box.querySelectorAll('.time-ampm-period button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          box.querySelectorAll('.time-ampm-period button').forEach((b) => b.classList.remove('ampm-active'));
+          btn.classList.add('ampm-active');
+          sync();
+        });
+      });
+      document.getElementById(inputId + '-hour')?.addEventListener('change', sync);
+      document.getElementById(inputId + '-min')?.addEventListener('change', sync);
+      sync();
+    }
+
+    function localDateYYYYMMDD() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
+    function localTimeHHMM() {
+      const d = new Date();
+      return String(d.getHours()).padStart(2, '0') + ':' + String(Math.floor(d.getMinutes() / 5) * 5).padStart(2, '0');
+    }
+
     document.getElementById('qa-walkin')?.addEventListener('click', async () => {
       const sel = document.getElementById('wi-service');
       if (sel) {
@@ -1061,12 +1681,24 @@
           sel.appendChild(o);
         });
       }
-      document.getElementById('wi-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('wi-date').value = localDateYYYYMMDD();
+      const nowT = localTimeHHMM();
+      document.getElementById('wi-time').value = nowT;
+      mountAmPmPicker('wi-time-picker', 'wi-time', nowT);
       openModal('modal-walkin');
     });
     document.getElementById('wi-cancel')?.addEventListener('click', () => closeModal('modal-walkin'));
     document.getElementById('wi-save')?.addEventListener('click', async () => {
       try {
+        const startTime = document.getElementById('wi-time').value;
+        if (!/^\d{2}:\d{2}$/.test(startTime)) {
+          toast('Please select a valid time', 'error');
+          return;
+        }
+        if (!document.getElementById('wi-service').value) {
+          toast('Select a service', 'error');
+          return;
+        }
         const idToken = await auth.currentUser.getIdToken();
         const res = await fetch('/api/create-booking', {
           method: 'POST',
@@ -1077,24 +1709,29 @@
             tenantId,
             serviceId: document.getElementById('wi-service').value,
             date: document.getElementById('wi-date').value,
-            startTime: document.getElementById('wi-time').value,
+            startTime,
             customerName: document.getElementById('wi-name').value.trim() || 'Walk-in'
           })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed');
-        toast('Walk-in saved', 'success');
+        toast('Walk-in saved for ' + formatTime12(startTime), 'success');
         closeModal('modal-walkin');
       } catch (e) { toast(e.message, 'error'); }
     });
 
     document.getElementById('qa-block')?.addEventListener('click', () => {
-      document.getElementById('bl-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('bl-date').value = localDateYYYYMMDD();
+      document.getElementById('bl-start').value = '12:00';
+      document.getElementById('bl-end').value = '13:00';
+      mountAmPmPicker('bl-start-picker', 'bl-start', '12:00');
+      mountAmPmPicker('bl-end-picker', 'bl-end', '13:00');
       openModal('modal-block');
     });
     document.getElementById('bl-cancel')?.addEventListener('click', () => closeModal('modal-block'));
     document.getElementById('bl-allday')?.addEventListener('change', (e) => {
       document.getElementById('bl-times').classList.toggle('opacity-40', e.target.checked);
+      document.getElementById('bl-times').style.pointerEvents = e.target.checked ? 'none' : '';
     });
     document.getElementById('bl-save')?.addEventListener('click', async () => {
       try {
@@ -1371,29 +2008,92 @@
       }
     });
 
-    document.getElementById('btn-support-msg')?.addEventListener('click', async () => {
-      const msg = (document.getElementById('support-msg')?.value || '').trim();
-      if (msg.length < 5) { toast('Please write a short message', 'error'); return; }
+    async function sendSupportMessage(rawText) {
+      const msg = String(rawText || '').trim();
+      if (msg.length < 5) {
+        toast('Please write at least a short message', 'error');
+        return false;
+      }
+      const idToken = await auth.currentUser.getIdToken();
+      const res = await fetch('/api/business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'supportMessage',
+          idToken,
+          tenantId,
+          message: msg,
+          businessName: settings?.businessName || '',
+          email: auth.currentUser?.email || ''
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      return true;
+    }
+
+    function supportSessionKey() {
+      return 'bookai_support_auto_' + (tenantId || 'unknown');
+    }
+
+    function openSupportChat(opts) {
+      const options = opts || {};
+      const modal = document.getElementById('modal-support-chat');
+      const reason = document.getElementById('support-chat-reason');
+      if (!modal) return;
+      if (options.reason && reason) reason.textContent = options.reason;
+      modal.classList.remove('hidden');
+      const ta = document.getElementById('support-chat-text');
+      if (ta && !ta.value) ta.focus();
+    }
+
+    function closeSupportChat() {
+      document.getElementById('modal-support-chat')?.classList.add('hidden');
+    }
+
+    document.getElementById('support-chat-close')?.addEventListener('click', closeSupportChat);
+    document.getElementById('support-chat-dismiss')?.addEventListener('click', () => {
+      try { sessionStorage.setItem(supportSessionKey(), 'dismissed'); } catch (e) {}
+      closeSupportChat();
+    });
+    document.getElementById('support-chat-send')?.addEventListener('click', async () => {
+      const ta = document.getElementById('support-chat-text');
       try {
-        const idToken = await auth.currentUser.getIdToken();
-        const res = await fetch('/api/business', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'supportMessage',
-            idToken,
-            tenantId,
-            message: msg,
-            businessName: settings?.businessName || '',
-            email: auth.currentUser?.email || ''
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed');
+        const ok = await sendSupportMessage(ta?.value);
+        if (!ok) return;
         toast('Message sent to platform admin', 'success');
-        document.getElementById('support-msg').value = '';
+        if (ta) ta.value = '';
+        try { sessionStorage.setItem(supportSessionKey(), 'sent'); } catch (e) {}
+        closeSupportChat();
       } catch (e) {
         toast(e.message || 'Could not send', 'error');
+      }
+    });
+
+    // Settings page still has a message box — opens the same real flow
+    document.getElementById('btn-support-msg')?.addEventListener('click', async () => {
+      const msg = (document.getElementById('support-msg')?.value || '').trim();
+      if (msg.length >= 5) {
+        try {
+          await sendSupportMessage(msg);
+          toast('Message sent to platform admin', 'success');
+          document.getElementById('support-msg').value = '';
+        } catch (e) {
+          toast(e.message || 'Could not send', 'error');
+        }
+        return;
+      }
+      openSupportChat({
+        reason: 'Send a message to the platform administrator. They will see it in the Super Admin panel.'
+      });
+    });
+
+    document.getElementById('trial-banner')?.addEventListener('click', (e) => {
+      if (e.target.closest('[data-open-support]')) {
+        e.preventDefault();
+        openSupportChat({
+          reason: 'Your free trial has ended. You can message the platform administrator here to request activation or ask for assistance.'
+        });
       }
     });
 
@@ -1429,11 +2129,25 @@
         if (d.status === 'expired' || d.trialExpired) {
           el.classList.remove('hidden');
           el.classList.add('expired');
-          el.innerHTML = '<strong>Your free trial has ended.</strong> Online booking is paused. Send a message in Settings → Contact platform admin if you want to continue, or wait for activation.';
+          el.innerHTML = '<strong>Your free trial has ended.</strong> Online booking is paused. ' +
+            '<button type="button" data-open-support class="underline font-semibold">Message platform admin</button> to continue, or wait for activation.';
+          // Auto-open support chat once per browser session (not every navigation)
+          let flag = null;
+          try { flag = sessionStorage.getItem(supportSessionKey()); } catch (e) {}
+          if (!flag) {
+            try { sessionStorage.setItem(supportSessionKey(), 'shown'); } catch (e) {}
+            // slight delay so dashboard UI paints first
+            setTimeout(() => {
+              openSupportChat({
+                reason: 'Your free trial has ended. You can message the platform administrator here to request activation or ask for assistance.'
+              });
+            }, 400);
+          }
         } else if (d.status === 'suspended') {
           el.classList.remove('hidden');
           el.classList.add('expired');
-          el.innerHTML = '<strong>Account suspended.</strong> Contact the platform admin for help.';
+          el.innerHTML = '<strong>Account suspended.</strong> ' +
+            '<button type="button" data-open-support class="underline font-semibold">Contact platform admin</button> for help.';
         } else if (d.status === 'trial' && d.daysLeft != null) {
           el.classList.remove('hidden');
           el.classList.remove('expired');
