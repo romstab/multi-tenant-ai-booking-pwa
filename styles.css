@@ -1108,3 +1108,44 @@ html[data-theme="dark"] .ph-address-block {
   background: #1e293b;
   border-color: #475569;
 }
+
+/* Support chat + dark theme readability fix */
+.support-chat-hint {
+  color: #78350f !important;
+  background: #fef3c7 !important;
+  border-color: #fbbf24 !important;
+}
+html[data-theme="dark"] .support-chat-hint {
+  color: #fde68a !important;
+  background: #422006 !important;
+  border-color: #b45309 !important;
+}
+html[data-theme="dark"] .support-chat-sheet {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+}
+html[data-theme="dark"] .support-chat-sheet .label {
+  color: #e2e8f0 !important;
+}
+html[data-theme="dark"] .support-chat-sheet textarea.input,
+html[data-theme="dark"] #support-chat-text {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+html[data-theme="dark"] .support-chat-sheet textarea.input::placeholder,
+html[data-theme="dark"] #support-chat-text::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1;
+}
+html[data-theme="dark"] .support-chat-sheet .text-xs,
+html[data-theme="dark"] .support-chat-sheet .text-slate-500 {
+  color: #94a3b8 !important;
+}
+/* Settings support box on dark */
+html[data-theme="dark"] #support-msg,
+html[data-theme="dark"] textarea#support-msg {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
