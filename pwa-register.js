@@ -3,7 +3,7 @@
  * Include as classic script (not module) before </body>
  */
 (function () {
-  const VERSION = '2.4.0-final';
+  const VERSION = '2.5.0-final';
   window.BOOKAI_VERSION = VERSION;
 
   function isStandalone() {

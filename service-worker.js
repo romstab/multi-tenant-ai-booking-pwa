@@ -1,8 +1,9 @@
 /**
- * BookAI SW v9 — v2.4.0-final
- * Network-first for HTML. Cache static assets only.
+ * BookAI SW v11 — v2.5.0-final (Batches 1–7) — batch2 public booking safety
+ * Network-first for HTML. Never cache tenant-specific booking navigations.
+ * Static shell assets only in precache.
  */
-const CACHE_NAME = 'bookai-static-v9';
+const CACHE_NAME = 'bookai-static-v11';
 const PRECACHE = [
   '/offline.html',
   '/styles.css',
@@ -41,16 +42,23 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
+  // APIs + Firebase/CDN always network (tenant data must not be cached by SW)
   if (
     url.pathname.startsWith('/api/') ||
     url.hostname.includes('googleapis.com') ||
     url.hostname.includes('firebase') ||
     url.hostname.includes('gstatic.com') ||
     url.hostname.includes('cdn.') ||
-    url.hostname.includes('cdnjs.')
+    url.hostname.includes('cdnjs.') ||
+    url.hostname.includes('firestore')
   ) {
     return;
   }
+
+  const isBookingPage =
+    url.pathname.endsWith('/booking.html') ||
+    url.pathname === '/booking.html' ||
+    url.pathname.startsWith('/b/');
 
   const isNav =
     event.request.mode === 'navigate' ||
@@ -58,16 +66,30 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.html') ||
     url.pathname === '/';
 
+  // Public booking + handle routes: network-only (no cache put)
+  // Prevents stale HTML and avoids confusing offline fallback across tenants
+  if (isNav && isBookingPage) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => res)
+        .catch(() => caches.match('/offline.html'))
+    );
+    return;
+  }
+
   if (isNav) {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(event.request, copy)).catch(() => {});
+          // Cache only path without query for generic pages
+          if (res && res.ok && !url.search) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(url.pathname, copy)).catch(() => {});
+          }
           return res;
         })
         .catch(() =>
-          caches.match(event.request).then((r) => r || caches.match('/offline.html'))
+          caches.match(url.pathname).then((r) => r || caches.match('/offline.html'))
         )
     );
     return;
