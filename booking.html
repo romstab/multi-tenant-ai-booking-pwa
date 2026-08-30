@@ -942,69 +942,85 @@
     });
 
     /**
-     * Select a time slot from a slot button element.
-     * Uses getAttribute (more reliable than dataset on some mobile WebViews).
+     * ONE authoritative slot-selection path.
+     * - State: selectedSlot = { startTime, endTime }
+     * - Mirror on #slots-container dataset so validation can recover after re-renders
+     * - Event: single delegated 'click' on #slots-container (no inline onclick, no pointerup)
      */
-    function selectSlotButton(btn) {
-      if (!btn || !btn.classList || !btn.classList.contains('slot-btn')) return false;
-      const start = btn.getAttribute('data-start') || btn.dataset.start || '';
-      const end = btn.getAttribute('data-end') || btn.dataset.end || '';
+    function clearSlotSelectionUI() {
+      const container = document.getElementById('slots-container');
+      if (!container) return;
+      container.querySelectorAll('.slot-btn').forEach(b => {
+        b.classList.remove('is-selected', 'selected');
+        b.setAttribute('aria-pressed', 'false');
+      });
+      delete container.dataset.selectedStart;
+      delete container.dataset.selectedEnd;
+    }
+
+    function setSelectedSlot(startTime, endTime) {
+      const start = String(startTime || '').trim();
+      const end = String(endTime || '').trim();
       if (!start) {
-        console.warn('[BookAI] slot button missing data-start');
+        selectedSlot = null;
+        clearSlotSelectionUI();
         return false;
       }
+      selectedSlot = { startTime: start, endTime: end };
       const container = document.getElementById('slots-container');
       if (container) {
+        container.dataset.selectedStart = start;
+        container.dataset.selectedEnd = end;
         container.querySelectorAll('.slot-btn').forEach(b => {
-          b.classList.remove('is-selected', 'selected');
-          b.setAttribute('aria-pressed', 'false');
+          const match = (b.getAttribute('data-start') || '') === start;
+          b.classList.toggle('is-selected', match);
+          b.classList.toggle('selected', match);
+          b.setAttribute('aria-pressed', match ? 'true' : 'false');
         });
       }
-      btn.classList.add('is-selected', 'selected');
-      btn.setAttribute('aria-pressed', 'true');
-      selectedSlot = { startTime: String(start), endTime: String(end || '') };
-      // Keep date in sync with the visible date input (Android date pickers)
+      // Sync date from visible input
       const di = document.getElementById('booking-date');
       if (di && di.value) selectedDate = di.value;
-      updateSummary();
       return true;
     }
 
-    // Global for inline onclick (most reliable on Android Chrome)
-    window.__bookaiSelectSlot = function (el) {
-      try { selectSlotButton(el); } catch (e) { console.error(e); }
-    };
-
     function bindSlotButtons(container) {
       if (!container) return;
-      // Prefer one delegated listener (survives re-renders if we only bind once on parent)
-      if (!container.dataset.slotBound) {
-        container.dataset.slotBound = '1';
-        const activate = (e) => {
-          const btn = e.target && e.target.closest ? e.target.closest('.slot-btn') : null;
-          if (!btn || !container.contains(btn)) return;
-          e.preventDefault();
-          selectSlotButton(btn);
-        };
-        container.addEventListener('click', activate);
-        container.addEventListener('pointerup', activate);
-      }
-      // Also ensure each button is keyboard-accessible
-      container.querySelectorAll('.slot-btn').forEach(btn => {
-        btn.setAttribute('type', 'button');
-        btn.setAttribute('role', 'button');
-        btn.setAttribute('aria-pressed', btn.classList.contains('is-selected') ? 'true' : 'false');
+      if (container.dataset.slotBound === '1') return;
+      container.dataset.slotBound = '1';
+      container.addEventListener('click', function onSlotClick(e) {
+        const btn = e.target && e.target.closest ? e.target.closest('button.slot-btn') : null;
+        if (!btn || btn.disabled || !container.contains(btn)) return;
+        const start = btn.getAttribute('data-start') || '';
+        const end = btn.getAttribute('data-end') || '';
+        if (!start) return;
+        setSelectedSlot(start, end);
+        updateSummary();
       });
     }
+
+    // Bind once as soon as the static slots container exists (delegation survives innerHTML swaps)
+    (function initSlotDelegation() {
+      const c = document.getElementById('slots-container');
+      if (c) bindSlotButtons(c);
+    })();
 
     async function loadSlots() {
       const container = document.getElementById('slots-container');
       if (!selectedService || !selectedDate) {
-        container.innerHTML = '<p class="bk-muted text-sm">Select a service and date first.</p>';
+        if (container) container.innerHTML = '<p class="bk-muted text-sm">Select a service and date first.</p>';
+        selectedSlot = null;
         return;
       }
 
-      container.innerHTML = '<div class="bk-slots-loading"><span class="bk-spinner"></span><span>Checking availability…</span></div>';
+      // New slot list → clear previous time selection
+      selectedSlot = null;
+      if (container) {
+        delete container.dataset.selectedStart;
+        delete container.dataset.selectedEnd;
+        container.innerHTML = '<div class="bk-slots-loading"><span class="bk-spinner"></span><span>Checking availability…</span></div>';
+      }
+      updateSummary();
 
       try {
         const res = await fetch('/api/create-booking', {
@@ -1039,7 +1055,7 @@
           const en = s.endTime || s.end || '';
           return '<button type="button" data-start="' + String(st).replace(/"/g, '') +
             '" data-end="' + String(en).replace(/"/g, '') +
-            '" class="slot-btn" aria-pressed="false" onclick="window.__bookaiSelectSlot && window.__bookaiSelectSlot(this)">' +
+            '" class="slot-btn" aria-pressed="false">' +
             '<span class="block">' + formatTime12(st) + '</span></button>';
         }).join('');
         bindSlotButtons(container);
@@ -1061,7 +1077,7 @@
             const en = s.endTime || s.end || '';
             return '<button type="button" data-start="' + String(st).replace(/"/g, '') +
               '" data-end="' + String(en).replace(/"/g, '') +
-              '" class="slot-btn" aria-pressed="false" onclick="window.__bookaiSelectSlot && window.__bookaiSelectSlot(this)">' +
+              '" class="slot-btn" aria-pressed="false">' +
               '<span class="block">' + formatTime12(st) + '</span></button>';
           }).join('') + '<p class="w-full bk-muted text-xs mt-2">Times shown in AM/PM. Availability is re-checked when you confirm.</p>';
           bindSlotButtons(container);
@@ -1099,13 +1115,21 @@
         selectedDate = dateInput.value;
       }
 
-      // Recover slot from DOM if state was lost but a button is still marked selected
-      if (!selectedSlot) {
-        const selBtn = document.querySelector('#slots-container .slot-btn.is-selected, #slots-container .slot-btn.selected');
-        if (selBtn) {
-          const st = selBtn.getAttribute('data-start') || '';
-          const en = selBtn.getAttribute('data-end') || '';
-          if (st) selectedSlot = { startTime: st, endTime: en };
+      // Recover slot from authoritative mirrors (container dataset or selected button)
+      const slotBox = document.getElementById('slots-container');
+      if (!selectedSlot || !selectedSlot.startTime) {
+        if (slotBox && slotBox.dataset.selectedStart) {
+          selectedSlot = {
+            startTime: slotBox.dataset.selectedStart,
+            endTime: slotBox.dataset.selectedEnd || ''
+          };
+        } else {
+          const selBtn = document.querySelector('#slots-container button.slot-btn.is-selected, #slots-container button.slot-btn.selected');
+          if (selBtn) {
+            const st = selBtn.getAttribute('data-start') || '';
+            const en = selBtn.getAttribute('data-end') || '';
+            if (st) selectedSlot = { startTime: st, endTime: en };
+          }
         }
       }
 
@@ -1138,6 +1162,7 @@
       const notes = (document.getElementById('cust-notes')?.value || '').trim();
       const bizName = (settings && settings.businessName) || document.getElementById('biz-name')?.textContent || 'Business';
 
+      try {
       if (readySlot) {
         let html = '<p class="bk-summary-heading">Booking summary</p>';
         html += '<div class="bk-summary-row"><span>Business</span><strong>' + escapeHtml(bizName) + '</strong></div>';
@@ -1156,27 +1181,37 @@
         if (notes) html += '<div class="bk-summary-row bk-summary-notes"><span>Notes</span><strong>' + escapeHtml(notes) + '</strong></div>';
         summary.innerHTML = html;
         summary.classList.remove('hidden');
-      } else {
+      } else if (summary) {
         summary.classList.add('hidden');
       }
-      if (!btn.dataset.busy) {
-        btn.disabled = !(readySlot && readyForm);
+      } catch (sumErr) {
+        console.error('[BookAI] summary render', sumErr);
       }
-      if (hint) {
-        if (!selectedService) {
-          hint.textContent = 'Select a service to continue.';
-        } else if (!selectedDate) {
-          hint.textContent = 'Select a date to continue.';
-        } else if (!selectedSlot || !selectedSlot.startTime) {
-          hint.textContent = 'Tap an available time to continue.';
-        } else if (!readyForm) {
-          hint.textContent = 'Enter your full name and email to enable confirm.';
-        } else {
-          hint.textContent = 'Ready — review the summary, then confirm.';
+      // Always update Confirm enablement (even if summary HTML failed above)
+      try {
+        if (btn && btn.dataset.busy !== '1') {
+          btn.disabled = !(readySlot && readyForm);
         }
-        hint.classList.toggle('is-ready', readySlot && readyForm);
+        if (hint) {
+          if (!selectedService) {
+            hint.textContent = 'Select a service to continue.';
+          } else if (!selectedDate) {
+            hint.textContent = 'Select a date to continue.';
+          } else if (!selectedSlot || !selectedSlot.startTime) {
+            hint.textContent = 'Tap an available time to continue.';
+          } else if (!(name.length >= 2)) {
+            hint.textContent = 'Enter your full name.';
+          } else if (!email.includes('@')) {
+            hint.textContent = 'Enter a valid email address.';
+          } else {
+            hint.textContent = 'Ready — review the summary, then confirm.';
+          }
+          hint.classList.toggle('is-ready', !!(readySlot && readyForm));
+        }
+        updateBookingProgress();
+      } catch (uiErr) {
+        console.error('[BookAI] updateSummary UI', uiErr);
       }
-      updateBookingProgress();
     }
 
     ['cust-name', 'cust-email', 'cust-notes'].forEach((id) => {
