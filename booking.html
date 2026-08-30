@@ -178,7 +178,7 @@
           </ul>
         </div>
         <p id="confirm-hint" class="bk-muted text-sm text-center mb-3">Select a service, date, and time to continue.</p>
-        <p id="booking-debug-build" class="text-xs text-center mb-2" style="color:#64748b;font-family:ui-monospace,monospace;">Booking Debug Build: CONFIRM-TRACE-1</p>
+        <p id="booking-debug-build" class="text-xs text-center mb-2" style="color:#64748b;font-family:ui-monospace,monospace;">Booking Debug Build: CONFIRM-TRACE-2</p>
         <button id="btn-confirm" disabled type="button" class="bk-btn bk-btn-primary bk-btn-block">
           Confirm booking
         </button>
@@ -318,6 +318,10 @@
     let selectedService = null;
     let selectedDate = null;
     let selectedSlot = null;
+    let selectedStaff = null;
+    let staffList = [];
+    let hasStaff = false;
+    let staffSelectionMode = 'optional';
     let loadInFlight = false;
 
     const LOAD_TIMEOUT_MS = 14000;
@@ -1233,6 +1237,7 @@
       return msg || fallback || 'Booking failed. Please try again.';
     }
     
+
     function setBookingStatus(text, kind) {
       const el = document.getElementById('booking-status');
       const msg = document.getElementById('booking-msg');
@@ -1249,75 +1254,121 @@
       }
     }
 
+    function isSimpleEmailOk(email) {
+      if (!email || typeof email !== 'string') return false;
+      const e = email.trim();
+      if (e.length < 5 || e.length > 254) return false;
+      // Practical check only — do not over-reject normal Gmail addresses
+      const at = e.indexOf('@');
+      if (at < 1) return false;
+      const domain = e.slice(at + 1);
+      if (!domain || domain.indexOf('.') < 1) return false;
+      if (e.indexOf(' ') >= 0) return false;
+      return true;
+    }
+
     async function handleConfirmBooking() {
+      let bookingStage = 'Starting';
       const btn = document.getElementById('btn-confirm');
-      setBookingStatus('Booking status: Confirm button clicked…', 'info');
-
-      const name = (document.getElementById('cust-name')?.value || '').trim();
-      const email = (document.getElementById('cust-email')?.value || '').trim();
-      const phone = (document.getElementById('cust-phone')?.value || '').trim();
-      const notes = (document.getElementById('cust-notes')?.value || '').trim();
-      const hp = document.getElementById('hp_field') ? document.getElementById('hp_field').value : '';
-
-      // Sync state from DOM mirrors
-      const dateInput = document.getElementById('booking-date');
-      if (dateInput && dateInput.value) selectedDate = dateInput.value;
-      const slotBox = document.getElementById('slots-container');
-      if ((!selectedSlot || !selectedSlot.startTime) && slotBox && slotBox.dataset.selectedStart) {
-        selectedSlot = {
-          startTime: slotBox.dataset.selectedStart,
-          endTime: slotBox.dataset.selectedEnd || ''
-        };
-      }
-
-      setBookingStatus('Booking status: Validating booking…', 'info');
-
-      if (!name || name.length < 2) {
-        setBookingStatus('Booking failed at: validation — Enter your full name.', 'error');
-        return;
-      }
-      if (!email || !email.includes('@')) {
-        setBookingStatus('Booking failed at: validation — Enter a valid email address.', 'error');
-        return;
-      }
-      if (hasStaff && staffSelectionMode === 'required' && !(selectedStaff && selectedStaff.id)) {
-        setBookingStatus('Booking failed at: validation — Please select a staff member.', 'error');
-        return;
-      }
-      if (!selectedService) {
-        setBookingStatus('Booking failed at: validation — Select a service.', 'error');
-        return;
-      }
-      if (!selectedDate) {
-        setBookingStatus('Booking failed at: validation — Select a date.', 'error');
-        return;
-      }
-      if (!selectedSlot || !selectedSlot.startTime) {
-        setBookingStatus('Booking failed at: validation — Tap an available time.', 'error');
-        return;
-      }
-      if (!tenantId) {
-        setBookingStatus('Booking failed at: validation — Missing business id (tenant).', 'error');
-        return;
-      }
-
-      if (btn && btn.dataset.busy === '1') {
-        setBookingStatus('Booking status: Already submitting… please wait.', 'info');
-        return;
-      }
-      if (btn) {
-        btn.dataset.busy = '1';
-        btn.disabled = true;
-        btn.textContent = 'Confirming booking…';
-      }
-
-      if (!window.__bookingIdempotencyKey) {
-        window.__bookingIdempotencyKey = 'idemp_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-      }
 
       try {
-        let startTime = selectedSlot.startTime;
-        let endTime = selectedSlot.endTime || '';
+        bookingStage = 'Confirm button clicked';
+        setBookingStatus('Booking status: Confirm button clicked…', 'info');
+
+        const name = (document.getElementById('cust-name')?.value || '').trim();
+        const email = (document.getElementById('cust-email')?.value || '').trim();
+        const phone = (document.getElementById('cust-phone')?.value || '').trim();
+        const notes = (document.getElementById('cust-notes')?.value || '').trim();
+        const hp = document.getElementById('hp_field') ? document.getElementById('hp_field').value : '';
+
+        // Sync date/slot from DOM mirrors (does not await)
+        const dateInput = document.getElementById('booking-date');
+        if (dateInput && dateInput.value) selectedDate = dateInput.value;
+        const slotBox = document.getElementById('slots-container');
+        if ((!selectedSlot || !selectedSlot.startTime) && slotBox && slotBox.dataset.selectedStart) {
+          selectedSlot = {
+            startTime: slotBox.dataset.selectedStart,
+            endTime: slotBox.dataset.selectedEnd || ''
+          };
+        }
+
+        bookingStage = 'VALIDATION 1: Checking selected service';
+        setBookingStatus('VALIDATION 1: Checking selected service…', 'info');
+        if (!selectedService || !selectedService.id) {
+          setBookingStatus('Booking failed at: VALIDATION 1 (service) — Select a service.', 'error');
+          return;
+        }
+
+        bookingStage = 'VALIDATION 2: Checking selected date';
+        setBookingStatus('VALIDATION 2: Checking selected date…', 'info');
+        if (!selectedDate) {
+          setBookingStatus('Booking failed at: VALIDATION 2 (date) — Select a date.', 'error');
+          return;
+        }
+
+        bookingStage = 'VALIDATION 3: Checking selected time';
+        setBookingStatus('VALIDATION 3: Checking selected time…', 'info');
+        if (!selectedSlot || !selectedSlot.startTime) {
+          setBookingStatus('Booking failed at: VALIDATION 3 (time) — Tap an available time.', 'error');
+          return;
+        }
+
+        bookingStage = 'VALIDATION 4: Checking customer name';
+        setBookingStatus('VALIDATION 4: Checking customer name…', 'info');
+        if (!name || name.length < 2) {
+          setBookingStatus('Booking failed at: VALIDATION 4 (name) — Enter your full name.', 'error');
+          return;
+        }
+
+        bookingStage = 'VALIDATION 5: Checking customer email';
+        setBookingStatus('VALIDATION 5: Checking customer email…', 'info');
+        if (!isSimpleEmailOk(email)) {
+          setBookingStatus('Booking failed at: VALIDATION 5 (email) — Please enter a valid email address.', 'error');
+          return;
+        }
+
+        bookingStage = 'VALIDATION 6: Checking customer phone';
+        setBookingStatus('VALIDATION 6: Checking customer phone…', 'info');
+        // Phone is OPTIONAL — empty is OK. If provided, accept PH mobile formats loosely.
+        if (phone) {
+          const digits = phone.replace(/\D/g, '');
+          // Accept 10–13 digits (09xxxxxxxxx, 639xxxxxxxxx, etc.)
+          if (digits.length > 0 && (digits.length < 10 || digits.length > 13)) {
+            setBookingStatus('Booking failed at: VALIDATION 6 (phone) — Optional phone looks incomplete. Clear it or enter a valid mobile number.', 'error');
+            return;
+          }
+        }
+
+        bookingStage = 'VALIDATION 7: Checking staff / tenant';
+        setBookingStatus('VALIDATION 7: Checking staff / tenant…', 'info');
+        if (!tenantId) {
+          setBookingStatus('Booking failed at: VALIDATION 7 (tenant) — Missing business id.', 'error');
+          return;
+        }
+        if (hasStaff && staffSelectionMode === 'required' && !(selectedStaff && selectedStaff.id)) {
+          setBookingStatus('Booking failed at: VALIDATION 7 (staff) — Please select a staff member.', 'error');
+          return;
+        }
+
+        bookingStage = 'VALIDATION COMPLETE / Building payload';
+        setBookingStatus('VALIDATION COMPLETE — Building booking payload…', 'info');
+
+        if (btn && btn.dataset.busy === '1') {
+          setBookingStatus('Booking status: Already submitting… please wait.', 'info');
+          return;
+        }
+        if (btn) {
+          btn.dataset.busy = '1';
+          btn.disabled = true;
+          btn.textContent = 'Confirming booking…';
+        }
+
+        if (!window.__bookingIdempotencyKey) {
+          window.__bookingIdempotencyKey = 'idemp_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        }
+
+        let startTime = String(selectedSlot.startTime);
+        let endTime = String(selectedSlot.endTime || '');
         if (!endTime && startTime && selectedService) {
           const sm = timeToMinutes(startTime);
           endTime = minutesToTime(sm + (selectedService.duration || 30));
@@ -1339,8 +1390,9 @@
           idempotencyKey: window.__bookingIdempotencyKey
         };
 
-        setBookingStatus('Booking status: Sending booking request…', 'info');
-        console.info('[BookAI] CONFIRM-TRACE payload', {
+        bookingStage = 'Sending booking request';
+        setBookingStatus('Sending booking request…', 'info');
+        console.info('[BookAI] CONFIRM-TRACE-2 payload', {
           tenantId: payload.tenantId,
           serviceId: payload.serviceId,
           date: payload.date,
@@ -1349,7 +1401,7 @@
         });
 
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timer = controller ? setTimeout(() => controller.abort(), 25000) : null;
+        const timer = controller ? setTimeout(function () { controller.abort(); }, 25000) : null;
         let res;
         try {
           res = await fetch('/api/create-booking', {
@@ -1362,7 +1414,8 @@
           if (timer) clearTimeout(timer);
         }
 
-        setBookingStatus('Booking status: Response received (' + res.status + ')…', 'info');
+        bookingStage = 'Waiting for server response';
+        setBookingStatus('Waiting for server response… (' + res.status + ')', 'info');
 
         const rawText = await res.text();
         let data = {};
@@ -1370,7 +1423,7 @@
           data = rawText ? JSON.parse(rawText) : {};
         } catch (_) {
           throw new Error(
-            'Booking failed at: response-parse — Server returned non-JSON (' + res.status + '). ' +
+            'Server returned non-JSON (' + res.status + '). ' +
             (res.status === 401
               ? 'Vercel Deployment Protection may be blocking /api/*.'
               : 'Check Vercel function logs.')
@@ -1378,13 +1431,11 @@
         }
 
         if (!res.ok || data.ok === false) {
-          const stage = data.stage ? (' at: ' + data.stage) : '';
-          throw new Error(
-            (data.message || data.error || apiErrorMessage(res, data, 'Booking failed')) +
-            (stage ? ' (stage' + stage + ')' : '')
-          );
+          const stage = data.stage ? (' [' + data.stage + ']') : '';
+          throw new Error((data.message || data.error || ('HTTP ' + res.status)) + stage);
         }
 
+        bookingStage = 'Success';
         setBookingStatus('Booking confirmed successfully.', 'ok');
 
         const bid = data.bookingId || data.appointmentId || '';
@@ -1403,7 +1454,7 @@
           manageEl.classList.remove('hidden');
         }
         const gcal = document.getElementById('btn-gcal');
-        if (gcal && (selectedSlot.endTime || endTime)) {
+        if (gcal && (endTime || selectedSlot.endTime)) {
           const en = selectedSlot.endTime || endTime;
           const start = selectedDate.replace(/-/g, '') + 'T' + String(startTime).replace(':', '') + '00';
           const end = selectedDate.replace(/-/g, '') + 'T' + String(en).replace(':', '') + '00';
@@ -1426,14 +1477,12 @@
         const sm = document.getElementById('success-modal');
         if (sm) sm.classList.remove('hidden');
       } catch (err) {
-        console.error('[BookAI] CONFIRM-TRACE error', err);
+        console.error('[BookAI] CONFIRM-TRACE-2 error', err, 'stage=', bookingStage);
         const isAbort = err && (err.name === 'AbortError' || /aborted/i.test(String(err.message || '')));
-        setBookingStatus(
-          isAbort
-            ? 'Booking failed at: network — Request timed out. Try again.'
-            : ('Booking failed: ' + (err && err.message ? err.message : 'Unknown error')),
-          'error'
-        );
+        const safe = isAbort
+          ? 'Request timed out. Try again.'
+          : (err && err.message ? String(err.message) : 'Unknown error');
+        setBookingStatus('Booking failed at: ' + bookingStage + ' — ' + safe, 'error');
         try { loadSlots(); } catch (_) {}
       } finally {
         if (btn) {
@@ -1450,6 +1499,7 @@
       e.stopPropagation();
       handleConfirmBooking();
     });
+
 
 
     
