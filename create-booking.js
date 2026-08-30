@@ -838,7 +838,12 @@ module.exports = async function handler(req, res) {
       const idempotencyKey = body.idempotencyKey ? sanitizeIdempotencyKey(body.idempotencyKey) : null;
 
       if (!tenantId || !serviceId || !date || !startTime || !customerName || !customerEmail) {
-        return res.status(400).json({ error: 'Missing required booking fields' });
+        return res.status(400).json({
+          ok: false,
+          stage: 'validate-fields',
+          error: 'Missing required booking fields',
+          message: 'Missing required booking fields'
+        });
       }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return res.status(400).json({ error: 'Invalid date' });
@@ -1145,6 +1150,7 @@ module.exports = async function handler(req, res) {
         : null;
 
       return res.status(201).json({
+        ok: true,
         success: true,
         appointmentId: result.id,
         bookingId: result.bookingId,
@@ -1808,6 +1814,11 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     console.error('create-booking error:', err);
     const status = err.status || 500;
-    return res.status(status).json({ error: err.message || 'Internal server error' });
+    return res.status(status).json({
+      ok: false,
+      stage: err.stage || 'server',
+      error: err.message || 'Internal server error',
+      message: err.message || 'Internal server error'
+    });
   }
 };
