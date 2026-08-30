@@ -20,24 +20,37 @@
   </div>
 
 <!-- Error state -->
-  <div id="error-state" class="hidden min-h-screen flex items-center justify-center px-4">
-    <div class="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm">
-      <div class="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 text-2xl font-bold">!</div>
-      <h1 id="error-title" class="text-xl font-semibold mb-2">Unable to load booking page</h1>
-      <p id="error-message" class="text-sm text-slate-600"></p>
-      <button type="button" id="btn-retry-load" class="mt-5 w-full py-3 rounded-xl bg-sky-600 text-white text-sm font-semibold">
+  <div id="error-state" class="hidden min-h-screen flex items-center justify-center px-4 bk-page">
+    <div class="bk-card bk-state-card max-w-md w-full text-center">
+      <div class="bk-state-icon bk-state-icon-error" aria-hidden="true">!</div>
+      <h1 id="error-title" class="bk-state-title">Unable to load booking page</h1>
+      <p id="error-message" class="bk-state-text"></p>
+      <button type="button" id="btn-retry-load" class="bk-btn bk-btn-primary bk-btn-block mt-5">
         Retry
       </button>
-      <p class="text-xs text-slate-400 mt-3">If this keeps happening, ask the business for a fresh booking link.</p>
+      <p class="bk-muted mt-3 text-center">If this continues, ask the business for a fresh booking link.</p>
     </div>
   </div>
 
   <!-- Loading -->
-  <div id="loading-state" class="min-h-screen flex items-center justify-center">
-    <div class="text-center px-4">
-      <div class="w-10 h-10 border-2 border-slate-300 border-t-sky-600 rounded-full animate-spin mx-auto mb-3"></div>
-      <p class="text-sm text-slate-500" id="loading-text">Loading business…</p>
-      <p class="text-xs text-slate-400 mt-2">Please wait a moment</p>
+  <div id="loading-state" class="min-h-screen bk-page">
+    <div class="max-w-3xl mx-auto px-4 py-8 w-full">
+      <div class="bk-skeleton-header mb-6">
+        <div class="bk-skel bk-skel-avatar"></div>
+        <div class="flex-1 space-y-2">
+          <div class="bk-skel bk-skel-line w-2/3"></div>
+          <div class="bk-skel bk-skel-line w-1/3"></div>
+        </div>
+      </div>
+      <div class="bk-skel bk-skel-line w-full mb-4" style="height:0.75rem"></div>
+      <div class="bk-card mb-4">
+        <div class="bk-skel bk-skel-line w-1/4 mb-4"></div>
+        <div class="bk-skel bk-skel-block mb-3"></div>
+        <div class="bk-skel bk-skel-block mb-3"></div>
+        <div class="bk-skel bk-skel-block"></div>
+      </div>
+      <p class="text-center text-sm bk-muted" id="loading-text">Loading business…</p>
+      <p class="text-center text-xs bk-muted mt-1">Please wait a moment</p>
     </div>
   </div>
 
@@ -62,153 +75,213 @@
   </script>
 
   <!-- Main booking UI -->
-  <div id="booking-app" class="hidden min-h-screen flex flex-col">
-    <header class="bg-slate-900 text-white">
-      <div class="max-w-3xl mx-auto px-4 py-5">
-        <div class="flex items-center gap-3">
-          <div id="biz-logo" class="w-12 h-12 rounded-xl bg-sky-500 flex items-center justify-center font-bold text-lg shrink-0 overflow-hidden">
+  <div id="booking-app" class="hidden min-h-screen flex flex-col bk-page">
+    <header class="bk-header">
+      <div class="max-w-3xl mx-auto px-4 py-6">
+        <div class="flex items-start gap-3">
+          <div id="biz-logo" class="bk-avatar shrink-0 overflow-hidden">
             <span id="biz-initial">B</span>
           </div>
-          <div class="min-w-0">
-            <h1 id="biz-name" class="font-semibold text-lg truncate">Business</h1>
-            <p id="biz-category" class="text-sm text-slate-400 truncate"></p>
+          <div class="min-w-0 flex-1">
+            <h1 id="biz-name" class="bk-biz-name truncate">Business</h1>
+            <p id="biz-category" class="bk-biz-category truncate"></p>
           </div>
         </div>
-        <p id="biz-desc" class="mt-3 text-sm text-slate-300 leading-relaxed"></p>
-        <div id="biz-contact" class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-300 hidden">
-          <a id="biz-phone-link" href="#" class="underline decoration-slate-500 hover:text-white hidden"></a>
-          <a id="biz-email-link" href="#" class="underline decoration-slate-500 hover:text-white hidden"></a>
+        <p id="biz-desc" class="bk-biz-desc mt-3 leading-relaxed"></p>
+        <div id="biz-contact" class="bk-contact mt-3 hidden">
+          <a id="biz-phone-link" href="#" class="bk-contact-link hidden"></a>
+          <a id="biz-email-link" href="#" class="bk-contact-link hidden"></a>
         </div>
-        <div id="biz-location" class="mt-4 hidden">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Business location</p>
-          <p id="biz-address-text" class="text-sm text-slate-200 leading-relaxed"></p>
-          <a id="biz-maps-link" href="#" target="_blank" rel="noopener noreferrer"
-             class="inline-flex items-center gap-1.5 mt-2 text-sm font-semibold text-sky-300 underline">
+        <div id="biz-location" class="bk-location mt-4 hidden">
+          <p class="bk-location-label">Business location</p>
+          <p id="biz-address-text" class="bk-location-text leading-relaxed"></p>
+          <a id="biz-maps-link" href="#" target="_blank" rel="noopener noreferrer" class="bk-maps-link">
             Open in Maps
           </a>
-          <p class="text-[11px] text-slate-500 mt-1">Map search for this address (not exact GPS unless pinned).</p>
+          <p class="bk-muted mt-1">Map search for this address (not exact GPS unless pinned).</p>
         </div>
       </div>
     </header>
 
-    <main id="booking-flow" class="flex-1 max-w-3xl mx-auto w-full px-4 py-6 space-y-6">
+    <nav class="bk-progress-wrap" aria-label="Booking progress">
+      <ol class="bk-progress max-w-3xl mx-auto" id="booking-progress">
+        <li class="bk-step is-active" data-step="1"><span class="bk-step-num">1</span><span class="bk-step-label">Service</span></li>
+        <li class="bk-step" data-step="2"><span class="bk-step-num">2</span><span class="bk-step-label">Date &amp; time</span></li>
+        <li class="bk-step" data-step="3"><span class="bk-step-num">3</span><span class="bk-step-label">Details</span></li>
+        <li class="bk-step" data-step="4"><span class="bk-step-num">4</span><span class="bk-step-label">Confirm</span></li>
+      </ol>
+    </nav>
+
+    <main id="booking-flow" class="flex-1 max-w-3xl mx-auto w-full px-4 py-5 space-y-4">
       <!-- Step 1: Service -->
-      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">1. Select a service</h2>
-        <div id="services-container" class="space-y-2">
-          <p class="text-sm text-slate-500">Loading services…</p>
+      <section class="bk-card" id="section-service" data-section="1">
+        <h2 class="bk-section-title">Select a service</h2>
+        <p class="bk-section-sub">Choose the service you want to book.</p>
+        <div id="services-container" class="bk-service-list mt-4">
+          <p class="bk-muted text-sm">Loading services…</p>
         </div>
       </section>
 
-      <!-- Step 2: Date -->
-      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">2. Select a date</h2>
-        <input id="booking-date" type="date"
-          class="w-full sm:w-auto px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
-        <p id="date-hint" class="text-xs text-slate-500 mt-2"></p>
-      </section>
-
-      <!-- Step 3: Time slots -->
-      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">3. Select a time</h2>
-        <div id="slots-container" class="flex flex-wrap gap-2">
-          <p class="text-sm text-slate-500">Select a service and date first.</p>
+      <!-- Step 2: Date & Time -->
+      <section class="bk-card" id="section-datetime" data-section="2">
+        <h2 class="bk-section-title">Select date &amp; time</h2>
+        <p class="bk-section-sub">Available times depend on the business schedule.</p>
+        <label for="booking-date" class="bk-label mt-4">Date</label>
+        <input id="booking-date" type="date" class="bk-input" />
+        <p id="date-hint" class="bk-field-hint"></p>
+        <p class="bk-label mt-4">Available times</p>
+        <div id="slots-container" class="bk-slots mt-2">
+          <p class="bk-muted text-sm">Select a service and date first.</p>
         </div>
       </section>
 
-      <!-- Step 4: Customer info -->
-      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">4. Your details</h2>
-        <div class="space-y-3">
+      <!-- Step 3: Customer info -->
+      <section class="bk-card" id="section-details" data-section="3">
+        <h2 class="bk-section-title">Your details</h2>
+        <p class="bk-section-sub">We use this to confirm your appointment.</p>
+        <div class="space-y-3 mt-4">
           <div>
-            <label for="cust-name" class="block text-sm font-medium mb-1">Full name *</label>
+            <label for="cust-name" class="bk-label">Full name <span class="bk-req">*</span></label>
             <input id="hp_field" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;height:0;width:0;opacity:0" aria-hidden="true" value="" />
-            <input id="cust-name" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+            <input id="cust-name" required class="bk-input" autocomplete="name" placeholder="Your full name" />
+            <p id="err-cust-name" class="bk-field-error hidden"></p>
           </div>
           <div>
-            <label for="cust-email" class="block text-sm font-medium mb-1">Email *</label>
-            <input id="cust-email" type="email" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+            <label for="cust-email" class="bk-label">Email <span class="bk-req">*</span></label>
+            <input id="cust-email" type="email" required class="bk-input" inputmode="email" autocomplete="email" placeholder="you@example.com" />
+            <p id="err-cust-email" class="bk-field-error hidden"></p>
           </div>
           <div>
-            <label for="cust-phone" class="block text-sm font-medium mb-1">Phone (optional)</label>
-            <input id="cust-phone" type="tel" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none" />
+            <label for="cust-phone" class="bk-label">Phone <span class="bk-optional">(optional)</span></label>
+            <input id="cust-phone" type="tel" class="bk-input" inputmode="tel" autocomplete="tel" placeholder="09XXXXXXXXX" />
           </div>
           <div>
-            <label for="cust-notes" class="block text-sm font-medium mb-1">Notes (optional)</label>
-            <textarea id="cust-notes" rows="2" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 outline-none"></textarea>
+            <label for="cust-notes" class="bk-label">Additional notes <span class="bk-optional">(optional)</span></label>
+            <p class="bk-field-hint" style="margin-top:0;margin-bottom:0.35rem">Add any information the business should know about your appointment.</p>
+            <textarea id="cust-notes" rows="2" class="bk-input bk-textarea" placeholder="e.g. preferred stylist, allergies, access notes"></textarea>
           </div>
         </div>
       </section>
 
       <!-- Confirm -->
-      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <div id="summary" class="text-sm text-slate-600 mb-4 hidden"></div>
-        <p id="confirm-hint" class="text-xs text-slate-500 mb-2 text-center">Select a service, date, and time first.</p>
-        <button id="btn-confirm" disabled
-          class="w-full py-3.5 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold text-sm transition">
-          Confirm Booking
+      <div class="bk-card" id="section-confirm" data-section="4">
+        <h2 class="bk-section-title">Review &amp; confirm</h2>
+        <p class="bk-section-sub">Please check your details before confirming.</p>
+        <div id="summary" class="bk-summary hidden" aria-live="polite"></div>
+        <div class="bk-policy">
+          <p class="bk-policy-title">Before you confirm</p>
+          <ul class="bk-policy-list">
+            <li>Please arrive on time for your appointment.</li>
+            <li>Payment is typically made at the venue unless the business tells you otherwise.</li>
+            <li>You can manage or cancel using the secure link provided after confirmation.</li>
+            <li>Contact the business directly if you need changes outside that link.</li>
+          </ul>
+        </div>
+        <p id="confirm-hint" class="bk-muted text-sm text-center mb-3">Select a service, date, and time to continue.</p>
+        <button id="btn-confirm" disabled type="button" class="bk-btn bk-btn-primary bk-btn-block">
+          Confirm booking
         </button>
         <p id="booking-msg" class="text-sm mt-3 hidden text-center"></p>
       </div>
 
       <!-- Gemini AI Assistant -->
-      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+      <section class="bk-card bk-ai-card">
         <div class="flex items-center gap-2 mb-3">
-          <div class="w-8 h-8 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-bold">AI</div>
+          <div class="bk-ai-badge" aria-hidden="true">AI</div>
           <div>
-            <h2 class="text-sm font-semibold">Ask the assistant</h2>
-            <p class="text-xs text-slate-500">Questions about services, hours, or what to choose</p>
+            <h2 class="bk-section-title" style="margin:0">Ask the assistant</h2>
+            <p class="bk-section-sub" style="margin:0">Services, hours, or what to choose</p>
           </div>
         </div>
-        
         <div class="flex flex-wrap gap-2 mb-3" id="faq-buttons">
-          <button type="button" data-faq="hours" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">Store Hours</button>
-          <button type="button" data-faq="services" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">Services</button>
-          <button type="button" data-faq="prices" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">Price List</button>
-          <button type="button" data-faq="location" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">Location</button>
+          <button type="button" data-faq="hours" class="bk-chip">Store hours</button>
+          <button type="button" data-faq="services" class="bk-chip">Services</button>
+          <button type="button" data-faq="prices" class="bk-chip">Price list</button>
+          <button type="button" data-faq="location" class="bk-chip">Location</button>
         </div>
-
-        <div id="chat-messages" class="space-y-2 max-h-48 overflow-y-auto mb-3 text-sm">
-          <p class="text-slate-500 text-xs">Example: “What services do you offer?” or “What time do you open on Friday?”</p>
+        <div id="chat-messages" class="bk-chat space-y-2 max-h-48 overflow-y-auto mb-3 text-sm">
+          <p class="bk-muted text-xs">Example: “What services do you offer?” or “What time do you open on Friday?”</p>
         </div>
         <div class="flex gap-2">
-          <input id="chat-input" type="text" placeholder="Ask a question…"
-            class="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-violet-500 outline-none" />
-          <button id="btn-chat" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shrink-0">
-            Send
-          </button>
+          <input id="chat-input" type="text" placeholder="Ask a question…" class="bk-input flex-1" />
+          <button id="btn-chat" type="button" class="bk-btn bk-btn-ai shrink-0">Send</button>
         </div>
-        <p id="chat-error" class="text-xs text-red-600 mt-2 hidden"></p>
+        <p id="chat-error" class="bk-field-error mt-2 hidden"></p>
       </section>
     </main>
 
-    <footer class="py-4 text-center text-xs text-slate-400">
-      <button id="btn-install" type="button" class="hidden mb-3 text-sm px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 font-medium">
-        📲 Install App
+    <footer class="bk-footer">
+      <button id="btn-install" type="button" class="hidden bk-btn bk-btn-secondary mb-3">
+        Install app
       </button>
       <div>Powered by BookAI Scheduler</div>
     </footer>
   </div>
 
+  <!-- Waitlist modal -->
+  <div id="waitlist-modal" class="fixed inset-0 bg-slate-900/70 z-50 hidden flex items-center justify-center p-4">
+    <div class="bk-success-sheet max-w-sm w-full text-left">
+      <h2 class="bk-success-title" style="text-align:left">Join waitlist</h2>
+      <p class="bk-muted mb-3">This does not confirm an appointment. The business can contact you if a suitable time opens.</p>
+      <div class="space-y-3">
+        <div>
+          <label class="bk-label" for="wl-name">Full name *</label>
+          <input id="wl-name" class="bk-input" autocomplete="name" />
+        </div>
+        <div>
+          <label class="bk-label" for="wl-email">Email *</label>
+          <input id="wl-email" type="email" class="bk-input" inputmode="email" autocomplete="email" />
+        </div>
+        <div>
+          <label class="bk-label" for="wl-period">Preferred time of day <span class="bk-optional">(optional)</span></label>
+          <select id="wl-period" class="bk-input">
+            <option value="">Any time</option>
+            <option value="morning">Morning</option>
+            <option value="afternoon">Afternoon</option>
+            <option value="evening">Evening</option>
+          </select>
+        </div>
+        <div>
+          <label class="bk-label" for="wl-notes">Notes <span class="bk-optional">(optional)</span></label>
+          <textarea id="wl-notes" rows="2" class="bk-input bk-textarea" placeholder="Anything the business should know"></textarea>
+        </div>
+        <p id="wl-meta" class="bk-muted text-xs"></p>
+        <p id="wl-error" class="bk-field-error hidden"></p>
+      </div>
+      <div class="flex gap-2 mt-4">
+        <button type="button" id="wl-cancel" class="bk-btn bk-btn-secondary flex-1">Cancel</button>
+        <button type="button" id="wl-submit" class="bk-btn bk-btn-primary flex-1">Join waitlist</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Success modal -->
   <div id="success-modal" class="fixed inset-0 bg-slate-900/70 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
-      <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 text-2xl">✓</div>
-      <h2 class="text-xl font-semibold mb-2">Booking confirmed!</h2>
-      <p id="success-details" class="text-sm text-slate-600 mb-3"></p>
-      <p id="success-booking-id" class="text-xs font-mono text-slate-500 mb-3"></p>
-        <a id="manage-link" href="#" class="hidden mt-3 inline-block text-sm font-semibold text-sky-600 underline">Manage or cancel this appointment</a>
-      <div class="flex flex-col gap-2 mb-3">
-        <a id="btn-gcal" href="#" target="_blank" rel="noopener" class="w-full py-2 rounded-xl border border-slate-300 text-sm text-center hover:bg-slate-50">Add to Google Calendar</a>
-        <button id="btn-print-receipt" type="button" class="w-full py-2 rounded-xl border border-slate-300 text-sm hover:bg-slate-50">View / Print Receipt</button>
+    <div class="bk-success-sheet max-w-sm w-full text-center">
+      <div class="bk-success-icon" aria-hidden="true">✓</div>
+      <h2 class="bk-success-title">Booking confirmed</h2>
+      <p id="success-details" class="bk-success-details"></p>
+      <div class="bk-ref-card">
+        <p class="bk-ref-label">Booking reference</p>
+        <p id="success-booking-id" class="bk-ref-value"></p>
+        <p class="bk-muted" style="margin-top:0.35rem">Save this reference for your records.</p>
       </div>
-      <button id="btn-success-close" class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">
+      <a id="manage-link" href="#" class="hidden bk-btn bk-btn-primary bk-btn-block mt-4">Manage or cancel appointment</a>
+      <div class="flex flex-col gap-2 mt-3 mb-1">
+        <a id="btn-gcal" href="#" target="_blank" rel="noopener" class="bk-btn bk-btn-secondary bk-btn-block">Add to Google Calendar</a>
+        <button id="btn-print-receipt" type="button" class="bk-btn bk-btn-secondary bk-btn-block">View / print receipt</button>
+      </div>
+      <button id="btn-success-close" type="button" class="bk-btn bk-btn-secondary bk-btn-block mt-2">
         Done
       </button>
     </div>
   </div>
 
   <script type="module">
+    function localISODate(d) {
+      const x = d instanceof Date ? d : new Date();
+      return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0');
+    }
     function formatTime12(hhmm) {
       if (!hhmm) return '';
       const parts = String(hhmm).trim().split(':');
@@ -373,7 +446,7 @@
             // dummy serviceId — if business blocked, API returns 403 before service check
             // if not blocked, may 404 service — that means bookable
             serviceId: '__probe__',
-            date: new Date().toISOString().slice(0, 10)
+            date: localISODate(new Date())
           })
         }), 10000, 'Availability check');
         const data = await res.json().catch(() => ({}));
@@ -579,16 +652,19 @@
     function renderServices() {
       const el = document.getElementById('services-container');
       if (!services.length) {
-        el.innerHTML = '<p class="text-sm text-amber-600">No services are currently available for booking.</p>';
+        el.innerHTML = '<div class="bk-empty"><p class="bk-empty-title">No services available</p><p class="bk-empty-text">This business has not published bookable services yet. Please check back later.</p></div>';
         return;
       }
       el.innerHTML = services.map(s => `
-        <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-sky-300 cursor-pointer transition has-[:checked]:border-sky-500 has-[:checked]:bg-sky-50">
-          <input type="radio" name="service" value="${s.id}" class="mt-1 text-sky-600 focus:ring-sky-500" />
-          <div class="min-w-0">
-            <p class="font-medium text-sm">${escapeHtml(s.name)}</p>
-            <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(s.description || '')}</p>
-            <p class="text-xs text-slate-600 mt-1">${s.duration || 0} min · ${formatPrice(s.price)}</p>
+        <label class="bk-service-card">
+          <input type="radio" name="service" value="${s.id}" class="bk-service-radio" />
+          <div class="bk-service-body min-w-0">
+            <div class="bk-service-top">
+              <p class="bk-service-name">${escapeHtml(s.name)}</p>
+              <p class="bk-service-price">${formatPrice(s.price)}</p>
+            </div>
+            ${s.description ? `<p class="bk-service-desc">${escapeHtml(s.description)}</p>` : ''}
+            <p class="bk-service-meta">${s.duration || 0} minutes</p>
           </div>
         </label>
       `).join('');
@@ -597,20 +673,104 @@
         radio.addEventListener('change', () => {
           selectedService = services.find(s => s.id === radio.value) || null;
           selectedSlot = null;
+          selectedStaff = null;
+          el.querySelectorAll('.bk-service-card').forEach(c => c.classList.toggle('is-selected', c.querySelector('input') === radio));
           updateSummary();
-          if (selectedDate) loadSlots();
+          loadStaffForService().then(() => {
+            if (selectedDate) loadSlots();
+          });
         });
       });
     }
 
+    async function loadStaffForService() {
+      const section = document.getElementById('section-staff');
+      const box = document.getElementById('staff-container');
+      if (!section || !box || !tenantId || !selectedService) {
+        if (section) section.classList.add('hidden');
+        return;
+      }
+      try {
+        const res = await fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'listStaffPublic', tenantId, serviceId: selectedService.id })
+        });
+        const data = await res.json();
+        staffSelectionMode = data.staffSelectionMode || 'optional';
+        staffList = data.staff || [];
+        hasStaff = !!(data.hasStaff && staffList.length);
+        if (staffSelectionMode === 'hidden') {
+          section.classList.add('hidden');
+          selectedStaff = null;
+          return;
+        }
+        if (!hasStaff) {
+          // Staff system may exist but none eligible for this service
+          if (data.hasStaff === false) {
+            section.classList.add('hidden');
+            selectedStaff = null;
+            return;
+          }
+          section.classList.remove('hidden');
+          box.innerHTML = '<div class="bk-empty"><p class="bk-empty-title">No team member for this service</p>' +
+            '<p class="bk-empty-text">Please choose a different service or contact the business.</p></div>';
+          selectedStaff = null;
+          return;
+        }
+        section.classList.remove('hidden');
+        const sub = document.getElementById('staff-section-sub');
+        if (sub) {
+          sub.textContent = staffSelectionMode === 'required'
+            ? 'Please choose a team member for this service.'
+            : 'Choose a team member, or Any available.';
+        }
+        let html = '';
+        if (staffSelectionMode === 'optional') {
+          html += '<label class="bk-service-card is-selected"><input type="radio" name="staff" value="" class="bk-service-radio" checked />' +
+            '<div class="bk-service-body"><p class="bk-service-name">Any available</p>' +
+            '<p class="bk-service-meta">We will assign someone free at your chosen time</p></div></label>';
+        }
+        html += staffList.map(s =>
+          '<label class="bk-service-card"><input type="radio" name="staff" value="' + s.id + '" class="bk-service-radio" />' +
+          '<div class="bk-service-body min-w-0"><p class="bk-service-name">' + escapeHtml(s.name) + '</p>' +
+          (s.role ? '<p class="bk-service-meta">' + escapeHtml(s.role) + '</p>' : '') +
+          (s.description ? '<p class="bk-service-desc">' + escapeHtml(s.description) + '</p>' : '') +
+          '</div></label>'
+        ).join('');
+        box.innerHTML = html;
+        box.querySelectorAll('input[name="staff"]').forEach(radio => {
+          radio.addEventListener('change', () => {
+            const v = radio.value;
+            selectedStaff = v ? (staffList.find(s => s.id === v) || { id: v }) : null;
+            selectedSlot = null;
+            box.querySelectorAll('.bk-service-card').forEach(c => c.classList.toggle('is-selected', c.querySelector('input') === radio));
+            updateSummary();
+            if (selectedDate) loadSlots();
+          });
+        });
+        // default any for optional
+        if (staffSelectionMode === 'optional') selectedStaff = null;
+        else if (staffSelectionMode === 'required' && staffList[0]) {
+          // no selection yet
+          selectedStaff = null;
+        }
+      } catch (e) {
+        console.warn('staff', e);
+        section.classList.add('hidden');
+        hasStaff = false;
+      }
+    }
+
+
     function setupDateInput() {
       const input = document.getElementById('booking-date');
       const today = new Date();
-      const min = today.toISOString().slice(0, 10);
+      const min = localISODate(today);
       const maxDate = new Date(today);
       maxDate.setDate(maxDate.getDate() + 60);
       input.min = min;
-      input.max = maxDate.toISOString().slice(0, 10);
+      input.max = localISODate(maxDate);
       input.addEventListener('change', () => {
         selectedDate = input.value;
         selectedSlot = null;
@@ -627,17 +787,179 @@
      * public endpoint. For this architecture we fetch slots via the serverless
      * function which safely reads appointments server-side.
      */
+
+    function addDaysISO(iso, days) {
+      const d = new Date(iso + 'T12:00:00');
+      d.setDate(d.getDate() + days);
+      return localISODate(d);
+    }
+
+    async function findNextAvailableDate(fromDateISO, maxDays) {
+      const limit = Math.min(maxDays || 14, 21);
+      const start = fromDateISO || selectedDate;
+      if (!selectedService || !tenantId || !start) return null;
+      for (let i = 1; i <= limit; i++) {
+        const date = addDaysISO(start, i);
+        try {
+          const res = await fetch('/api/create-booking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'getSlots',
+              tenantId,
+              serviceId: selectedService.id,
+              date
+            })
+          });
+          const data = await res.json();
+          if (!res.ok) continue;
+          if (data.closed) continue;
+          if ((data.slots || []).length > 0) return date;
+        } catch (e) {
+          continue;
+        }
+      }
+      return null;
+    }
+
+    async function renderNoSlotsState(container) {
+      container.innerHTML =
+        '<div class="bk-empty bk-avail-empty">' +
+        '<p class="bk-empty-title">No available times for this date</p>' +
+        '<p class="bk-empty-text">There are currently no open appointment slots for the selected day. You can pick another date or join the waitlist so the business knows you are interested.</p>' +
+        '<div id="next-avail-wrap" class="mt-3"><p class="bk-muted text-sm">Looking for the next available day…</p></div>' +
+        '<div class="flex flex-col gap-2 mt-3">' +
+        '<button type="button" id="btn-pick-other-date" class="bk-btn bk-btn-secondary bk-btn-block">Choose another date</button>' +
+        '<button type="button" id="btn-join-waitlist" class="bk-btn bk-btn-primary bk-btn-block">Join waitlist</button>' +
+        '</div></div>';
+      document.getElementById('btn-pick-other-date')?.addEventListener('click', () => {
+        const di = document.getElementById('booking-date');
+        if (di) { di.focus(); di.showPicker && di.showPicker(); }
+      });
+      document.getElementById('btn-join-waitlist')?.addEventListener('click', () => openWaitlist());
+      const wrap = document.getElementById('next-avail-wrap');
+      try {
+        const next = await findNextAvailableDate(selectedDate, 14);
+        if (!wrap) return;
+        if (next) {
+          wrap.innerHTML =
+            '<button type="button" id="btn-next-avail" class="bk-next-avail">' +
+            '<span class="bk-next-avail-label">Next available</span>' +
+            '<span class="bk-next-avail-date">' + formatDisplayDate(next) + '</span></button>';
+          document.getElementById('btn-next-avail')?.addEventListener('click', () => {
+            const di = document.getElementById('booking-date');
+            if (di) {
+              di.value = next;
+              selectedDate = next;
+              selectedSlot = null;
+              updateSummary();
+              loadSlots();
+            }
+          });
+        } else {
+          wrap.innerHTML = '<p class="bk-muted text-sm">No openings found in the next 14 days for this service.</p>';
+        }
+      } catch (e) {
+        if (wrap) wrap.innerHTML = '<p class="bk-muted text-sm">Could not check upcoming dates. Please try another date.</p>';
+      }
+    }
+
+    function openWaitlist() {
+      if (!selectedService || !selectedDate || !tenantId) {
+        alert('Select a service and date first.');
+        return;
+      }
+      const modal = document.getElementById('waitlist-modal');
+      const meta = document.getElementById('wl-meta');
+      if (meta) {
+        meta.textContent = (selectedService.name || 'Service') + ' · Preferred date: ' + formatDisplayDate(selectedDate);
+      }
+      const nameEl = document.getElementById('wl-name');
+      const emailEl = document.getElementById('wl-email');
+      if (nameEl && !nameEl.value) nameEl.value = (document.getElementById('cust-name')?.value || '').trim();
+      if (emailEl && !emailEl.value) emailEl.value = (document.getElementById('cust-email')?.value || '').trim();
+      document.getElementById('wl-error')?.classList.add('hidden');
+      modal?.classList.remove('hidden');
+    }
+
+    function closeWaitlist() {
+      document.getElementById('waitlist-modal')?.classList.add('hidden');
+    }
+
+    document.getElementById('wl-cancel')?.addEventListener('click', closeWaitlist);
+    document.getElementById('wl-submit')?.addEventListener('click', async () => {
+      const err = document.getElementById('wl-error');
+      const name = (document.getElementById('wl-name')?.value || '').trim();
+      const email = (document.getElementById('wl-email')?.value || '').trim().toLowerCase();
+      const notes = (document.getElementById('wl-notes')?.value || '').trim();
+      const period = document.getElementById('wl-period')?.value || '';
+      if (!name || name.length < 2) {
+        if (err) { err.textContent = 'Please enter your full name.'; err.classList.remove('hidden'); }
+        return;
+      }
+      if (!email || !email.includes('@')) {
+        if (err) { err.textContent = 'Please enter a valid email.'; err.classList.remove('hidden'); }
+        return;
+      }
+      const periodMap = {
+        morning: { start: '08:00', end: '12:00' },
+        afternoon: { start: '12:00', end: '17:00' },
+        evening: { start: '17:00', end: '21:00' }
+      };
+      const range = periodMap[period] || { start: '09:00', end: '17:00' };
+      const btn = document.getElementById('wl-submit');
+      if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+      try {
+        const res = await fetch('/api/business', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'joinWaitlist',
+            tenantId,
+            serviceId: selectedService.id,
+            serviceName: selectedService.name,
+            preferredDate: selectedDate,
+            preferredStartTime: range.start,
+            preferredEndTime: range.end,
+            preferredPeriod: period || null,
+            customerName: name,
+            customerEmail: email,
+            notes,
+            website: ''
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not join waitlist');
+        closeWaitlist();
+        alert('You are on the waitlist. This is not a confirmed appointment — the business may contact you if a time opens.');
+      } catch (e) {
+        if (err) { err.textContent = e.message || 'Could not join waitlist'; err.classList.remove('hidden'); }
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Join waitlist'; }
+      }
+    });
+
+    function bindSlotButtons(container) {
+      container.querySelectorAll('.slot-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          container.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('is-selected'));
+          btn.classList.add('is-selected');
+          selectedSlot = { startTime: btn.dataset.start, endTime: btn.dataset.end };
+          updateSummary();
+        });
+      });
+    }
+
     async function loadSlots() {
       const container = document.getElementById('slots-container');
       if (!selectedService || !selectedDate) {
-        container.innerHTML = '<p class="text-sm text-slate-500">Select a service and date first.</p>';
+        container.innerHTML = '<p class="bk-muted text-sm">Select a service and date first.</p>';
         return;
       }
 
-      container.innerHTML = '<p class="text-sm text-slate-500">Checking availability…</p>';
+      container.innerHTML = '<div class="bk-slots-loading"><span class="bk-spinner"></span><span>Checking availability…</span></div>';
 
       try {
-        // Ask serverless for available slots (server reads appointments safely)
         const res = await fetch('/api/create-booking', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -645,7 +967,8 @@
             action: 'getSlots',
             tenantId,
             serviceId: selectedService.id,
-            date: selectedDate
+            date: selectedDate,
+            staffId: selectedStaff && selectedStaff.id ? selectedStaff.id : ''
           })
         });
 
@@ -660,36 +983,18 @@
         }
         const slots = data.slots || [];
         if (!slots.length) {
-          container.innerHTML = '<p class="text-sm text-amber-600 mb-3">No available times on this date.</p>' +
-            '<button type="button" id="btn-join-waitlist" class="w-full py-2.5 rounded-xl border border-sky-300 text-sky-700 text-sm font-medium">Join waitlist for this day</button>';
-          document.getElementById('btn-join-waitlist')?.addEventListener('click', () => openWaitlist());
-          document.getElementById('date-hint').textContent = '';
+          await renderNoSlotsState(container);
           return;
         }
 
         container.innerHTML = slots.map(s => `
-          <button type="button" data-start="${s.startTime}" data-end="${s.endTime}"
-            class="slot-btn px-3.5 py-2.5 rounded-xl border-2 border-slate-300 text-sm font-semibold text-slate-800 hover:border-sky-500 hover:bg-sky-50 transition min-w-[5.5rem]">
+          <button type="button" data-start="${s.startTime}" data-end="${s.endTime}" class="slot-btn">
             <span class="block">${formatTime12(s.startTime)}</span>
           </button>
         `).join('');
-
-        container.querySelectorAll('.slot-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            container.querySelectorAll('.slot-btn').forEach(b => {
-              b.classList.remove('border-sky-500', 'bg-sky-100', 'font-medium');
-              b.classList.add('border-slate-300');
-            });
-            btn.classList.add('border-sky-500', 'bg-sky-100', 'font-medium');
-            btn.classList.remove('border-slate-300');
-            selectedSlot = { startTime: btn.dataset.start, endTime: btn.dataset.end };
-            updateSummary();
-          });
-        });
+        bindSlotButtons(container);
       } catch (err) {
         console.error(err);
-        // Fallback: generate slots without existing appointments (less accurate)
-        // This still respects operating hours; final conflict check is server-side on confirm.
         const slots = generateAvailableSlots({
           date: selectedDate,
           durationMinutes: selectedService.duration || 30,
@@ -697,26 +1002,35 @@
           existingAppointments: []
         });
         if (!slots.length) {
-          container.innerHTML = '<p class="text-sm text-amber-600">No available times (closed or no hours set).</p>';
+          container.innerHTML =
+            '<div class="bk-empty"><p class="bk-empty-title">No available times for this date</p>' +
+            '<p class="bk-empty-text">The business may be closed or hours are not set. Please select another date.</p></div>';
         } else {
           container.innerHTML = slots.map(s => `
-            <button type="button" data-start="${s.startTime}" data-end="${s.endTime}"
-              class="slot-btn px-3.5 py-2.5 rounded-xl border-2 border-slate-300 text-sm font-semibold text-slate-800 hover:border-sky-500 hover:bg-sky-50 transition min-w-[5.5rem]">
+            <button type="button" data-start="${s.startTime}" data-end="${s.endTime}" class="slot-btn">
               <span class="block">${formatTime12(s.startTime)}</span>
             </button>
-          `).join('') + '<p class="w-full text-xs text-slate-400 mt-2">Times shown in AM/PM. Final check on confirm.</p>';
-          container.querySelectorAll('.slot-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-              container.querySelectorAll('.slot-btn').forEach(b => {
-                b.classList.remove('border-sky-500', 'bg-sky-100', 'font-medium');
-              });
-              btn.classList.add('border-sky-500', 'bg-sky-100', 'font-medium');
-              selectedSlot = { startTime: btn.dataset.start, endTime: btn.dataset.end };
-              updateSummary();
-            });
-          });
+          `).join('') + '<p class="w-full bk-muted text-xs mt-2">Times shown in AM/PM. Availability is re-checked when you confirm.</p>';
+          bindSlotButtons(container);
         }
       }
+    }
+
+    function updateBookingProgress() {
+      const hasService = !!selectedService;
+      const hasWhen = !!(selectedDate && selectedSlot);
+      const name = (document.getElementById('cust-name')?.value || '').trim();
+      const email = (document.getElementById('cust-email')?.value || '').trim();
+      const hasDetails = name.length >= 2 && email.includes('@');
+      let active = 1;
+      if (hasService && !hasWhen) active = 2;
+      if (hasService && hasWhen && !hasDetails) active = 3;
+      if (hasService && hasWhen && hasDetails) active = 4;
+      document.querySelectorAll('#booking-progress .bk-step').forEach((el) => {
+        const n = Number(el.dataset.step);
+        el.classList.toggle('is-active', n === active);
+        el.classList.toggle('is-done', n < active);
+      });
     }
 
     function updateSummary() {
@@ -727,31 +1041,82 @@
       const email = (document.getElementById('cust-email')?.value || '').trim();
       const readySlot = !!(selectedService && selectedDate && selectedSlot);
       const readyForm = name.length >= 2 && email.includes('@');
+
+      const errName = document.getElementById('err-cust-name');
+      const errEmail = document.getElementById('err-cust-email');
+      if (errName) {
+        if (name.length > 0 && name.length < 2) {
+          errName.textContent = 'Please enter your full name.';
+          errName.classList.remove('hidden');
+          document.getElementById('cust-name')?.classList.add('is-invalid');
+        } else {
+          errName.classList.add('hidden');
+          document.getElementById('cust-name')?.classList.remove('is-invalid');
+        }
+      }
+      if (errEmail) {
+        if (email.length > 0 && !email.includes('@')) {
+          errEmail.textContent = 'Enter a valid email address.';
+          errEmail.classList.remove('hidden');
+          document.getElementById('cust-email')?.classList.add('is-invalid');
+        } else {
+          errEmail.classList.add('hidden');
+          document.getElementById('cust-email')?.classList.remove('is-invalid');
+        }
+      }
+
+      const notes = (document.getElementById('cust-notes')?.value || '').trim();
+      const bizName = (settings && settings.businessName) || document.getElementById('biz-name')?.textContent || 'Business';
+
       if (readySlot) {
-        summary.innerHTML = `
-          <strong>${escapeHtml(selectedService.name)}</strong> on
-          ${formatDisplayDate(selectedDate)} at <strong class="text-sky-700">${formatTime12(selectedSlot.startTime)}</strong>
-          (${selectedService.duration || 0} min)
-        `;
+        let html = '<p class="bk-summary-heading">Booking summary</p>';
+        html += '<div class="bk-summary-row"><span>Business</span><strong>' + escapeHtml(bizName) + '</strong></div>';
+        html += '<div class="bk-summary-row"><span>Service</span><strong>' + escapeHtml(selectedService.name) + '</strong></div>';
+        if (selectedStaff && selectedStaff.name) {
+          html += '<div class="bk-summary-row"><span>Staff</span><strong>' + escapeHtml(selectedStaff.name) + '</strong></div>';
+        } else if (hasStaff && staffSelectionMode !== 'hidden') {
+          html += '<div class="bk-summary-row"><span>Staff</span><strong>Any available</strong></div>';
+        }
+        html += '<div class="bk-summary-row"><span>Date</span><strong>' + formatDisplayDate(selectedDate) + '</strong></div>';
+        html += '<div class="bk-summary-row"><span>Time</span><strong>' + formatTime12(selectedSlot.startTime) + '</strong></div>';
+        html += '<div class="bk-summary-row"><span>Duration</span><strong>' + (selectedService.duration || 0) + ' minutes</strong></div>';
+        html += '<div class="bk-summary-row bk-summary-price"><span>Price</span><strong>' + formatPrice(selectedService.price) + '</strong></div>';
+        if (name) html += '<div class="bk-summary-row"><span>Name</span><strong>' + escapeHtml(name) + '</strong></div>';
+        if (email) html += '<div class="bk-summary-row"><span>Email</span><strong>' + escapeHtml(email) + '</strong></div>';
+        if (notes) html += '<div class="bk-summary-row bk-summary-notes"><span>Notes</span><strong>' + escapeHtml(notes) + '</strong></div>';
+        summary.innerHTML = html;
         summary.classList.remove('hidden');
       } else {
         summary.classList.add('hidden');
       }
-      btn.disabled = !(readySlot && readyForm);
-      if (hint) {
-        if (!readySlot) hint.textContent = 'Select a service, date, and time first.';
-        else if (!readyForm) hint.textContent = 'Enter your full name and email to enable Confirm.';
-        else hint.textContent = 'Ready — tap Confirm Booking.';
-        hint.classList.toggle('text-emerald-600', readySlot && readyForm);
-        hint.classList.toggle('text-slate-500', !(readySlot && readyForm));
+      if (!btn.dataset.busy) {
+        btn.disabled = !(readySlot && readyForm);
       }
+      if (hint) {
+        if (!readySlot) hint.textContent = 'Select a service, date, and time to continue.';
+        else if (!readyForm) hint.textContent = 'Enter your full name and email to enable confirm.';
+        else hint.textContent = 'Ready — review the summary, then confirm.';
+        hint.classList.toggle('is-ready', readySlot && readyForm);
+      }
+      updateBookingProgress();
     }
 
-    ['cust-name', 'cust-email'].forEach((id) => {
+    ['cust-name', 'cust-email', 'cust-notes'].forEach((id) => {
       document.getElementById(id)?.addEventListener('input', updateSummary);
     });
 
     // Confirm booking
+    function apiErrorMessage(res, data, fallback) {
+      const status = res && res.status;
+      const msg = (data && (data.error || data.message)) || '';
+      if (!res) return 'Unable to connect. Check your internet connection and try again.';
+      if (status === 401) return 'Your session has expired. Please sign in again.';
+      if (status === 403) return msg || 'This booking cannot be completed right now.';
+      if (status === 404) return msg || 'Business or service not found.';
+      if (status === 409) return msg || 'The selected time is no longer available. Please choose another slot.';
+      if (status >= 500) return msg || 'Something went wrong. Please try again.';
+      return msg || fallback || 'Booking failed. Please try again.';
+    }
     document.getElementById('btn-confirm').addEventListener('click', async () => {
       const name = document.getElementById('cust-name').value.trim();
       const email = document.getElementById('cust-email').value.trim();
@@ -771,6 +1136,10 @@
         msg.classList.remove('hidden');
         return;
       }
+      if (hasStaff && staffSelectionMode === 'required' && !(selectedStaff && selectedStaff.id)) {
+        alert('Please select a staff member.');
+        return;
+      }
       if (!selectedService || !selectedDate || !selectedSlot) {
         msg.textContent = 'Please select service, date, and time.';
         msg.className = 'text-sm mt-3 text-center text-red-600';
@@ -778,8 +1147,10 @@
         return;
       }
 
+      if (btn.dataset.busy === '1') return;
+      btn.dataset.busy = '1';
       btn.disabled = true;
-      btn.textContent = 'Booking…';
+      btn.textContent = 'Confirming booking...';
 
       try {
         const res = await fetch('/api/create-booking', {
@@ -789,6 +1160,7 @@
             action: 'create',
             tenantId,
             serviceId: selectedService.id,
+            staffId: selectedStaff && selectedStaff.id ? selectedStaff.id : '',
             date: selectedDate,
             startTime: selectedSlot.startTime,
             endTime: selectedSlot.endTime,
@@ -802,14 +1174,14 @@
         });
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.error || 'Booking failed');
+          throw new Error(apiErrorMessage(res, data, 'Booking failed'));
         }
 
         const bid = data.bookingId || data.appointmentId || '';
         document.getElementById('success-details').textContent =
           `${selectedService.name} on ${formatDisplayDate(selectedDate)} at ${formatTime12(selectedSlot.startTime)}. Status: ${data.status || 'confirmed'}.`;
         const idEl = document.getElementById('success-booking-id');
-        if (idEl) idEl.textContent = (data.bookingRef || bid) ? ('Ref: ' + (data.bookingRef || bid)) : '';
+        if (idEl) idEl.textContent = (data.bookingRef || bid) || '—';
         const manageEl = document.getElementById('manage-link');
         if (manageEl && data.manageUrl) {
           manageEl.href = data.manageUrl;
@@ -845,8 +1217,10 @@
         // Refresh slots
         loadSlots();
       } finally {
+        delete btn.dataset.busy;
         btn.disabled = false;
-        btn.textContent = 'Confirm Booking';
+        btn.textContent = 'Confirm booking';
+        updateSummary();
       }
     });
 

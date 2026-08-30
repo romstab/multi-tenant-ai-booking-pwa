@@ -18,6 +18,9 @@ service cloud.firestore {
     match /platformSupport/{id} {
       allow read, write: if false;
     }
+    match /platformStaffIndex/{uid} {
+      allow read, write: if false; // Admin SDK only
+    }
 
     match /tenants/{tenantId} {
       match /settings/{docId} {
@@ -41,6 +44,16 @@ service cloud.firestore {
 
       match /staff/{staffId} {
         allow read: if true;
+        allow write: if isTenantOwner(tenantId);
+      }
+
+      match /staffTimeOff/{timeOffId} {
+        allow read: if isTenantOwner(tenantId);
+        allow write: if isTenantOwner(tenantId);
+      }
+
+      match /specialHours/{specialId} {
+        allow read: if isTenantOwner(tenantId);
         allow write: if isTenantOwner(tenantId);
       }
 

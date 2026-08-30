@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Staff — BookAI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <style>
+    .sp-badge {
+      display: inline-flex; align-items: center;
+      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
+      padding: 0.2rem 0.5rem; border-radius: 999px;
+      background: var(--bg-elevated, #f1f5f9); color: var(--text, #334155);
+    }
+    .sp-badge-next { background: #dbeafe; color: #1e40af; }
+    .sp-badge-done { background: #dcfce7; color: #166534; }
+    .sp-badge-cancel { background: #fee2e2; color: #991b1b; }
+    .sp-badge-noshow { background: #ffedd5; color: #9a3412; }
+    .sp-badge-in { background: #e0e7ff; color: #3730a3; }
+    .sp-card {
+      border: 1px solid var(--border, #e2e8f0);
+      border-radius: 0.85rem;
+      background: var(--bg-elevated, #fff);
+      padding: 0.9rem 1rem;
+      text-align: left;
+      width: 100%;
+      min-height: 44px;
+    }
+    .sp-card.is-next { border-color: #93c5fd; box-shadow: 0 0 0 1px #93c5fd33; }
+    .sp-time { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
+    .sp-sheet {
+      background: var(--bg-elevated, #fff);
+      border-radius: 1rem 1rem 0 0;
+      max-height: 88vh;
+      overflow-y: auto;
+      padding: 1.25rem;
+      width: 100%;
+      max-width: 28rem;
+      margin: 0 auto;
+    }
+    [data-theme="dark"] .sp-badge-next { background: #1e3a5f; color: #bfdbfe; }
+    [data-theme="dark"] .sp-badge-done { background: #14532d; color: #bbf7d0; }
+    [data-theme="dark"] .sp-badge-cancel { background: #7f1d1d; color: #fecaca; }
+    [data-theme="dark"] .sp-card.is-next { border-color: #3b82f6; }
+  </style>
+</head>
+<body class="min-h-screen" style="background: var(--bg, #f8fafc); color: var(--text, #0f172a);">
+  <div id="auth-loading" class="min-h-screen flex items-center justify-center text-sm" style="color: var(--muted, #64748b)">Checking access…</div>
+
+  <div id="denied" class="hidden min-h-screen flex items-center justify-center p-6">
+    <div class="card p-6 max-w-md text-center space-y-3">
+      <h1 class="font-semibold text-lg">Access denied</h1>
+      <p class="text-sm" id="denied-msg" style="color: var(--muted)"></p>
+      <a href="/index.html" class="btn btn-secondary btn-block min-h-[44px]">Back to login</a>
+    </div>
+  </div>
+
+  <div id="app" class="hidden max-w-lg mx-auto px-4 pt-5 pb-24 space-y-4">
+    <header class="flex justify-between items-start gap-3">
+      <div class="min-w-0">
+        <p class="text-xs uppercase tracking-wide" style="color: var(--muted)">Staff portal</p>
+        <h1 class="font-semibold text-xl truncate" id="staff-title">My schedule</h1>
+        <p class="text-xs mt-0.5" id="staff-sub" style="color: var(--muted)"></p>
+      </div>
+      <button type="button" id="btn-signout" class="btn btn-secondary text-xs min-h-[44px] shrink-0">Sign out</button>
+    </header>
+
+    <div class="flex gap-2 overflow-x-auto pb-1">
+      <button type="button" data-view="today" class="filter-chip is-active min-h-[40px]">Today</button>
+      <button type="button" data-view="upcoming" class="filter-chip min-h-[40px]">Upcoming</button>
+      <button type="button" data-view="past" class="filter-chip min-h-[40px]">Past</button>
+      <button type="button" id="btn-refresh" class="filter-chip min-h-[40px]">Refresh</button>
+    </div>
+
+    <section id="next-card-wrap" class="hidden">
+      <p class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: var(--muted)">Next up</p>
+      <div id="next-card"></div>
+    </section>
+
+    <section>
+      <div class="flex justify-between items-baseline mb-2">
+        <h2 class="font-semibold text-sm" id="list-heading">Today’s schedule</h2>
+        <span class="text-xs" id="list-count" style="color: var(--muted)"></span>
+      </div>
+      <div id="appt-list" class="space-y-2">Loading…</div>
+    </section>
+  </div>
+
+  <!-- Detail sheet -->
+  <div id="detail-modal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center" style="background: rgba(15,23,42,0.55)">
+    <div class="sp-sheet" role="dialog" aria-modal="true">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="font-semibold">Appointment</h2>
+        <button type="button" id="detail-close" class="text-sm font-semibold min-h-[44px] px-2" style="color: var(--muted)">Close</button>
+      </div>
+      <div id="detail-body" class="space-y-2 text-sm"></div>
+      <div id="detail-actions" class="flex flex-wrap gap-2 mt-4"></div>
+      <p id="detail-error" class="text-xs text-red-600 mt-2 hidden"></p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, onAuthStateChanged, signOut } from './firebase-config.js';
+
+    let session = null;
+    let allItems = [];
+    let currentView = 'today';
+    let selectedId = null;
+    let idTokenCache = null;
+
+    function esc(s) {
+      return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function localTodayISO() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    function formatTime12(t) {
+      if (!t) return '—';
+      const [h, m] = String(t).split(':').map(Number);
+      const am = h < 12;
+      const h12 = h % 12 || 12;
+      return h12 + ':' + String(m || 0).padStart(2, '0') + (am ? ' AM' : ' PM');
+    }
+    function formatDisplayDate(iso) {
+      if (!iso) return '—';
+      try {
+        return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      } catch { return iso; }
+    }
+    function statusLabel(st) {
+      const map = {
+        confirmed: 'Confirmed', checked_in: 'Checked in', completed: 'Completed',
+        cancelled: 'Cancelled', no_show: 'No-show', pending: 'Pending'
+      };
+      return map[st] || st || 'Confirmed';
+    }
+    function statusBadgeClass(st) {
+      if (st === 'completed') return 'sp-badge sp-badge-done';
+      if (st === 'cancelled') return 'sp-badge sp-badge-cancel';
+      if (st === 'no_show') return 'sp-badge sp-badge-noshow';
+      if (st === 'checked_in') return 'sp-badge sp-badge-in';
+      return 'sp-badge';
+    }
+    function minutesNow() {
+      const n = new Date();
+      return n.getHours() * 60 + n.getMinutes();
+    }
+    function timeToMin(t) {
+      if (!t) return 0;
+      const p = String(t).split(':');
+      return (parseInt(p[0],10)||0)*60 + (parseInt(p[1],10)||0);
+    }
+    function sortKey(a) {
+      return String(a.date || '') + String(a.startTime || '');
+    }
+    function isActiveStatus(st) {
+      return st !== 'cancelled' && st !== 'no_show' && st !== 'completed';
+    }
+
+    function computeNext(items) {
+      const today = localTodayISO();
+      const nowM = minutesNow();
+      const candidates = items.filter(a =>
+        a.date === today && isActiveStatus(a.status || 'confirmed') && timeToMin(a.startTime) + 5 >= nowM
+      ).sort((a,b) => sortKey(a).localeCompare(sortKey(b)));
+      if (candidates.length) return candidates[0];
+      // next future day
+      const future = items.filter(a =>
+        a.date > today && isActiveStatus(a.status || 'confirmed')
+      ).sort((a,b) => sortKey(a).localeCompare(sortKey(b)));
+      return future[0] || null;
+    }
+
+    function filteredList() {
+      const today = localTodayISO();
+      let list = allItems.slice();
+      if (currentView === 'today') {
+        list = list.filter(a => a.date === today);
+      } else if (currentView === 'upcoming') {
+        list = list.filter(a => a.date >= today && isActiveStatus(a.status || 'confirmed'));
+      } else if (currentView === 'past') {
+        list = list.filter(a => a.date < today || !isActiveStatus(a.status || 'confirmed'));
+      }
+      if (currentView === 'past') {
+        list.sort((a,b) => sortKey(b).localeCompare(sortKey(a)));
+      } else {
+        list.sort((a,b) => sortKey(a).localeCompare(sortKey(b)));
+      }
+      return list;
+    }
+
+    function renderNext() {
+      const wrap = document.getElementById('next-card-wrap');
+      const el = document.getElementById('next-card');
+      const next = computeNext(allItems);
+      if (!next || currentView === 'past') {
+        wrap.classList.add('hidden');
+        return;
+      }
+      wrap.classList.remove('hidden');
+      el.innerHTML =
+        '<button type="button" class="sp-card is-next" data-open="' + esc(next.id) + '">' +
+        '<div class="flex justify-between gap-2 items-start">' +
+        '<div class="min-w-0">' +
+        '<p class="sp-time">' + esc(formatTime12(next.startTime)) +
+        (next.endTime ? ' – ' + esc(formatTime12(next.endTime)) : '') + '</p>' +
+        '<p class="font-semibold mt-1">' + esc(next.customerName || 'Customer') + '</p>' +
+        '<p class="text-xs mt-0.5" style="color:var(--muted)">' + esc(next.serviceName || 'Service') +
+        (next.durationMinutes ? ' · ' + next.durationMinutes + ' min' : '') + '</p>' +
+        '<p class="text-xs mt-0.5" style="color:var(--muted)">' + esc(formatDisplayDate(next.date)) + '</p>' +
+        '</div><span class="sp-badge sp-badge-next">Next</span></div></button>';
+      el.querySelector('[data-open]')?.addEventListener('click', () => openDetail(next.id));
+    }
+
+    function renderList() {
+      const list = filteredList();
+      const el = document.getElementById('appt-list');
+      const heading = document.getElementById('list-heading');
+      const count = document.getElementById('list-count');
+      const titles = { today: "Today’s schedule", upcoming: 'Upcoming', past: 'Past' };
+      heading.textContent = titles[currentView] || 'Schedule';
+      count.textContent = list.length + (list.length === 1 ? ' appointment' : ' appointments');
+
+      if (!list.length) {
+        el.innerHTML = '<div class="ops-empty"><p class="text-sm font-medium">No appointments here</p>' +
+          '<p class="text-xs mt-1" style="color:var(--muted)">Pull refresh or check another filter.</p></div>';
+        return;
+      }
+      const next = computeNext(allItems);
+      el.innerHTML = list.map(a => {
+        const st = a.status || 'confirmed';
+        const isNext = next && next.id === a.id;
+        return '<button type="button" class="sp-card' + (isNext ? ' is-next' : '') + '" data-open="' + esc(a.id) + '">' +
+          '<div class="flex justify-between gap-2">' +
+          '<div class="min-w-0">' +
+          '<p class="sp-time">' + esc(formatTime12(a.startTime)) + '</p>' +
+          '<p class="font-semibold text-sm mt-0.5">' + esc(a.customerName || 'Customer') + '</p>' +
+          '<p class="text-xs" style="color:var(--muted)">' + esc(a.serviceName || 'Service') +
+          (currentView !== 'today' ? ' · ' + esc(formatDisplayDate(a.date)) : '') + '</p>' +
+          '</div>' +
+          '<span class="' + statusBadgeClass(st) + ' shrink-0">' + esc(statusLabel(st)) + '</span>' +
+          '</div></button>';
+      }).join('');
+      el.querySelectorAll('[data-open]').forEach(btn => {
+        btn.onclick = () => openDetail(btn.dataset.open);
+      });
+    }
+
+    function staffActionsFor(st) {
+      // Matches server STAFF_ALLOWED — no cancel (owner/manager only)
+      const map = {
+        pending: ['confirmed'],
+        pending_verification: ['confirmed'],
+        confirmed: ['checked_in', 'completed', 'no_show'],
+        checked_in: ['completed'],
+        completed: [],
+        cancelled: [],
+        no_show: []
+      };
+      return map[st] || [];
+    }
+    function actionLabel(s) {
+      const map = {
+        confirmed: 'Confirm', checked_in: 'Check in', completed: 'Mark completed',
+        no_show: 'No-show', cancelled: 'Cancel'
+      };
+      return map[s] || s;
+    }
+
+    function openDetail(id) {
+      const a = allItems.find(x => x.id === id);
+      if (!a) return;
+      selectedId = id;
+      const st = a.status || 'confirmed';
+      const body = document.getElementById('detail-body');
+      const actions = document.getElementById('detail-actions');
+      const err = document.getElementById('detail-error');
+      err.classList.add('hidden');
+      body.innerHTML =
+        '<div class="flex justify-between"><span style="color:var(--muted)">Status</span><span class="' + statusBadgeClass(st) + '">' + esc(statusLabel(st)) + '</span></div>' +
+        '<div class="flex justify-between gap-2"><span style="color:var(--muted)">Customer</span><strong class="text-right">' + esc(a.customerName || '—') + '</strong></div>' +
+        (a.customerPhone ? '<div class="flex justify-between gap-2"><span style="color:var(--muted)">Phone</span><a class="font-semibold" href="tel:' + esc(String(a.customerPhone).replace(/[^\d+]/g,'')) + '">' + esc(a.customerPhone) + '</a></div>' : '') +
+        (a.customerEmail ? '<div class="flex justify-between gap-2"><span style="color:var(--muted)">Email</span><a class="font-semibold break-all text-right" href="mailto:' + esc(a.customerEmail) + '">' + esc(a.customerEmail) + '</a></div>' : '') +
+        '<div class="flex justify-between gap-2"><span style="color:var(--muted)">Service</span><strong class="text-right">' + esc(a.serviceName || '—') + '</strong></div>' +
+        '<div class="flex justify-between gap-2"><span style="color:var(--muted)">Date</span><strong>' + esc(formatDisplayDate(a.date)) + '</strong></div>' +
+        '<div class="flex justify-between gap-2"><span style="color:var(--muted)">Time</span><strong>' + esc(formatTime12(a.startTime)) +
+        (a.endTime ? ' – ' + esc(formatTime12(a.endTime)) : '') + '</strong></div>' +
+        (a.durationMinutes ? '<div class="flex justify-between"><span style="color:var(--muted)">Duration</span><strong>' + esc(String(a.durationMinutes)) + ' min</strong></div>' : '') +
+        (a.notes ? '<div class="pt-2"><span class="text-xs" style="color:var(--muted)">Notes</span><p class="mt-1">' + esc(a.notes) + '</p></div>' : '') +
+        (a.bookingRef ? '<div class="flex justify-between"><span style="color:var(--muted)">Ref</span><span class="font-mono text-xs">' + esc(a.bookingRef) + '</span></div>' : '');
+
+      const acts = staffActionsFor(st);
+      if (!acts.length) {
+        actions.innerHTML = '<p class="text-xs" style="color:var(--muted)">No further actions for this status.</p>';
+      } else {
+        actions.innerHTML = acts.map(s =>
+          '<button type="button" class="btn ' + (s === 'cancelled' || s === 'no_show' ? 'btn-secondary' : 'btn-primary') +
+          ' text-xs min-h-[44px]" data-act="' + esc(s) + '">' + esc(actionLabel(s)) + '</button>'
+        ).join('');
+        actions.querySelectorAll('[data-act]').forEach(btn => {
+          btn.onclick = () => runStatus(a.id, btn.dataset.act);
+        });
+      }
+      const modal = document.getElementById('detail-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeDetail() {
+      const modal = document.getElementById('detail-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      selectedId = null;
+    }
+
+    function apiErrorMessage(res, data, fallback) {
+      const statusCode = res && res.status;
+      const msg = (data && (data.error || data.message)) || '';
+      if (!res) return 'Unable to connect. Check your internet connection and try again.';
+      if (statusCode === 401) return 'Your session has expired. Please sign in again.';
+      if (statusCode === 403) return msg || "You don't have permission to perform this action.";
+      if (statusCode === 409) return msg || 'Could not update this appointment.';
+      if (statusCode >= 500) return msg || 'Server error. Please try again.';
+      return msg || fallback || 'Update failed.';
+    }
+    async function runStatus(appointmentId, status) {
+      const err = document.getElementById('detail-error');
+      err.classList.add('hidden');
+      try {
+        if (!idTokenCache) idTokenCache = await auth.currentUser.getIdToken();
+        const res = await fetch('/api/business', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'updateMyAppointmentStatus',
+            idToken: idTokenCache,
+            appointmentId,
+            status
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(apiErrorMessage(res, data, 'Update failed'));
+        closeDetail();
+        await loadAppointments();
+      } catch (e) {
+        err.textContent = e.message || 'Could not update';
+        err.classList.remove('hidden');
+        idTokenCache = null;
+      }
+    }
+
+    async function loadAppointments() {
+      const el = document.getElementById('appt-list');
+      el.innerHTML = '<p class="text-sm" style="color:var(--muted)">Loading schedule…</p>';
+      try {
+        idTokenCache = await auth.currentUser.getIdToken(true);
+        const res = await fetch('/api/business', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'listMyAppointments', idToken: idTokenCache })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Load failed');
+        allItems = data.items || [];
+        renderNext();
+        renderList();
+      } catch (e) {
+        el.innerHTML = '<p class="text-sm text-red-600">' + esc(e.message || 'Could not load') +
+          '</p><button type="button" id="retry-load" class="btn btn-secondary text-xs mt-2 min-h-[44px]">Retry</button>';
+        document.getElementById('retry-load')?.addEventListener('click', loadAppointments);
+      }
+    }
+
+    document.querySelectorAll('[data-view]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentView = btn.dataset.view;
+        document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('is-active', b === btn));
+        renderNext();
+        renderList();
+      });
+    });
+    document.getElementById('btn-refresh')?.addEventListener('click', loadAppointments);
+    document.getElementById('detail-close')?.addEventListener('click', closeDetail);
+    document.getElementById('detail-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'detail-modal') closeDetail();
+    });
+    document.getElementById('btn-signout')?.addEventListener('click', () => signOut(auth));
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) { location.replace('/index.html'); return; }
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch('/api/business', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'resolveSession', idToken })
+        });
+        const s = await res.json();
+        document.getElementById('auth-loading').classList.add('hidden');
+        if (s.denied || (!s.isStaff && !s.isOwner)) {
+          document.getElementById('denied').classList.remove('hidden');
+          document.getElementById('denied-msg').textContent = s.reason || 'No staff access.';
+          return;
+        }
+        if (s.isOwner && !s.isStaff) {
+          location.replace('/dashboard.html');
+          return;
+        }
+        if (s.accessRole === 'manager') {
+          location.replace('/dashboard.html');
+          return;
+        }
+        session = s;
+        document.getElementById('app').classList.remove('hidden');
+        document.getElementById('staff-title').textContent = s.staffName || 'My schedule';
+        document.getElementById('staff-sub').textContent =
+          (s.email || '') + ' · Staff · In-app schedule only';
+        // Apply theme from tenant if available later — default light
+        await loadAppointments();
+      } catch (e) {
+        document.getElementById('auth-loading').classList.add('hidden');
+        document.getElementById('denied').classList.remove('hidden');
+        document.getElementById('denied-msg').textContent = e.message || 'Session error';
+      }
+    });
+  </script>
+<script src="/pwa-register.js"></script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/service-worker.js').catch(()=>{});</script>
+</body>
+</html>

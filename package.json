@@ -1,6 +1,6 @@
 {
   "name": "multi-tenant-ai-booking-pwa",
-  "version": "2.5.0",
+  "version": "2.6.3",
   "private": true,
   "description": "Multi-tenant AI booking SaaS PWA",
   "engines": {

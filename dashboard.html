@@ -199,6 +199,7 @@
         <div class="title-block min-w-0">
           <p class="text-xs text-slate-400" id="greeting">Welcome</p>
           <p class="font-semibold text-sm truncate" id="header-business-name">Dashboard</p>
+          <p class="text-[10px] uppercase tracking-wide text-slate-400 mt-0.5" id="role-badge" hidden></p>
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <button id="btn-notif" type="button" class="relative w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center" aria-label="Notifications">
@@ -216,18 +217,61 @@
     <!-- Panels -->
     <main class="page-shell-wide space-y-4" style="max-width:40rem">
       <section id="panel-home" class="space-y-4">
-        <div class="card p-4" id="today-summary">
-          <h2 class="font-semibold text-sm mb-2">Today's summary</h2>
-          <div class="grid grid-cols-2 gap-2 text-sm" id="today-summary-body">
-            <div>Loading…</div>
+        <div id="ops-attention" class="hidden space-y-2"></div>
+
+        <div class="ops-next card p-4" id="ops-next-card">
+          <p class="ops-kicker">Next appointment</p>
+          <div id="ops-next-body"><p class="text-sm text-slate-500">Loading…</p></div>
+        </div>
+
+        <div class="ops-metrics grid grid-cols-2 gap-3">
+          <div class="card p-3 ops-metric">
+            <p class="ops-metric-label">Today</p>
+            <p class="ops-metric-value" id="m-today-count">0</p>
+            <p class="ops-metric-sub" id="m-today-sub">Scheduled today</p>
+          </div>
+          <div class="card p-3 ops-metric">
+            <p class="ops-metric-label">Upcoming</p>
+            <p class="ops-metric-value" id="m-upcoming">0</p>
+            <p class="ops-metric-sub">From today onward</p>
+          </div>
+          <div class="card p-3 ops-metric">
+            <p class="ops-metric-label">Waitlist</p>
+            <p class="ops-metric-value" id="m-waitlist">—</p>
+            <p class="ops-metric-sub">Pending requests</p>
+          </div>
+          <div class="card p-3 ops-metric">
+            <p class="ops-metric-label">All bookings</p>
+            <p class="ops-metric-value" id="m-total">0</p>
+            <p class="ops-metric-sub truncate" id="m-popular">Top service —</p>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div class="card p-4"><p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Bookings</p><p class="text-2xl font-bold mt-1" id="m-total">0</p></div>
-          <div class="card p-4"><p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Upcoming</p><p class="text-2xl font-bold mt-1" id="m-upcoming">0</p></div>
-          <div class="card p-4"><p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Est. revenue</p><p class="text-2xl font-bold mt-1" id="m-revenue">0</p></div>
-          <div class="card p-4"><p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Top service</p><p class="text-sm font-semibold mt-2 truncate" id="m-popular">—</p></div>
+        <!-- kept for API summary compatibility -->
+        <div id="today-summary" class="hidden">
+          <div id="today-summary-body"></div>
+          <span id="m-revenue" class="hidden">0</span>
         </div>
+
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold text-sm">Today's schedule</h2>
+            <button type="button" id="qa-view-bookings" class="text-xs font-semibold text-sky-600">All bookings</button>
+          </div>
+          <div id="home-upcoming" class="space-y-2"><p class="text-sm text-slate-500">Loading…</p></div>
+        </div>
+
+        <div class="card p-4">
+          <h2 class="font-semibold text-sm mb-3">Quick actions</h2>
+          <div class="ops-qa grid grid-cols-2 gap-2">
+            <button type="button" id="qa-walkin" data-requires="walkIn" class="btn btn-secondary text-sm py-3 min-h-[44px]">Walk-in</button>
+            <button type="button" id="qa-block" data-requires="manageBlocks" class="btn btn-secondary text-sm py-3 min-h-[44px]">Block time</button>
+            <button type="button" id="qa-waitlist" data-requires="manageWaitlist" class="btn btn-secondary text-sm py-3 min-h-[44px]">Waitlist</button>
+            <button type="button" id="qa-add-service" data-requires="manageServices" class="btn btn-secondary text-sm py-3 min-h-[44px]">Add service</button>
+            <button type="button" id="qa-emergency" data-owner-only class="btn btn-secondary text-sm py-3 min-h-[44px] col-span-2">Emergency closure</button>
+          </div>
+          <p id="emergency-status" data-owner-only class="text-xs text-slate-500 mt-2"></p>
+        </div>
+
         <div class="card p-4">
           <div class="flex items-center justify-between mb-3">
             <h2 class="font-semibold text-sm">Public booking link</h2>
@@ -236,39 +280,85 @@
           <input id="booking-link" readonly class="input text-xs font-mono bg-slate-50" />
           <p id="copy-msg" class="text-xs text-emerald-600 mt-2 hidden">Copied</p>
         </div>
-        
-        <div class="card p-4">
-          <h2 class="font-semibold text-sm mb-3">Quick actions</h2>
-          <div class="grid grid-cols-2 gap-2">
-            <button type="button" id="qa-walkin" class="btn btn-secondary text-xs py-2">Walk-in</button>
-            <button type="button" id="qa-block" class="btn btn-secondary text-xs py-2">Block time</button>
-            <button type="button" id="qa-emergency" class="btn btn-secondary text-xs py-2 col-span-2">Emergency closure</button>
-          </div>
-          <p id="emergency-status" class="text-xs text-slate-500 mt-2"></p>
-        </div>
-
-        <div class="card p-4">
-          <h2 class="font-semibold text-sm mb-3">Upcoming appointments</h2>
-          <div id="home-upcoming" class="space-y-2"><p class="text-sm text-slate-500">Loading…</p></div>
-        </div>
       </section>
 
       <section id="panel-bookings" class="hidden space-y-4">
-        <div class="flex gap-2 overflow-x-auto pb-1">
-          <button data-filter="all" class="filter-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-700 shrink-0">All</button>
-          <button data-filter="upcoming" class="filter-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 shrink-0">Upcoming</button>
-          <button data-filter="confirmed" class="filter-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 shrink-0">Confirmed</button>
-          <button data-filter="completed" class="filter-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 shrink-0">Completed</button>
-          <button data-filter="cancelled" class="filter-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 shrink-0">Cancelled</button>
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="font-semibold text-base">Schedule</h2>
+          <p class="text-xs text-slate-500" id="bookings-count"></p>
         </div>
-        <input id="search-bookings" class="input" placeholder="Search name, service, booking ID…" />
-        <div id="bookings-list" class="space-y-3"></div>
+        <div class="cal-view-tabs" role="tablist" aria-label="Schedule views">
+          <button type="button" class="cal-view-tab is-active" data-cal-view="day">Day</button>
+          <button type="button" class="cal-view-tab" data-cal-view="week">Week</button>
+          <button type="button" class="cal-view-tab" data-cal-view="month">Month</button>
+          <button type="button" class="cal-view-tab" data-cal-view="list">List</button>
+        </div>
+
+        <div id="cal-panel" class="space-y-3">
+          <div class="cal-nav">
+            <button type="button" id="cal-prev" class="cal-nav-btn" aria-label="Previous">‹</button>
+            <div class="cal-nav-center">
+              <p id="cal-title" class="cal-title">—</p>
+              <button type="button" id="cal-today" class="cal-today-btn">Today</button>
+            </div>
+            <button type="button" id="cal-next" class="cal-nav-btn" aria-label="Next">›</button>
+          </div>
+          <div class="cal-day-meta" id="cal-day-meta"></div>
+          <p id="cal-staff-off-hint" class="text-xs text-slate-500 hidden"></p>
+          <select id="cal-staff-filter" class="select text-sm" style="min-height:40px">
+            <option value="">All staff</option>
+          </select>
+          <div class="cal-qa flex gap-2">
+            <button type="button" id="cal-qa-walkin" data-requires="walkIn" class="btn btn-secondary text-xs flex-1 min-h-[40px]">Walk-in</button>
+            <button type="button" id="cal-qa-block" data-requires="manageBlocks" class="btn btn-secondary text-xs flex-1 min-h-[40px]">Block time</button>
+          </div>
+          <div id="cal-body" class="cal-body"></div>
+        </div>
+
+        <div id="list-panel" class="hidden space-y-3">
+          <input id="search-bookings" class="input" type="search" enterkeyhint="search"
+            placeholder="Search name, email, service, or reference…" />
+          <div class="space-y-2">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Date</p>
+            <div class="flex gap-2 overflow-x-auto pb-1" id="filter-date-row">
+              <button type="button" data-date-filter="upcoming" class="filter-chip is-active">Upcoming</button>
+              <button type="button" data-date-filter="today" class="filter-chip">Today</button>
+              <button type="button" data-date-filter="past" class="filter-chip">Past</button>
+              <button type="button" data-date-filter="all" class="filter-chip">All dates</button>
+            </div>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status</p>
+            <div class="flex gap-2 overflow-x-auto pb-1" id="filter-status-row">
+              <button type="button" data-status-filter="all" class="filter-chip is-active">All statuses</button>
+              <button type="button" data-status-filter="confirmed" class="filter-chip">Confirmed</button>
+              <button type="button" data-status-filter="checked_in" class="filter-chip">Checked in</button>
+              <button type="button" data-status-filter="completed" class="filter-chip">Completed</button>
+              <button type="button" data-status-filter="cancelled" class="filter-chip">Cancelled</button>
+              <button type="button" data-status-filter="no_show" class="filter-chip">No-show</button>
+            </div>
+          </div>
+          <div id="bookings-list" class="appt-list space-y-2"></div>
+        </div>
       </section>
 
+      <!-- Appointment detail sheet -->
+      <div id="appt-detail-modal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-slate-900/60 p-0 sm:p-4">
+        <div class="appt-detail-sheet w-full max-w-md mx-auto">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-base">Appointment details</h3>
+            <button type="button" id="appt-detail-close" class="text-sm font-semibold text-slate-500 min-h-[40px] px-2">Close</button>
+          </div>
+          <div id="appt-detail-body" class="space-y-2 text-sm"></div>
+          <div id="appt-detail-actions" class="flex flex-wrap gap-2 mt-4"></div>
+        </div>
+      </div>
+
       <section id="panel-services" class="hidden space-y-4">
-        <div class="flex justify-between items-center">
+        <div class="flex justify-between items-center gap-2">
           <h2 class="font-semibold">Services</h2>
-          <button id="btn-add-service" class="btn btn-primary text-xs py-2">Add service</button>
+          <div class="flex gap-2">
+            <button type="button" id="btn-goto-staff" class="btn btn-secondary text-xs py-2">Team</button>
+            <button id="btn-add-service" class="btn btn-primary text-xs py-2">Add service</button>
+          </div>
         </div>
         <div id="service-form-wrap" class="card p-4 hidden space-y-3">
           <input type="hidden" id="svc-id" />
@@ -298,33 +388,216 @@
       </section>
 
       
-      <section id="panel-customers" class="hidden space-y-4">
-        <div class="flex justify-between items-center">
-          <h2 class="font-semibold">Customers</h2>
-          <button type="button" id="btn-refresh-crm" class="text-xs font-semibold text-sky-600">Refresh</button>
+      
+      <section id="panel-staff" class="hidden space-y-4">
+        <div class="flex justify-between items-center gap-2">
+          <div>
+            <h2 class="font-semibold text-base">Team</h2>
+            <p class="text-xs text-slate-500">Staff are scheduling resources — they do not get dashboard logins.</p>
+          </div>
+          <button type="button" id="btn-add-staff" class="btn btn-primary text-xs py-2 min-h-[40px]">Add staff</button>
         </div>
-        <div class="card p-3">
-          <p class="text-xs text-slate-500 mb-2">Due for rebooking</p>
-          <div id="due-rebook-list" class="text-sm text-slate-600">—</div>
+        <div id="staff-form-wrap" class="card p-4 hidden space-y-3">
+          <input type="hidden" id="staff-id" />
+          <div>
+            <label class="label" for="staff-name">Name *</label>
+            <input id="staff-name" class="input" placeholder="e.g. Juan Dela Cruz" />
+          </div>
+          <div>
+            <label class="label" for="staff-role">Role / title</label>
+            <input id="staff-role" class="input" placeholder="e.g. Senior stylist" />
+          </div>
+          <div>
+            <label class="label" for="staff-desc">Short description</label>
+            <textarea id="staff-desc" class="textarea" rows="2" placeholder="Optional bio shown to customers"></textarea>
+          </div>
+          <div>
+            <label class="label">Services this person can perform</label>
+            <div id="staff-services" class="space-y-1 text-sm max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-2"></div>
+            <p class="text-xs text-slate-500 mt-1">If none selected, they can perform all services.</p>
+          </div>
+          <div>
+            <label class="label">Working hours</label>
+            <p class="text-xs text-slate-500 mb-2">Must fall within business hours. Leave as business default if same as shop hours.</p>
+            <div id="staff-hours" class="space-y-2 text-sm"></div>
+          </div>
+          <div>
+            <label class="label">Breaks (same every week)</label>
+            <p class="text-xs text-slate-500 mb-2">Customers cannot book during these times. Example: lunch 12:00–13:00.</p>
+            <div id="staff-breaks" class="space-y-2 text-sm"></div>
+            <button type="button" id="btn-add-break" class="btn btn-secondary text-xs mt-2 min-h-[40px]">Add break</button>
+          </div>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" id="staff-active" class="rounded" checked /> Active (bookable)
+          </label>
+          <div class="border-t border-slate-200 pt-3 space-y-2" data-owner-only>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Dashboard access</p>
+            <p class="text-xs text-slate-500">Link a login email. The system does not send invitation emails — tell them to register/sign in with this email.</p>
+            <div>
+              <label class="label" for="staff-account-email">Account email</label>
+              <input id="staff-account-email" type="email" class="input" placeholder="staff@example.com" />
+            </div>
+            <div>
+              <label class="label" for="staff-access-role">Access role</label>
+              <select id="staff-access-role" class="select">
+                <option value="staff">Staff — own schedule only</option>
+                <option value="manager">Manager — operational access</option>
+              </select>
+            </div>
+            <p class="text-xs text-slate-500" id="staff-account-status-label">Status: Not connected</p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" id="btn-link-staff-account" class="btn btn-secondary text-xs min-h-[40px]">Connect / invite</button>
+              <button type="button" id="btn-disable-staff-account" class="btn btn-secondary text-xs min-h-[40px]">Disable access</button>
+              <button type="button" id="btn-unlink-staff-account" class="btn btn-secondary text-xs min-h-[40px]">Disconnect</button>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" id="btn-save-staff" class="btn btn-primary flex-1 min-h-[44px]">Save staff</button>
+            <button type="button" id="btn-cancel-staff" class="btn btn-secondary min-h-[44px]">Cancel</button>
+          </div>
         </div>
-        <div class="card p-3">
-          <p class="text-xs text-slate-500 mb-2">Waitlist</p>
-          <div id="waitlist-owner" class="text-sm space-y-2">—</div>
-        </div>
-        <div id="customers-list" class="space-y-2"></div>
+        <div id="staff-list" class="space-y-2"></div>
       </section>
 
+<section id="panel-customers" class="hidden space-y-4">
+        <div class="flex justify-between items-center gap-2">
+          <h2 class="font-semibold text-base">Customers</h2>
+          <button type="button" id="btn-refresh-crm" class="text-xs font-semibold text-sky-600 min-h-[36px]">Refresh</button>
+        </div>
+        <div class="ops-metrics grid grid-cols-3 gap-2">
+          <div class="card p-3 ops-metric">
+            <p class="ops-metric-label">Total</p>
+            <p class="ops-metric-value" id="crm-m-total">0</p>
+          </div>
+          <div class="card p-3 ops-metric">
+            <p class="ops-metric-label">Repeat</p>
+            <p class="ops-metric-value" id="crm-m-repeat">0</p>
+          </div>
+          <div class="card p-3 ops-metric">
+            <p class="ops-metric-label">Upcoming</p>
+            <p class="ops-metric-value" id="crm-m-upcoming">0</p>
+          </div>
+        </div>
+        <input id="crm-search" class="input" type="search" placeholder="Search name, email, or phone…" />
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          <button type="button" data-crm-filter="all" class="filter-chip is-active">All</button>
+          <button type="button" data-crm-filter="repeat" class="filter-chip">Repeat</button>
+          <button type="button" data-crm-filter="upcoming" class="filter-chip">With upcoming</button>
+          <button type="button" data-crm-filter="new" class="filter-chip">New</button>
+        </div>
+        <div id="customers-list" class="space-y-2"></div>
+        <div class="card p-3">
+          <p class="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wide">Due for rebooking</p>
+          <div id="due-rebook-list" class="text-sm text-slate-600">—</div>
+        </div>
+
+        <div class="card p-3 space-y-3" id="comm-center">
+          <div class="flex justify-between items-start gap-2">
+            <div>
+              <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide">Communication</p>
+              <p class="text-xs text-slate-500 mt-0.5">Copy messages to send from your own email, phone, or chat apps. BookAI does not send SMS or email automatically.</p>
+            </div>
+          </div>
+          <label class="label" for="comm-template-key">Message template</label>
+          <select id="comm-template-key" class="select text-sm"></select>
+          <label class="label" for="comm-message">Message preview</label>
+          <textarea id="comm-message" class="textarea text-sm" rows="5" placeholder="Select a template…"></textarea>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="comm-copy" class="btn btn-primary text-xs min-h-[40px]">Copy message</button>
+            <button type="button" id="comm-restore" class="btn btn-secondary text-xs min-h-[40px]">Restore default</button>
+            <button type="button" id="comm-save-tpl" class="btn btn-secondary text-xs min-h-[40px]">Save template</button>
+          </div>
+          <p class="text-xs text-slate-500">Variables: {{customerName}}, {{businessName}}, {{serviceName}}, {{date}}, {{time}}, {{staffName}}</p>
+          <div id="comm-context-hint" class="text-xs text-slate-500"></div>
+        </div>
+
+        <div class="card p-3">
+          <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-1">Waitlist</p>
+          <p class="text-xs text-slate-500 mb-2">Interest when slots were full. Contacting them does not create a booking automatically.</p>
+          <div id="waitlist-owner" class="text-sm space-y-2">—</div>
+        </div>
+      </section>
+
+      <div id="crm-profile-modal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-slate-900/60 p-0 sm:p-4">
+        <div class="appt-detail-sheet w-full max-w-md mx-auto">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-base">Customer profile</h3>
+            <button type="button" id="crm-profile-close" class="text-sm font-semibold text-slate-500 min-h-[40px] px-2">Close</button>
+          </div>
+          <div id="crm-profile-body" class="space-y-3 text-sm"></div>
+        </div>
+      </div>
+
       <section id="panel-analytics" class="hidden space-y-4">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="card p-4"><p class="text-[11px] text-slate-500 uppercase">This week</p><p class="text-xl font-bold" id="an-week">0</p></div>
-          <div class="card p-4"><p class="text-[11px] text-slate-500 uppercase">This month</p><p class="text-xl font-bold" id="an-month">0</p></div>
-          <div class="card p-4"><p class="text-[11px] text-slate-500 uppercase">Completed</p><p class="text-xl font-bold" id="an-done">0</p></div>
-          <div class="card p-4"><p class="text-[11px] text-slate-500 uppercase">Cancelled</p><p class="text-xl font-bold" id="an-cancelled">0</p></div>
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="font-semibold text-base">Insights</h2>
+          <select id="an-range" class="input text-sm" style="width:auto;min-height:36px;padding:0.35rem 0.6rem">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="all">All time</option>
+          </select>
         </div>
+        <p class="text-xs text-slate-500" id="an-range-label">Based on appointments in the selected period.</p>
+
+        <div class="ops-metrics grid grid-cols-2 gap-2">
+          <div class="card p-3 ops-metric"><p class="ops-metric-label">Bookings</p><p class="ops-metric-value" id="an-total">0</p><p class="ops-metric-sub" id="an-week">7d: 0</p></div>
+          <div class="card p-3 ops-metric"><p class="ops-metric-label">Completed</p><p class="ops-metric-value" id="an-done">0</p><p class="ops-metric-sub" id="an-month">30d context</p></div>
+          <div class="card p-3 ops-metric"><p class="ops-metric-label">Cancelled</p><p class="ops-metric-value" id="an-cancelled">0</p></div>
+          <div class="card p-3 ops-metric"><p class="ops-metric-label">No-shows</p><p class="ops-metric-value" id="an-noshow">0</p></div>
+          <div class="card p-3 ops-metric"><p class="ops-metric-label">Unique customers</p><p class="ops-metric-value" id="an-customers">0</p></div>
+          <div class="card p-3 ops-metric"><p class="ops-metric-label">Repeat rate</p><p class="ops-metric-value" id="an-repeat-rate">—</p><p class="ops-metric-sub" id="an-repeat-sub">Repeat customers</p></div>
+        </div>
+
         <div class="card p-4">
-          <p class="text-sm text-slate-600" id="an-insight">Insights appear when you have bookings.</p>
-          <p class="text-sm mt-2 font-medium" id="an-popular"></p>
+          <p class="ops-kicker">Completed booking value</p>
+          <p class="text-2xl font-bold" id="an-value">—</p>
+          <p class="text-xs text-slate-500 mt-1">Sum of service prices on completed appointments in this period. Not profit or collected payment.</p>
         </div>
+
+        <div class="card p-4">
+          <h3 class="font-semibold text-sm mb-1">Top services</h3>
+          <p class="text-xs text-slate-500 mb-3">By booking count in the selected period.</p>
+          <div id="an-top-services" class="space-y-2 text-sm"></div>
+        </div>
+
+        <div class="card p-4">
+          <h3 class="font-semibold text-sm mb-1">Busiest days</h3>
+          <p class="text-xs text-slate-500 mb-3">Weekday distribution of appointments in the period.</p>
+          <div id="an-busy-days" class="space-y-2 text-sm"></div>
+        </div>
+
+        <div class="card p-4">
+          <h3 class="font-semibold text-sm mb-1">Busiest times</h3>
+          <p class="text-xs text-slate-500 mb-3">Morning (before 12), afternoon (12–17), evening (17+).</p>
+          <div id="an-busy-times" class="space-y-2 text-sm"></div>
+        </div>
+
+        <div class="card p-4">
+          <h3 class="font-semibold text-sm mb-1">Customer retention</h3>
+          <p class="text-xs text-slate-500 mb-3">Across all appointments for this business (not limited to the range above).</p>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div><p class="ops-metric-value text-lg" id="an-ret-total">0</p><p class="ops-metric-sub">Customers</p></div>
+            <div><p class="ops-metric-value text-lg" id="an-ret-repeat">0</p><p class="ops-metric-sub">Repeat</p></div>
+            <div><p class="ops-metric-value text-lg" id="an-ret-new">0</p><p class="ops-metric-sub">New</p></div>
+          </div>
+          <p class="text-xs text-slate-500 mt-3" id="an-insight">Insights appear when you have bookings.</p>
+          <p class="text-sm mt-1 font-medium" id="an-popular"></p>
+        </div>
+
+        <div class="card p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <h3 class="font-semibold text-sm">Consider for rebooking</h3>
+            <select id="an-rebook-days" class="input text-xs" style="width:auto;min-height:34px;padding:0.25rem 0.5rem">
+              <option value="14">Inactive after 14 days</option>
+              <option value="30" selected>Inactive after 30 days</option>
+              <option value="60">Inactive after 60 days</option>
+              <option value="90">Inactive after 90 days</option>
+            </select>
+          </div>
+          <p class="text-xs text-slate-500 mb-3">Completed visits with no upcoming booking, last visit older than the selected threshold. BookAI does not send messages automatically.</p>
+          <div id="an-rebook-list" class="space-y-2 text-sm"></div>
+        </div>
+
         <div class="card p-4 text-center">
           <h3 class="font-semibold text-sm mb-3">QR code</h3>
           <div class="qr-wrap">
@@ -340,8 +613,9 @@
       </section>
 
       <section id="panel-settings" class="hidden space-y-4">
-        <div class="card p-4 space-y-3">
+        <div class="card p-4 space-y-3" data-owner-only data-settings-group="owner">
           <h2 class="font-semibold text-sm">Business settings</h2>
+          <p class="text-xs text-slate-500">Owner only — business identity and public profile.</p>
           <div><label class="label" for="set-name">Business name</label><input id="set-name" class="input" /></div>
           <div>
             <label class="label" for="set-category">Business category</label>
@@ -417,6 +691,21 @@
               </div>
             </div>
           </div>
+          <div class="card p-4 space-y-3 mt-3" id="reminder-settings-card">
+            <h2 class="font-semibold text-sm">Appointment reminders</h2>
+            <p class="text-xs text-slate-500">In-app alerts while the dashboard is open. BookAI does not send SMS, email, or guaranteed background push in this version.</p>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" id="rem-enabled" class="rounded" checked />
+              Enable in-app appointment reminders
+            </label>
+            <div class="space-y-1 text-sm">
+              <label class="flex items-center gap-2"><input type="checkbox" id="rem-60" class="rounded" checked /> 60 minutes before</label>
+              <label class="flex items-center gap-2"><input type="checkbox" id="rem-30" class="rounded" checked /> 30 minutes before</label>
+              <label class="flex items-center gap-2"><input type="checkbox" id="rem-15" class="rounded" checked /> 15 minutes before</label>
+            </div>
+            <button type="button" id="btn-save-reminders" class="btn btn-secondary text-xs min-h-[40px]">Save reminder preferences</button>
+            <p id="rem-save-msg" class="text-xs text-emerald-600 hidden">Saved</p>
+          </div>
           <div class="mt-3">
           <label class="label">Currency</label>
           <select id="set-currency" class="input">
@@ -436,6 +725,71 @@
             <button type="button" data-theme="blue" class="set-theme-opt text-xs py-2 rounded-lg border-2">Blue</button>
             <button type="button" data-theme="pink" class="set-theme-opt text-xs py-2 rounded-lg border-2">Pink</button>
             <button type="button" data-theme="gold" class="set-theme-opt text-xs py-2 rounded-lg border-2">Gold</button>
+          </div>
+        </div>
+        <div class="card p-4 space-y-3 mt-3" data-owner-only>
+          <h2 class="font-semibold text-sm">Staff selection on booking page</h2>
+          <p class="text-xs text-slate-500">Only applies when you have active team members. Businesses with no staff keep the current flow.</p>
+          <select id="set-staff-mode" class="select">
+            <option value="optional">Optional — customer may choose or Any available</option>
+            <option value="required">Required — customer must choose a staff member</option>
+            <option value="hidden">Hidden — auto-assign any available staff</option>
+          </select>
+        </div>
+        <div class="card p-4 space-y-3 mt-3" id="booking-policies-card" data-owner-only>
+          <h2 class="font-semibold text-sm">Booking policies</h2>
+          <p class="text-xs text-slate-500">Controls what customers can do with their secure manage link. Enforced on the server — clients cannot bypass these rules.</p>
+
+          <label class="flex items-start gap-2 text-sm">
+            <input type="checkbox" id="pol-cancel-enabled" class="rounded mt-0.5" checked />
+            <span>
+              <span class="font-semibold">Allow clients to cancel appointments</span>
+              <span class="block text-xs text-slate-500 mt-0.5">When off, customers must contact you to cancel.</span>
+            </span>
+          </label>
+          <div id="pol-cancel-cutoff-wrap" class="pl-6">
+            <label class="label" for="pol-cancel-cutoff">Cancellation cutoff</label>
+            <select id="pol-cancel-cutoff" class="select">
+              <option value="0">Anytime before the appointment</option>
+              <option value="1">1 hour before</option>
+              <option value="2">2 hours before</option>
+              <option value="6">6 hours before</option>
+              <option value="12">12 hours before</option>
+              <option value="24">24 hours before</option>
+            </select>
+            <p class="text-xs text-slate-500 mt-1" id="pol-cancel-hint">Clients can cancel until the appointment starts.</p>
+          </div>
+
+          <hr class="border-slate-200" />
+
+          <label class="flex items-start gap-2 text-sm">
+            <input type="checkbox" id="pol-resched-enabled" class="rounded mt-0.5" checked />
+            <span>
+              <span class="font-semibold">Allow clients to reschedule appointments</span>
+              <span class="block text-xs text-slate-500 mt-0.5">When off, customers cannot change date/time online.</span>
+            </span>
+          </label>
+          <div id="pol-resched-opts" class="pl-6 space-y-3">
+            <div>
+              <label class="label" for="pol-resched-cutoff">Rescheduling cutoff</label>
+              <select id="pol-resched-cutoff" class="select">
+                <option value="0">Anytime before the appointment</option>
+                <option value="1">1 hour before</option>
+                <option value="2">2 hours before</option>
+                <option value="6">6 hours before</option>
+                <option value="12">12 hours before</option>
+                <option value="24">24 hours before</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="pol-max-resched">Maximum reschedules per appointment</label>
+              <select id="pol-max-resched" class="select">
+                <option value="unlimited">Unlimited</option>
+                <option value="1">1 time</option>
+                <option value="2">2 times</option>
+                <option value="3">3 times</option>
+              </select>
+            </div>
           </div>
         </div>
         <button type="button" id="btn-save-settings" class="btn btn-primary btn-block mt-3">Save settings</button>
@@ -461,6 +815,48 @@
           <h2 class="font-semibold text-sm mb-3">Operating hours</h2>
           <div id="hours-form" class="space-y-2"></div>
           <button id="btn-save-hours" class="btn btn-primary btn-block mt-4">Save hours</button>
+
+        <div class="card p-4 mt-4 space-y-3" id="special-hours-section" data-requires="manageSpecialHours">
+          <h3 class="font-semibold text-sm">Special hours &amp; closures</h3>
+          <p class="text-xs text-slate-500">Override the weekly schedule for holidays or one-time dates. Existing appointments on a closed date are not deleted — handle them manually if needed.</p>
+          <div class="grid grid-cols-1 gap-2">
+            <div>
+              <label class="label" for="sh-date">Date</label>
+              <input type="date" id="sh-date" class="input" />
+            </div>
+            <div>
+              <label class="label" for="sh-type">Type</label>
+              <select id="sh-type" class="select">
+                <option value="closed">Closed all day</option>
+                <option value="custom_hours">Custom hours</option>
+              </select>
+            </div>
+            <div id="sh-hours-wrap" class="grid grid-cols-2 gap-2 hidden">
+              <div>
+                <label class="label" for="sh-open">Open</label>
+                <input type="time" id="sh-open" class="input" value="09:00" />
+              </div>
+              <div>
+                <label class="label" for="sh-close">Close</label>
+                <input type="time" id="sh-close" class="input" value="15:00" />
+              </div>
+            </div>
+            <div>
+              <label class="label" for="sh-title">Title / reason <span class="text-slate-400">(optional)</span></label>
+              <input id="sh-title" class="input" placeholder="e.g. Christmas Day" maxlength="80" />
+            </div>
+            <div>
+              <label class="label" for="sh-note">Note <span class="text-slate-400">(optional)</span></label>
+              <input id="sh-note" class="input" maxlength="200" />
+            </div>
+          </div>
+          <p id="sh-warn" class="text-xs text-amber-700 hidden">This date already has appointments. Saving a closure will not cancel them — contact customers if needed.</p>
+          <button type="button" id="btn-save-special-hours" class="btn btn-primary btn-block min-h-[44px]">Save special date</button>
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Upcoming special dates</p>
+            <div id="special-hours-list" class="space-y-2 text-sm"></div>
+          </div>
+        </div>
           <p id="hours-msg" class="text-sm mt-2 hidden"></p>
         </div>
       </section>
@@ -475,11 +871,14 @@
       <button type="button" id="btn-install-dismiss" class="btn btn-ghost text-xs px-2" aria-label="Dismiss">✕</button>
     </div>
     <div id="notif-panel" class="notif-panel hidden" role="dialog" aria-label="Notifications">
-      <div class="flex justify-between items-center px-2 py-1">
-        <p class="text-xs font-semibold">Notifications</p>
-        <button type="button" id="btn-notif-readall" class="text-xs text-sky-600 font-semibold">Mark all read</button>
+      <div class="flex justify-between items-center gap-2 px-3 py-2 border-b border-slate-200">
+        <div>
+          <p class="text-sm font-semibold">Notifications</p>
+          <p class="text-[11px] text-slate-500">In-app only · not SMS or email</p>
+        </div>
+        <button type="button" id="btn-notif-readall" class="text-xs text-sky-600 font-semibold min-h-[36px]">Mark all read</button>
       </div>
-      <div id="notif-list"><p class="text-xs text-slate-500 p-3">You're all caught up.</p></div>
+      <div id="notif-list" class="notif-list-scroll"><p class="text-xs text-slate-500 p-3">You're all caught up.</p></div>
     </div>
     <nav class="bottom-nav md:max-w-5xl md:mx-auto md:left-0 md:right-0">
       <button type="button" data-panel="home" class="nav-item active"><span>⌂</span>Home</button>
@@ -668,7 +1067,7 @@
       Consultant: [{ name: 'Consultation', description: '1-hour consult', duration: 60, price: 1500 }]
     };
 
-    let tenantId = null, settings = null, allAppointments = [], bookingFilter = 'all', obStep = 1, obTheme = 'light', obServices = [];
+    let tenantId = null, settings = null, allAppointments = [], bookingFilter = 'upcoming', bookingStatusFilter = 'all', obStep = 1, obTheme = 'light', obServices = [];
 
     function toast(msg, type) {
       const el = document.createElement('div');
@@ -683,22 +1082,195 @@
       return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
     }
 
+    let userContext = { isOwner: true, accessRole: 'owner', permissions: [] };
+
+    function apiErrorMessage(res, data, fallback) {
+      const status = res && res.status;
+      const msg = (data && (data.error || data.message)) || '';
+      if (!res) return 'Unable to connect. Check your internet connection and try again.';
+      if (status === 401) return 'Your session has expired. Please sign in again.';
+      if (status === 403) return msg || "You don't have permission to perform this action.";
+      if (status === 404) return msg || 'Not found.';
+      if (status === 409) return msg || 'The selected time is no longer available. Please choose another slot.';
+      if (status === 429) return msg || 'Too many requests. Please wait a moment and try again.';
+      if (status >= 500) return msg || 'Something went wrong on the server. Please try again.';
+      return msg || fallback || 'Request failed. Please try again.';
+    }
+
+    function hasPermission(perm) {
+      if (userContext.isOwner || userContext.accessRole === 'owner') return true;
+      const perms = userContext.permissions || [];
+      return perms.indexOf('full') !== -1 || perms.indexOf(perm) !== -1;
+    }
+
     onAuthStateChanged(auth, async (user) => {
       if (!user) { location.replace('/index.html'); return; }
-      tenantId = user.uid;
-      document.getElementById('greeting').textContent = greeting();
-      document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
-      document.getElementById('auth-loading').classList.add('hidden');
+      document.getElementById('app')?.classList.add('hidden');
+      document.getElementById('onboarding')?.classList.add('hidden');
+      document.getElementById('auth-loading')?.classList.remove('hidden');
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch('/api/business', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'resolveSession', idToken })
+        });
+        const session = await res.json();
+        if (!res.ok) throw new Error(session.error || 'Session failed');
 
-      const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
-      if (!snap.exists()) {
-        document.getElementById('ob-email').value = user.email || '';
-        showOnboarding();
-        return;
+        if (session.denied) {
+          document.getElementById('app')?.classList.add('hidden');
+          document.getElementById('onboarding')?.classList.add('hidden');
+          let box = document.getElementById('no-access');
+          if (!box) {
+            box = document.createElement('div');
+            box.id = 'no-access';
+            box.className = 'min-h-screen flex items-center justify-center p-6';
+            box.innerHTML = '<div class="card p-6 max-w-md text-center space-y-3"><h1 class="font-semibold text-lg">No business access</h1><p class="text-sm text-slate-500" id="no-access-msg"></p><button type="button" id="no-access-signout" class="btn btn-secondary btn-block">Sign out</button></div>';
+            document.body.appendChild(box);
+            document.getElementById('no-access-signout').onclick = () => signOut(auth);
+          }
+          document.getElementById('no-access-msg').textContent = session.reason || 'This account is not linked to a business.';
+          box.classList.remove('hidden');
+          return;
+        }
+
+        if (session.isStaff && !session.isOwner) {
+          userContext = {
+            isOwner: false,
+            isStaff: true,
+            accessRole: session.accessRole || 'staff',
+            permissions: session.permissions || [],
+            staffId: session.staffId,
+            staffName: session.staffName
+          };
+          tenantId = session.tenantId;
+          if (session.accessRole === 'staff') {
+            location.replace('/staff-home.html');
+            return;
+          }
+          // Manager: limited owner dashboard
+          document.getElementById('greeting').textContent = greeting() + (session.staffName ? ' · ' + session.staffName : '');
+          document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
+          const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
+          settings = snap.exists() ? snap.data() : {};
+          enterApp();
+          applyRoleUi();
+          return;
+        }
+
+        // Owner
+        userContext = { isOwner: true, accessRole: 'owner', permissions: session.permissions || [] };
+        tenantId = user.uid;
+        document.getElementById('greeting').textContent = greeting();
+        document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
+        const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
+        if (!snap.exists()) {
+          document.getElementById('ob-email').value = user.email || '';
+          showOnboarding();
+          return;
+        }
+        settings = snap.data();
+        enterApp();
+        applyRoleUi();
+      } catch (e) {
+        console.error(e);
+        // Fallback: legacy owner path if API unavailable
+        tenantId = user.uid;
+        document.getElementById('greeting').textContent = greeting();
+        document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
+        const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
+        if (!snap.exists()) {
+          document.getElementById('ob-email').value = user.email || '';
+          showOnboarding();
+          return;
+        }
+        settings = snap.data();
+        enterApp();
+        applyRoleUi();
       }
-      settings = snap.data();
-      enterApp();
     });
+
+    /**
+     * Client UX gating only — server (Batch 26 authz) remains authoritative.
+     * Mirrors ROLE_PERMS for Owner / Manager. Staff never reaches this page.
+     */
+    function applyRoleUi() {
+      const isOwner = !!(userContext.isOwner || userContext.accessRole === 'owner');
+      const roleLabel = isOwner ? 'Owner' : (userContext.accessRole === 'manager' ? 'Manager' : 'Staff');
+
+      const badge = document.getElementById('role-badge');
+      if (badge) {
+        badge.hidden = false;
+        badge.textContent = roleLabel + (userContext.staffName ? ' · ' + userContext.staffName : '');
+      }
+
+      // Owner-only blocks (team account admin, policies, emergency, advanced)
+      document.querySelectorAll('[data-owner-only]').forEach(el => {
+        el.classList.toggle('hidden', !isOwner);
+      });
+      document.getElementById('advanced-account')?.classList.toggle('hidden', !isOwner);
+
+      // Permission-gated controls
+      document.querySelectorAll('[data-requires]').forEach(el => {
+        const need = el.getAttribute('data-requires');
+        const ok = isOwner || hasPermission(need);
+        el.classList.toggle('hidden', !ok);
+        if (!ok) {
+          el.setAttribute('aria-disabled', 'true');
+          el.disabled = true;
+        } else {
+          el.removeAttribute('aria-disabled');
+          el.disabled = false;
+        }
+      });
+
+      // Role banner for managers (subtle, not under sticky header flash)
+      let banner = document.getElementById('role-banner');
+      if (!isOwner) {
+        if (!banner) {
+          banner = document.createElement('div');
+          banner.id = 'role-banner';
+          banner.className = 'text-xs text-center py-2 px-3 border-b';
+          banner.style.cssText = 'background:var(--bg-elevated);color:var(--muted);border-color:var(--border)';
+          const app = document.getElementById('app');
+          const header = app?.querySelector('header');
+          if (header && header.nextSibling) {
+            header.parentNode.insertBefore(banner, header.nextSibling);
+          } else {
+            app?.prepend(banner);
+          }
+        }
+        banner.textContent = 'Manager access — operational tools only. Owner settings and team account controls are hidden.';
+        banner.classList.remove('hidden');
+      } else if (banner) {
+        banner.classList.add('hidden');
+      }
+
+      // Collapse empty quick-action gaps: hide parent card section only if all QA gone (unlikely)
+      
+      // Settings: show note when manager has limited settings
+      let sNote = document.getElementById('settings-manager-note');
+      if (!isOwner) {
+        if (!sNote) {
+          sNote = document.createElement('div');
+          sNote.id = 'settings-manager-note';
+          sNote.className = 'card p-4 text-sm';
+          sNote.innerHTML = '<p class="font-semibold text-sm">Operational settings</p><p class="text-xs mt-1" style="color:var(--muted)">As a manager you can use Special hours and day-to-day tools. Business identity, policies, themes, and team login access are owner-only.</p>';
+          document.getElementById('panel-settings')?.prepend(sNote);
+        }
+        sNote.classList.remove('hidden');
+      } else if (sNote) {
+        sNote.classList.add('hidden');
+      }
+
+      const qa = document.querySelector('.ops-qa');
+      if (qa) {
+        const visible = Array.from(qa.querySelectorAll('button')).filter(b => !b.classList.contains('hidden'));
+        const card = qa.closest('.card');
+        if (card) card.classList.toggle('hidden', visible.length === 0);
+      }
+    }
 
     function showOnboarding() {
       document.getElementById('onboarding').classList.remove('hidden');
@@ -1098,6 +1670,7 @@
         const curEl = document.getElementById('set-currency');
         if (curEl && settings.currency) curEl.value = settings.currency;
       } catch (e) {}
+      document.getElementById('auth-loading')?.classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
       document.getElementById('header-business-name').textContent = settings?.businessName || 'Dashboard';
       document.getElementById('set-name').value = settings?.businessName || '';
@@ -1128,6 +1701,12 @@
       renderHoursForm(settings?.operatingHours || getDefaultOperatingHours());
       startListeners();
       bindNotifications();
+      loadStaff();
+      if (typeof loadSpecialHours === "function") loadSpecialHours();
+      if (typeof applyReminderPrefsToForm === 'function') applyReminderPrefsToForm();
+      if (typeof fillBookingPoliciesForm === 'function') fillBookingPoliciesForm(settings);
+            const sm = document.getElementById('set-staff-mode');
+            if (sm) sm.value = (settings && settings.staffSelectionMode) || 'optional';
       loadTenantStatus();
       drawQr();
       loadBusinessSummary();
@@ -1155,120 +1734,683 @@
         updateMetrics();
         renderBookings();
         renderHomeUpcoming();
+        if (typeof renderCalendar === "function" && calView !== "list") renderCalendar();
+        if (typeof buildCustomersFromAppointments === "function") { buildCustomersFromAppointments(); renderCustomersList(); }
+        if (typeof renderStaffList === "function" && allStaff && allStaff.length) renderStaffList();
         computeAnalytics();
       });
     }
 
+    function localTodayISO() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
+
+    function statusLabel(st) {
+      const s = (st || 'confirmed').replace(/_/g, ' ');
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    function minutesUntilStart(dateStr, timeStr) {
+      if (!dateStr || !timeStr) return null;
+      const parts = String(timeStr).split(':');
+      const h = parseInt(parts[0], 10);
+      const mi = parseInt(parts[1] || '0', 10);
+      if (isNaN(h)) return null;
+      const target = new Date(dateStr + 'T' + String(h).padStart(2,'0') + ':' + String(mi).padStart(2,'0') + ':00');
+      if (isNaN(target.getTime())) return null;
+      return Math.round((target.getTime() - Date.now()) / 60000);
+    }
+
+    let _nextApptTimer = null;
+    function clearNextApptTimer() {
+      if (_nextApptTimer) { clearInterval(_nextApptTimer); _nextApptTimer = null; }
+    }
+
     function updateMetrics() {
-      const today = new Date().toISOString().slice(0, 10);
-      const upcoming = allAppointments.filter(a => a.date >= today && a.status !== 'cancelled' && a.status !== 'no_show');
-      document.getElementById('m-total').textContent = allAppointments.length;
-      document.getElementById('m-upcoming').textContent = upcoming.length;
+      const today = localTodayISO();
+      const activeToday = allAppointments.filter(a =>
+        a.date === today && a.status !== 'cancelled' && a.status !== 'no_show'
+      );
+      const upcoming = allAppointments.filter(a =>
+        a.date >= today && a.status !== 'cancelled' && a.status !== 'no_show'
+      );
+      const mToday = document.getElementById('m-today-count');
+      if (mToday) mToday.textContent = String(activeToday.length);
+      const mTodaySub = document.getElementById('m-today-sub');
+      if (mTodaySub) {
+        const done = allAppointments.filter(a => a.date === today && (a.status === 'completed' || a.status === 'checked_in')).length;
+        mTodaySub.textContent = done ? (done + ' in progress or done') : 'Scheduled today';
+      }
+      const mUp = document.getElementById('m-upcoming');
+      if (mUp) mUp.textContent = String(upcoming.length);
+      const mTot = document.getElementById('m-total');
+      if (mTot) mTot.textContent = String(allAppointments.length);
       let rev = 0; const bySvc = {};
       allAppointments.forEach(a => {
         if (a.status === 'cancelled') return;
         rev += Number(a.servicePrice || 0);
         bySvc[a.serviceName || 'Service'] = (bySvc[a.serviceName || 'Service'] || 0) + 1;
       });
-      document.getElementById('m-revenue').textContent = rev.toLocaleString();
+      const mRev = document.getElementById('m-revenue');
+      if (mRev) mRev.textContent = rev.toLocaleString();
       const top = Object.entries(bySvc).sort((a,b)=>b[1]-a[1])[0];
-      document.getElementById('m-popular').textContent = top ? top[0] : '—';
+      const mPop = document.getElementById('m-popular');
+      if (mPop) mPop.textContent = top ? ('Top: ' + top[0]) : 'Top service —';
+      renderOpsNext(today, activeToday);
+      renderOpsAttention();
     }
 
-    function renderHomeUpcoming() {
-      const today = new Date().toISOString().slice(0, 10);
-      const list = allAppointments.filter(a => a.date >= today && a.status !== 'cancelled').slice(0, 5);
-      const el = document.getElementById('home-upcoming');
-      if (!list.length) {
-        el.innerHTML = '<div class="text-center py-6"><p class="text-sm text-slate-500">No upcoming appointments</p><p class="text-xs text-slate-400 mt-1">Share your booking link to get started</p></div>';
+    function renderOpsNext(today, activeToday) {
+      const el = document.getElementById('ops-next-body');
+      if (!el) return;
+      clearNextApptTimer();
+      const remaining = (activeToday || []).filter(a => {
+        const st = a.status || 'confirmed';
+        if (st === 'completed' || st === 'cancelled' || st === 'no_show') return false;
+        const mins = minutesUntilStart(a.date, a.startTime);
+        return mins === null || mins >= -15; // still show if started within 15m
+      }).slice().sort((a,b) => String(a.startTime||'').localeCompare(String(b.startTime||'')));
+      const next = remaining[0];
+      if (!next) {
+        el.innerHTML = '<p class="ops-next-empty">No more appointments today.</p>';
         return;
       }
-      el.innerHTML = list.map(a => `
-        <div class="flex items-start justify-between gap-2 py-2 border-b border-slate-100 last:border-0">
-          <div class="min-w-0">
-            <p class="text-sm font-medium truncate">${esc(a.customerName)}</p>
-            <p class="text-xs text-slate-500">${esc(a.serviceName)} · ${formatDisplayDate(a.date)} · ${formatTime12(a.startTime)}</p>
-          </div>
-          <span class="badge badge-${esc(a.status||'confirmed')}">${esc(a.status||'confirmed')}</span>
-        </div>`).join('');
+      const paint = () => {
+        const mins = minutesUntilStart(next.date, next.startTime);
+        let eta = '';
+        if (mins != null) {
+          if (mins > 60) eta = Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm';
+          else if (mins > 0) eta = mins + ' min';
+          else if (mins > -15) eta = 'Now / in progress';
+          else eta = '';
+        }
+        el.innerHTML =
+          '<p class="ops-next-time">' + esc(formatTime12(next.startTime)) +
+          (eta ? ' <span class="ops-next-eta">' + esc(eta) + '</span>' : '') + '</p>' +
+          '<p class="ops-next-name">' + esc(next.customerName || 'Customer') + '</p>' +
+          '<p class="ops-next-meta">' + esc(next.serviceName || 'Service') +
+          (next.durationMinutes || next.serviceDuration ? ' · ' + esc(String(next.durationMinutes || next.serviceDuration)) + ' min' : '') +
+          ' · <span class="badge badge-' + esc(next.status || 'confirmed') + '">' + esc(statusLabel(next.status)) + '</span></p>';
+      };
+      paint();
+      _nextApptTimer = setInterval(paint, 60000);
     }
 
-    function renderBookings() {
-      const q = (document.getElementById('search-bookings')?.value || '').toLowerCase();
-      const today = new Date().toISOString().slice(0, 10);
-      let list = allAppointments.slice();
-      if (bookingFilter === 'upcoming') list = list.filter(a => a.date >= today && a.status !== 'cancelled');
-      else if (bookingFilter !== 'all') list = list.filter(a => (a.status || 'confirmed') === bookingFilter);
-      if (q) list = list.filter(a => [a.customerName, a.serviceName, a.bookingId, a.customerEmail].join(' ').toLowerCase().includes(q));
-      const el = document.getElementById('bookings-list');
-      if (!list.length) { el.innerHTML = '<p class="text-sm text-slate-500 text-center py-8">No bookings match</p>'; return; }
-      el.innerHTML = list.map(a => {
-        const st = a.status || 'confirmed';
-        let actions = '';
-        if (st === 'pending' || st === 'pending_verification') actions = `<button data-act="confirmed" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700">Confirm</button>`;
-        if (st === 'confirmed') actions = `<button data-act="checked_in" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700">Check in</button>
-          <button data-act="completed" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-sky-50 text-sky-700">Complete</button>
-          <button data-act="no_show" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-600">No show</button>`;
-        if (st === 'checked_in') actions = `<button data-act="completed" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-sky-50 text-sky-700">Complete</button>`;
-        if (st !== 'cancelled' && st !== 'completed') actions += ` <button data-act="cancelled" data-id="${a.id}" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-600">Cancel</button>`;
-        return `<div class="card p-4">
-          <div class="flex justify-between gap-2 mb-1">
-            <p class="font-medium text-sm">${esc(a.customerName)}</p>
-            <span class="badge badge-${esc(st)}">${esc(st.replace('_',' '))}</span>
-          </div>
-          <p class="text-xs text-slate-500">${esc(a.serviceName)} · ${formatDisplayDate(a.date)} · ${a.startTime}–${a.endTime}</p>
-          ${a.bookingId ? `<p class="text-[11px] font-mono text-slate-400 mt-1">${esc(a.bookingId)}</p>` : ''}
-          <div class="flex flex-wrap gap-2 mt-3">${actions}</div>
-        </div>`;
-      }).join('');
-      el.querySelectorAll('[data-act]').forEach(btn => {
-        btn.onclick = async () => {
-          const act = btn.dataset.act;
-          if (act === 'cancelled' && !confirm('Cancel this appointment?')) return;
-          if (act === 'no_show' && !confirm('Mark as no-show?')) return;
-          try {
-            const idToken = await auth.currentUser.getIdToken();
-            if (act === 'cancelled') {
-              const res = await fetch('/api/business', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'cancelAppointment', idToken, tenantId, appointmentId: btn.dataset.id })
-              });
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.error || 'Cancel failed');
-              if (data.waitlistOffer) toast('Cancelled · Waitlist: ' + data.waitlistOffer.customerName, 'success');
-              else toast('Appointment cancelled', 'success');
-            } else {
-              const res = await fetch('/api/create-booking', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'updateStatus',
-                  idToken,
-                  tenantId,
-                  appointmentId: btn.dataset.id,
-                  status: act
-                })
-              });
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.error || 'Update failed');
-              toast('Status updated', 'success');
-            }
-          } catch (e) { toast(e.message || 'Could not update status', 'error'); }
+    function renderOpsAttention() {
+      const box = document.getElementById('ops-attention');
+      if (!box) return;
+      const items = [];
+      // Soon appointments (within 60 minutes)
+      try {
+        const today = localTodayISO();
+        const soon = (allAppointments || []).filter(a => {
+          const st = a.status || 'confirmed';
+          if (st === 'cancelled' || st === 'completed' || st === 'no_show') return false;
+          if (a.date !== today) return false;
+          const m = typeof minutesUntilStart === 'function' ? minutesUntilStart(a.date, a.startTime) : null;
+          return m != null && m >= 0 && m <= 60;
+        }).sort((a,b) => String(a.startTime).localeCompare(String(b.startTime)));
+        if (soon[0]) {
+          const m = minutesUntilStart(soon[0].date, soon[0].startTime);
+          items.push({
+            text: 'Next up in ' + m + ' min · ' + (soon[0].customerName || 'Customer') + ' · ' + (soon[0].serviceName || 'Service'),
+            action: 'open-appt',
+            apptId: soon[0].id,
+            label: 'Open'
+          });
+        }
+      } catch (e) {}
+      const wl = Number(window.__waitlistPendingCount || 0);
+      if (wl > 0) {
+        items.push({ text: wl + ' waitlist request' + (wl > 1 ? 's' : '') + ' need attention', action: 'customers', label: 'View waitlist' });
+      }
+      const unread = document.getElementById('notif-badge');
+      const unreadN = unread && !unread.classList.contains('hidden') ? (parseInt(unread.textContent, 10) || 0) : 0;
+      if (unreadN > 0) {
+        items.push({ text: unreadN + ' unread notification' + (unreadN > 1 ? 's' : ''), action: 'open-notif', label: 'View' });
+      }
+      // trial banner may already show; light pointer only if expired class present
+      const trial = document.getElementById('trial-banner');
+      if (trial && !trial.classList.contains('hidden') && /expired|ended|trial/i.test(trial.textContent || '')) {
+        items.push({ text: 'Subscription or trial needs attention', action: 'settings', label: 'Open settings' });
+      }
+      if (!items.length) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        return;
+      }
+      box.classList.remove('hidden');
+      box.innerHTML = items.map((it, i) =>
+        '<div class="ops-attention-item">' +
+        '<p class="ops-attention-text">' + esc(it.text) + '</p>' +
+        '<button type="button" class="ops-attention-btn" data-ops-action="' + esc(it.action) + '"' +
+        (it.apptId ? ' data-ops-appt="' + esc(it.apptId) + '"' : '') +
+        '>' + esc(it.label) + '</button>' +
+        '</div>'
+      ).join('');
+      box.querySelectorAll('[data-ops-action]').forEach(btn => {
+        btn.onclick = () => {
+          const a = btn.dataset.opsAction;
+          if (a === 'open-notif') document.getElementById('btn-notif')?.click();
+          else if (a === 'open-appt') {
+            document.querySelector('.nav-item[data-panel="bookings"]')?.click();
+            const id = btn.dataset.opsAppt;
+            if (id && typeof openApptDetail === 'function') setTimeout(() => openApptDetail(id), 80);
+          } else {
+            const nav = document.querySelector('.nav-item[data-panel="' + a + '"]');
+            if (nav) nav.click();
+          }
         };
       });
     }
 
-    document.querySelectorAll('.filter-chip').forEach(b => {
-      b.onclick = () => {
-        bookingFilter = b.dataset.filter;
-        document.querySelectorAll('.filter-chip').forEach(x => {
-          x.className = 'filter-chip px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 ' + (x === b ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-600');
+    function renderHomeUpcoming() {
+      const today = localTodayISO();
+      const list = allAppointments
+        .filter(a => a.date === today && a.status !== 'cancelled')
+        .slice()
+        .sort((a,b) => String(a.startTime||'').localeCompare(String(b.startTime||'')));
+      const el = document.getElementById('home-upcoming');
+      if (!el) return;
+      if (!list.length) {
+        el.innerHTML = '<div class="ops-empty"><p class="text-sm font-medium text-slate-600">No appointments scheduled today.</p><p class="text-xs text-slate-400 mt-1">Share your public booking link or add a walk-in.</p></div>';
+        return;
+      }
+      el.innerHTML = list.map(a => `
+        <div class="ops-appt-row">
+          <div class="ops-appt-time">${esc(formatTime12(a.startTime))}</div>
+          <div class="ops-appt-body min-w-0">
+            <p class="ops-appt-name truncate">${esc(a.customerName || 'Customer')}</p>
+            <p class="ops-appt-meta truncate">${esc(a.serviceName || 'Service')}${a.endTime ? ' · until ' + esc(formatTime12(a.endTime)) : ''}</p>
+          </div>
+          <span class="badge badge-${esc(a.status||'confirmed')} shrink-0">${esc(statusLabel(a.status))}</span>
+        </div>`).join('');
+    }
+
+
+    let calView = 'day';
+    let calSelectedDate = null; // YYYY-MM-DD
+
+    function ensureCalDate() {
+      if (!calSelectedDate) calSelectedDate = localTodayISO();
+      return calSelectedDate;
+    }
+
+    function addDaysISOStr(iso, days) {
+      const d = new Date(iso + 'T12:00:00');
+      d.setDate(d.getDate() + days);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
+
+    function startOfWeekMonday(iso) {
+      const d = new Date(iso + 'T12:00:00');
+      const day = d.getDay(); // 0 Sun
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + dd;
+    }
+
+    function monthLabel(iso) {
+      const d = new Date(iso + 'T12:00:00');
+      return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    }
+
+    function weekdayShort(iso) {
+      return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' });
+    }
+
+    function dayOfMonth(iso) {
+      return new Date(iso + 'T12:00:00').getDate();
+    }
+
+    function apptsForDate(iso) {
+      const staffF = document.getElementById('cal-staff-filter')?.value || '';
+      return allAppointments
+        .filter(a => a.date === iso && (!staffF || a.staffId === staffF))
+        .slice()
+        .sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || '')));
+    }
+
+    function isBusinessClosedDay(iso) {
+      try {
+        const hours = (settings && settings.operatingHours) || {};
+        const d = new Date(iso + 'T12:00:00');
+        const keys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        const key = keys[d.getDay()];
+        const conf = hours[key] || hours[key + 'day'];
+        if (!conf) return false;
+        if (conf.closed === true || conf.isOpen === false) return true;
+        return false;
+      } catch (e) { return false; }
+    }
+
+    function isEmergencyClosedDay(iso) {
+      const ec = settings && settings.emergencyClosure;
+      if (!ec || !ec.isClosed) return false;
+      // if only a flag without date range, treat as closed while active
+      return true;
+    }
+
+    function renderCalChrome() {
+      const title = document.getElementById('cal-title');
+      const meta = document.getElementById('cal-day-meta');
+      const date = ensureCalDate();
+      if (calView === 'day') {
+        if (title) title.textContent = formatDisplayDate(date);
+      } else if (calView === 'week') {
+        const start = startOfWeekMonday(date);
+        const end = addDaysISOStr(start, 6);
+        if (title) title.textContent = formatDisplayDate(start) + ' – ' + formatDisplayDate(end);
+      } else if (calView === 'month') {
+        if (title) title.textContent = monthLabel(date);
+      }
+      if (meta) {
+        const bits = [];
+        if (isEmergencyClosedDay(date)) bits.push('Emergency closure is active');
+        else if (isBusinessClosedDay(date)) bits.push('Business hours: closed this weekday');
+        else bits.push('Showing appointments from your live schedule');
+        meta.textContent = bits.join(' · ');
+      }
+    }
+
+    function calApptCard(a) {
+      const st = a.status || 'confirmed';
+      const inactive = st === 'cancelled' || st === 'no_show';
+      const dur = a.durationMinutes || a.serviceDuration || a.duration || '';
+      return '<button type="button" class="cal-appt' + (inactive ? ' is-inactive' : '') + '" data-open-appt="' + esc(a.id) + '">' +
+        '<div class="cal-appt-time">' + esc(formatTime12(a.startTime)) + '</div>' +
+        '<div class="cal-appt-body min-w-0">' +
+        '<p class="cal-appt-name">' + esc(a.customerName || 'Customer') + '</p>' +
+        '<p class="cal-appt-svc">' + esc(a.serviceName || 'Service') + (a.staffName ? ' · ' + esc(a.staffName) : '') + (dur ? ' · ' + esc(String(dur)) + ' min' : '') + '</p>' +
+        '</div>' +
+        '<span class="badge badge-' + esc(st) + ' shrink-0">' + esc(statusLabel(st)) + '</span>' +
+        '</button>';
+    }
+
+    function renderCalDay() {
+      const body = document.getElementById('cal-body');
+      const date = ensureCalDate();
+      const list = apptsForDate(date);
+      let html = '';
+      if (isEmergencyClosedDay(date)) {
+        html += '<div class="cal-banner cal-banner-warn">Online bookings are paused (emergency closure). Existing appointments still appear below.</div>';
+      } else if (isBusinessClosedDay(date)) {
+        html += '<div class="cal-banner">This weekday is marked closed in business hours.</div>';
+      }
+      if (!list.length) {
+        html += '<div class="ops-empty"><p class="text-sm font-medium">No appointments on this day.</p><p class="text-xs text-slate-500 mt-1">Use Walk-in or Block time, or share your booking link.</p></div>';
+      } else {
+        html += '<div class="cal-day-list">' + list.map(calApptCard).join('') + '</div>';
+      }
+      body.innerHTML = html;
+      body.querySelectorAll('[data-open-appt]').forEach(btn => {
+        btn.onclick = () => openApptDetail(btn.dataset.openAppt);
+      });
+    }
+
+    function renderCalWeek() {
+      const body = document.getElementById('cal-body');
+      const start = startOfWeekMonday(ensureCalDate());
+      const today = localTodayISO();
+      let html = '<div class="cal-week">';
+      for (let i = 0; i < 7; i++) {
+        const iso = addDaysISOStr(start, i);
+        const list = apptsForDate(iso).filter(a => a.status !== 'cancelled');
+        const isToday = iso === today;
+        const isSel = iso === calSelectedDate;
+        html += '<button type="button" class="cal-week-day' + (isToday ? ' is-today' : '') + (isSel ? ' is-selected' : '') + '" data-pick-date="' + iso + '">';
+        html += '<div class="cal-week-head"><span>' + esc(weekdayShort(iso)) + '</span><strong>' + dayOfMonth(iso) + '</strong></div>';
+        if (isBusinessClosedDay(iso) && !isEmergencyClosedDay(iso)) html += '<p class="cal-week-closed">Closed</p>';
+        if (!list.length) html += '<p class="cal-week-empty">—</p>';
+        else {
+          html += '<div class="cal-week-appts">';
+          list.slice(0, 4).forEach(a => {
+            html += '<div class="cal-week-pill" data-open-appt="' + esc(a.id) + '">' + esc(formatTime12(a.startTime)) + ' ' + esc((a.customerName || '').split(' ')[0] || '') + '</div>';
+          });
+          if (list.length > 4) html += '<p class="cal-week-more">+' + (list.length - 4) + ' more</p>';
+          html += '</div>';
+        }
+        html += '</button>';
+      }
+      html += '</div>';
+      body.innerHTML = html;
+      body.querySelectorAll('[data-pick-date]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          if (e.target.closest('[data-open-appt]')) return;
+          calSelectedDate = btn.dataset.pickDate;
+          calView = 'day';
+          setCalViewUI();
+          renderCalendar();
         });
+      });
+      body.querySelectorAll('[data-open-appt]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openApptDetail(btn.dataset.openAppt);
+        });
+      });
+    }
+
+    function renderCalMonth() {
+      const body = document.getElementById('cal-body');
+      const date = ensureCalDate();
+      const d0 = new Date(date + 'T12:00:00');
+      const year = d0.getFullYear();
+      const month = d0.getMonth();
+      const first = new Date(year, month, 1);
+      const startPad = (first.getDay() + 6) % 7; // Monday-first
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const today = localTodayISO();
+      let html = '<div class="cal-month-head">' + ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x => '<span>' + x + '</span>').join('') + '</div>';
+      html += '<div class="cal-month-grid">';
+      for (let i = 0; i < startPad; i++) html += '<div class="cal-month-cell is-pad"></div>';
+      for (let day = 1; day <= daysInMonth; day++) {
+        const iso = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+        const count = apptsForDate(iso).filter(a => a.status !== 'cancelled' && a.status !== 'no_show').length;
+        const isToday = iso === today;
+        const isSel = iso === calSelectedDate;
+        html += '<button type="button" class="cal-month-cell' + (isToday ? ' is-today' : '') + (isSel ? ' is-selected' : '') + (count ? ' has-appts' : '') + '" data-pick-date="' + iso + '">';
+        html += '<span class="cal-month-num">' + day + '</span>';
+        if (count) html += '<span class="cal-month-count">' + count + '</span>';
+        html += '</button>';
+      }
+      html += '</div>';
+      body.innerHTML = html;
+      body.querySelectorAll('[data-pick-date]').forEach(btn => {
+        btn.onclick = () => {
+          calSelectedDate = btn.dataset.pickDate;
+          calView = 'day';
+          setCalViewUI();
+          renderCalendar();
+        };
+      });
+    }
+
+    function setCalViewUI() {
+      document.querySelectorAll('[data-cal-view]').forEach(b => {
+        b.classList.toggle('is-active', b.dataset.calView === calView);
+      });
+      const calPanel = document.getElementById('cal-panel');
+      const listPanel = document.getElementById('list-panel');
+      if (calView === 'list') {
+        calPanel?.classList.add('hidden');
+        listPanel?.classList.remove('hidden');
+        renderBookings();
+      } else {
+        calPanel?.classList.remove('hidden');
+        listPanel?.classList.add('hidden');
+      }
+    }
+
+    function renderCalendar() {
+      ensureCalDate();
+      renderCalChrome();
+      if (calView === 'day') renderCalDay();
+      else if (calView === 'week') renderCalWeek();
+      else if (calView === 'month') renderCalMonth();
+      else renderBookings();
+    }
+
+    document.querySelectorAll('[data-cal-view]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        calView = btn.dataset.calView;
+        setCalViewUI();
+        renderCalendar();
+      });
+    });
+    document.getElementById('cal-prev')?.addEventListener('click', () => {
+      const d = ensureCalDate();
+      if (calView === 'day') calSelectedDate = addDaysISOStr(d, -1);
+      else if (calView === 'week') calSelectedDate = addDaysISOStr(d, -7);
+      else if (calView === 'month') {
+        const x = new Date(d + 'T12:00:00');
+        x.setMonth(x.getMonth() - 1);
+        calSelectedDate = x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-01';
+      }
+      renderCalendar();
+    });
+    document.getElementById('cal-next')?.addEventListener('click', () => {
+      const d = ensureCalDate();
+      if (calView === 'day') calSelectedDate = addDaysISOStr(d, 1);
+      else if (calView === 'week') calSelectedDate = addDaysISOStr(d, 7);
+      else if (calView === 'month') {
+        const x = new Date(d + 'T12:00:00');
+        x.setMonth(x.getMonth() + 1);
+        calSelectedDate = x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-01';
+      }
+      renderCalendar();
+    });
+    document.getElementById('cal-today')?.addEventListener('click', () => {
+      calSelectedDate = localTodayISO();
+      if (calView === 'list') calView = 'day';
+      setCalViewUI();
+      renderCalendar();
+    });
+    document.getElementById('cal-qa-walkin')?.addEventListener('click', () => {
+      document.getElementById('qa-walkin')?.click();
+    });
+    document.getElementById('cal-qa-block')?.addEventListener('click', () => {
+      document.getElementById('qa-block')?.click();
+    });
+
+    function apptSortKey(a) {
+      return String(a.date || '') + 'T' + String(a.startTime || '00:00');
+    }
+
+    function apptActionsHtml(a) {
+      const st = a.status || 'confirmed';
+      let actions = '';
+      if (st === 'pending' || st === 'pending_verification') {
+        actions += '<button type="button" data-act="confirmed" data-id="' + a.id + '" class="appt-act appt-act-primary">Confirm</button>';
+      }
+      if (st === 'confirmed') {
+        actions += '<button type="button" data-act="checked_in" data-id="' + a.id + '" class="appt-act appt-act-primary">Check in</button>';
+        actions += '<button type="button" data-act="completed" data-id="' + a.id + '" class="appt-act">Complete</button>';
+        actions += '<button type="button" data-act="no_show" data-id="' + a.id + '" class="appt-act">No-show</button>';
+      }
+      if (st === 'checked_in') {
+        actions += '<button type="button" data-act="completed" data-id="' + a.id + '" class="appt-act appt-act-primary">Complete</button>';
+      }
+      if (st !== 'cancelled' && st !== 'completed' && st !== 'no_show') {
+        actions += '<button type="button" data-act="cancelled" data-id="' + a.id + '" class="appt-act appt-act-danger">Cancel</button>';
+      }
+      return actions;
+    }
+
+    async function runApptAction(appointmentId, act) {
+      if (act === 'cancelled' && !confirm('Cancel this appointment?')) return;
+      if (act === 'no_show' && !confirm('Mark as no-show?')) return;
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        if (act === 'cancelled') {
+          const res = await fetch('/api/business', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'cancelAppointment', idToken, tenantId, appointmentId })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(apiErrorMessage(res, data, 'Cancel failed'));
+          if (data.waitlistOffer) toast('Cancelled · Waitlist: ' + data.waitlistOffer.customerName, 'success');
+          else toast('Appointment cancelled', 'success');
+        } else {
+          const res = await fetch('/api/create-booking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'updateStatus',
+              idToken,
+              tenantId,
+              appointmentId,
+              status: act
+            })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(apiErrorMessage(res, data, 'Update failed'));
+          toast('Status updated', 'success');
+        }
+        closeApptDetail();
+      } catch (e) {
+        toast(e.message || 'Could not update status', 'error');
+      }
+    }
+
+    function openApptDetail(id) {
+      const a = allAppointments.find(x => x.id === id);
+      if (!a) return;
+      const body = document.getElementById('appt-detail-body');
+      const actions = document.getElementById('appt-detail-actions');
+      const modal = document.getElementById('appt-detail-modal');
+      const st = a.status || 'confirmed';
+      const price = a.servicePrice != null ? formatMoney(a.servicePrice, currentCurrencyCode()) : (a.price != null ? formatMoney(a.price, currentCurrencyCode()) : '—');
+      const dur = a.durationMinutes || a.serviceDuration || a.duration || '';
+      if (typeof setCommContext === 'function') {
+        setCommContext({
+          customerName: a.customerName || '',
+          serviceName: a.serviceName || '',
+          date: a.date ? formatDisplayDate(a.date) : '',
+          time: a.startTime ? formatTime12(a.startTime) : '',
+          staffName: a.staffName || '',
+          email: a.customerEmail || '',
+          phone: a.customerPhone || '',
+          customerKey: typeof customerKeyFromAppt === 'function' ? customerKeyFromAppt(a) : ''
+        });
+        const keyEl = document.getElementById('comm-template-key');
+        if (keyEl) {
+          if (st === 'completed') keyEl.value = 'followup';
+          else if (a.date && a.date >= localTodayISO()) keyEl.value = 'reminder';
+          else keyEl.value = 'confirmation';
+          if (typeof refreshCommPreview === 'function') refreshCommPreview();
+        }
+      }
+      body.innerHTML =
+        '<div class="appt-detail-row"><span>Status</span><strong><span class="badge badge-' + esc(st) + '">' + esc(statusLabel(st)) + '</span></strong></div>' +
+        '<div class="appt-detail-row"><span>Customer</span><strong>' + esc(a.customerName || '—') + '</strong></div>' +
+        '<div class="appt-detail-row"><span>Email</span><strong class="break-all">' + esc(a.customerEmail || '—') + '</strong></div>' +
+        (a.customerPhone ? '<div class="appt-detail-row"><span>Phone</span><strong>' + esc(a.customerPhone) + '</strong></div>' : '') +
+        '<div class="appt-detail-row"><span>Service</span><strong>' + esc(a.serviceName || '—') + '</strong></div>' +
+        (a.staffName ? '<div class="appt-detail-row"><span>Staff</span><strong>' + esc(a.staffName) + '</strong></div>' : '') +
+        '<div class="appt-detail-row"><span>Date</span><strong>' + esc(formatDisplayDate(a.date)) + '</strong></div>' +
+        '<div class="appt-detail-row"><span>Time</span><strong>' + esc(formatTime12(a.startTime)) + (a.endTime ? ' – ' + esc(formatTime12(a.endTime)) : '') + '</strong></div>' +
+        (dur ? '<div class="appt-detail-row"><span>Duration</span><strong>' + esc(String(dur)) + ' minutes</strong></div>' : '') +
+        '<div class="appt-detail-row"><span>Price</span><strong>' + esc(String(price)) + '</strong></div>' +
+        '<div class="appt-detail-row"><span>Reference</span><strong class="font-mono text-xs">' + esc(a.bookingRef || a.bookingId || a.id) + '</strong></div>' +
+        (a.notes ? '<div class="appt-detail-row appt-detail-notes"><span>Notes</span><strong>' + esc(a.notes) + '</strong></div>' : '');
+      let contactHtml = '';
+      if (typeof buildContactActions === 'function') {
+        const msg = typeof fillTemplate === 'function' ? fillTemplate(getTemplateBody(document.getElementById('comm-template-key')?.value || 'reminder')) : '';
+        contactHtml = '<div class="w-full flex flex-wrap gap-2 mb-2">' + buildContactActions(a.customerEmail, a.customerPhone, {
+          subject: ((settings && settings.businessName) || 'Appointment') + ' update',
+          body: msg
+        }) + '</div>';
+      }
+      actions.innerHTML = contactHtml + (apptActionsHtml(a) || '<p class="text-xs text-slate-500">No further actions for this status.</p>');
+      actions.querySelectorAll('[data-copy-msg]').forEach(btn => {
+        btn.onclick = () => copyText(document.getElementById('comm-message')?.value || fillTemplate(getTemplateBody('reminder')));
+      });
+      actions.querySelectorAll('[data-act]').forEach(btn => {
+        btn.onclick = () => runApptAction(btn.dataset.id, btn.dataset.act);
+      });
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeApptDetail() {
+      const modal = document.getElementById('appt-detail-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function renderBookings() {
+      const q = (document.getElementById('search-bookings')?.value || '').toLowerCase().trim();
+      const today = localTodayISO();
+      let list = allAppointments.slice();
+      const staffF = document.getElementById('cal-staff-filter')?.value || '';
+      if (staffF) list = list.filter(a => a.staffId === staffF);
+
+      if (bookingFilter === 'today') list = list.filter(a => a.date === today);
+      else if (bookingFilter === 'upcoming') list = list.filter(a => a.date >= today && a.status !== 'cancelled' && a.status !== 'no_show');
+      else if (bookingFilter === 'past') list = list.filter(a => a.date < today || a.status === 'completed' || a.status === 'cancelled' || a.status === 'no_show');
+
+      if (bookingStatusFilter && bookingStatusFilter !== 'all') {
+        list = list.filter(a => (a.status || 'confirmed') === bookingStatusFilter);
+      }
+
+      if (q) {
+        list = list.filter(a => [a.customerName, a.customerEmail, a.serviceName, a.bookingId, a.bookingRef, a.id]
+          .join(' ').toLowerCase().includes(q));
+      }
+
+      // Sort: upcoming nearest first; past latest first
+      if (bookingFilter === 'past') {
+        list.sort((a, b) => apptSortKey(b).localeCompare(apptSortKey(a)));
+      } else {
+        list.sort((a, b) => apptSortKey(a).localeCompare(apptSortKey(b)));
+      }
+
+      const countEl = document.getElementById('bookings-count');
+      if (countEl) countEl.textContent = list.length + (list.length === 1 ? ' result' : ' results');
+
+      const el = document.getElementById('bookings-list');
+      if (!el) return;
+      if (!list.length) {
+        el.innerHTML = '<div class="ops-empty"><p class="text-sm font-medium text-slate-600">No appointments match</p><p class="text-xs text-slate-400 mt-1">Try another filter or clear search.</p></div>';
+        return;
+      }
+      el.innerHTML = list.map(a => {
+        const st = a.status || 'confirmed';
+        return '<button type="button" class="appt-row" data-open-appt="' + esc(a.id) + '">' +
+          '<div class="appt-row-main">' +
+          '<p class="appt-row-when">' + esc(formatDisplayDate(a.date)) + ' · ' + esc(formatTime12(a.startTime)) + '</p>' +
+          '<p class="appt-row-name">' + esc(a.customerName || 'Customer') + '</p>' +
+          '<p class="appt-row-svc">' + esc(a.serviceName || 'Service') + (a.staffName ? ' · ' + esc(a.staffName) : '') + '</p>' +
+          '</div>' +
+          '<span class="badge badge-' + esc(st) + ' shrink-0">' + esc(statusLabel(st)) + '</span>' +
+          '</button>';
+      }).join('');
+      el.querySelectorAll('[data-open-appt]').forEach(btn => {
+        btn.onclick = () => openApptDetail(btn.dataset.openAppt);
+      });
+    }
+
+    function syncFilterChips() {
+      document.querySelectorAll('[data-date-filter]').forEach(x => {
+        x.classList.toggle('is-active', x.dataset.dateFilter === bookingFilter);
+      });
+      document.querySelectorAll('[data-status-filter]').forEach(x => {
+        x.classList.toggle('is-active', x.dataset.statusFilter === bookingStatusFilter);
+      });
+    }
+
+    document.querySelectorAll('[data-date-filter]').forEach(b => {
+      b.onclick = () => {
+        bookingFilter = b.dataset.dateFilter;
+        syncFilterChips();
+        renderBookings();
+      };
+    });
+    document.querySelectorAll('[data-status-filter]').forEach(b => {
+      b.onclick = () => {
+        bookingStatusFilter = b.dataset.statusFilter;
+        syncFilterChips();
         renderBookings();
       };
     });
     document.getElementById('search-bookings')?.addEventListener('input', renderBookings);
+    document.getElementById('appt-detail-close')?.addEventListener('click', closeApptDetail);
+    document.getElementById('appt-detail-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'appt-detail-modal') closeApptDetail();
+    });
 
     function syncSvcPricePrefix() {
       const prefix = document.getElementById('svc-price-prefix');
@@ -1278,6 +2420,8 @@
     }
 
     function renderServices(list) {
+      allServicesCache = list || [];
+
       const el = document.getElementById('services-list');
       if (!list.length) { el.innerHTML = '<p class="text-sm text-slate-500 text-center py-6">No services yet</p>'; return; }
       const cur = currentCurrencyCode();
@@ -1394,6 +2538,55 @@
         toast('Hours saved', 'success');
       } catch { toast('Could not save hours', 'error'); }
     };
+
+    function updatePolicyHints() {
+      const cEn = document.getElementById('pol-cancel-enabled');
+      const rEn = document.getElementById('pol-resched-enabled');
+      const cWrap = document.getElementById('pol-cancel-cutoff-wrap');
+      const rWrap = document.getElementById('pol-resched-opts');
+      if (cWrap) cWrap.classList.toggle('hidden', !(cEn && cEn.checked));
+      if (rWrap) rWrap.classList.toggle('hidden', !(rEn && rEn.checked));
+      const cut = document.getElementById('pol-cancel-cutoff');
+      const hint = document.getElementById('pol-cancel-hint');
+      if (hint && cut) {
+        const h = parseInt(cut.value, 10) || 0;
+        hint.textContent = h > 0
+          ? ('Clients can cancel until ' + h + ' hour(s) before their appointment.')
+          : 'Clients can cancel anytime before the appointment starts.';
+      }
+    }
+    function fillBookingPoliciesForm(s) {
+      const p = (s && s.clientBookingPolicies) || {};
+      const cEn = document.getElementById('pol-cancel-enabled');
+      const rEn = document.getElementById('pol-resched-enabled');
+      const cCut = document.getElementById('pol-cancel-cutoff');
+      const rCut = document.getElementById('pol-resched-cutoff');
+      const maxR = document.getElementById('pol-max-resched');
+      if (cEn) cEn.checked = p.cancelEnabled !== false;
+      if (rEn) rEn.checked = p.rescheduleEnabled !== false;
+      if (cCut) cCut.value = String(p.cancelCutoffHours != null ? p.cancelCutoffHours : 0);
+      if (rCut) rCut.value = String(p.rescheduleCutoffHours != null ? p.rescheduleCutoffHours : 0);
+      if (maxR) {
+        maxR.value = (p.maxReschedules == null || p.maxReschedules === 'unlimited')
+          ? 'unlimited'
+          : String(p.maxReschedules);
+      }
+      updatePolicyHints();
+    }
+    function readBookingPoliciesFromForm() {
+      const maxRaw = document.getElementById('pol-max-resched')?.value || 'unlimited';
+      return {
+        cancelEnabled: !!document.getElementById('pol-cancel-enabled')?.checked,
+        cancelCutoffHours: parseInt(document.getElementById('pol-cancel-cutoff')?.value || '0', 10) || 0,
+        rescheduleEnabled: !!document.getElementById('pol-resched-enabled')?.checked,
+        rescheduleCutoffHours: parseInt(document.getElementById('pol-resched-cutoff')?.value || '0', 10) || 0,
+        maxReschedules: maxRaw === 'unlimited' ? null : (parseInt(maxRaw, 10) || null)
+      };
+    }
+    document.getElementById('pol-cancel-enabled')?.addEventListener('change', updatePolicyHints);
+    document.getElementById('pol-resched-enabled')?.addEventListener('change', updatePolicyHints);
+    document.getElementById('pol-cancel-cutoff')?.addEventListener('change', updatePolicyHints);
+
     document.getElementById('btn-save-settings').onclick = async () => {
       try {
         const email = document.getElementById('set-email').value.trim();
@@ -1438,9 +2631,11 @@
           contactPhone: normalizePhPhone(phoneRaw),
           location: location,
           address: (location && location.formatted) || legacyAddress,
+          clientBookingPolicies: readBookingPoliciesFromForm(),
           updatedAt: serverTimestamp()
         };
         if (document.getElementById('set-currency')) data.currency = document.getElementById('set-currency').value || 'PHP';
+        if (document.getElementById('set-staff-mode')) data.staffSelectionMode = document.getElementById('set-staff-mode').value || 'optional';
         const themeMode = (settings && settings.theme && settings.theme.mode) || obTheme || 'light';
         data.theme = { mode: themeMode, primaryColor: '' };
         await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), data);
@@ -1450,35 +2645,446 @@
       } catch { toast('Save failed', 'error'); }
     };
 
-    function computeAnalytics() {
-      const now = new Date();
-      const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      let week=0, month=0, done=0, cancelled=0;
-      const byDay={}, byHour={}, bySvc={};
-      allAppointments.forEach(a => {
-        if (a.status === 'cancelled') { cancelled++; return; }
-        if (a.status === 'completed') done++;
-        const dt = new Date((a.date||'') + 'T12:00:00');
-        if (dt >= weekAgo) week++;
-        if (dt >= monthStart) month++;
-        bySvc[a.serviceName||'Service'] = (bySvc[a.serviceName||'Service']||0)+1;
-        byDay[dt.toLocaleDateString(undefined,{weekday:'long'})] = (byDay[dt.toLocaleDateString(undefined,{weekday:'long'})]||0)+1;
-        const hr = (a.startTime||'00').slice(0,2);
-        byHour[hr] = (byHour[hr]||0)+1;
-      });
-      document.getElementById('an-week').textContent = week;
-      document.getElementById('an-month').textContent = month;
-      document.getElementById('an-done').textContent = done;
-      document.getElementById('an-cancelled').textContent = cancelled;
-      const topSvc = Object.entries(bySvc).sort((a,b)=>b[1]-a[1])[0];
-      const topDay = Object.entries(byDay).sort((a,b)=>b[1]-a[1])[0];
-      const topHour = Object.entries(byHour).sort((a,b)=>b[1]-a[1])[0];
-      document.getElementById('an-popular').textContent = topSvc ? `Most popular: ${topSvc[0]} (${topSvc[1]})` : '';
-      document.getElementById('an-insight').textContent = (topDay && topHour)
-        ? `Your busiest time is ${topDay[0]} around ${topHour[0]}:00.`
-        : 'Insights appear when you have bookings.';
+    function addDaysToISO(iso, days) {
+      const d = new Date(iso + 'T12:00:00');
+      d.setDate(d.getDate() + days);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
     }
+
+    function computeAnalytics() {
+      try {
+        const saved = localStorage.getItem('bookai_rebook_days_' + (tenantId || ''));
+        const rd = document.getElementById('an-rebook-days');
+        if (saved && rd) rd.value = saved;
+      } catch (e) {}
+      const rangeEl = document.getElementById('an-range');
+      const range = rangeEl ? rangeEl.value : '30';
+      const today = localTodayISO();
+      let from = null;
+      if (range === '7') from = addDaysToISO(today, -6);
+      else if (range === '30') from = addDaysToISO(today, -29);
+
+      const label = document.getElementById('an-range-label');
+      if (label) {
+        label.textContent = from
+          ? ('Appointments from ' + formatDisplayDate(from) + ' through ' + formatDisplayDate(today) + '.')
+          : 'All appointments for this business.';
+      }
+
+      const inRange = (a) => {
+        if (!a.date) return false;
+        if (!from) return true;
+        return a.date >= from && a.date <= today;
+      };
+
+      const period = allAppointments.filter(inRange);
+      let total = period.length;
+      let done = 0, cancelled = 0, noshow = 0;
+      let completedValue = 0;
+      const bySvc = {};
+      const byDay = { Monday:0, Tuesday:0, Wednesday:0, Thursday:0, Friday:0, Saturday:0, Sunday:0 };
+      const byPeriod = { Morning: 0, Afternoon: 0, Evening: 0 };
+      const custKeys = new Set();
+      const custCounts = {};
+
+      const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+      period.forEach(a => {
+        const st = a.status || 'confirmed';
+        if (st === 'cancelled') cancelled++;
+        else if (st === 'no_show') noshow++;
+        else if (st === 'completed') {
+          done++;
+          completedValue += Number(a.servicePrice != null ? a.servicePrice : (a.price || 0));
+        }
+        if (st !== 'cancelled') {
+          const sn = a.serviceName || 'Service';
+          if (!bySvc[sn]) bySvc[sn] = { count: 0, completedValue: 0 };
+          bySvc[sn].count++;
+          if (st === 'completed') bySvc[sn].completedValue += Number(a.servicePrice != null ? a.servicePrice : (a.price || 0));
+        }
+        try {
+          const dt = new Date((a.date || '') + 'T12:00:00');
+          if (!isNaN(dt.getTime())) {
+            const dn = dayNames[dt.getDay()];
+            if (byDay[dn] != null) byDay[dn]++;
+          }
+        } catch (e) {}
+        const hr = parseInt(String(a.startTime || '12').slice(0, 2), 10);
+        if (!isNaN(hr)) {
+          if (hr < 12) byPeriod.Morning++;
+          else if (hr < 17) byPeriod.Afternoon++;
+          else byPeriod.Evening++;
+        }
+        const key = (typeof customerKeyFromAppt === 'function') ? customerKeyFromAppt(a) : (a.customerEmail || a.customerName || a.id);
+        custKeys.add(key);
+        custCounts[key] = (custCounts[key] || 0) + 1;
+      });
+
+      const unique = custKeys.size;
+      const repeatInPeriod = Object.values(custCounts).filter(n => n > 1).length;
+      const repeatRate = unique ? Math.round((repeatInPeriod / unique) * 100) : null;
+
+      const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      setTxt('an-total', String(total));
+      setTxt('an-done', String(done));
+      setTxt('an-cancelled', String(cancelled));
+      setTxt('an-noshow', String(noshow));
+      setTxt('an-customers', String(unique));
+      setTxt('an-repeat-rate', repeatRate == null ? '—' : (repeatRate + '%'));
+      setTxt('an-repeat-sub', repeatInPeriod + ' of ' + unique + ' customers booked more than once in this period');
+
+      // keep legacy week/month labels as context
+      const weekFrom = addDaysToISO(today, -6);
+      const weekCount = allAppointments.filter(a => a.date >= weekFrom && a.date <= today).length;
+      const monthFrom = today.slice(0, 7) + '-01';
+      const monthCount = allAppointments.filter(a => a.date >= monthFrom && a.date <= today).length;
+      setTxt('an-week', 'Last 7 days total: ' + weekCount);
+      setTxt('an-month', 'This calendar month: ' + monthCount);
+
+      try {
+        setTxt('an-value', formatMoney(completedValue, currentCurrencyCode()));
+      } catch (e) {
+        setTxt('an-value', String(completedValue));
+      }
+
+      const barRow = (label, count, max) => {
+        const pct = max ? Math.max(8, Math.round((count / max) * 100)) : 0;
+        return '<div class="an-bar-row">' +
+          '<div class="an-bar-label"><span>' + esc(label) + '</span><strong>' + count + '</strong></div>' +
+          '<div class="an-bar-track"><div class="an-bar-fill" style="width:' + pct + '%"></div></div>' +
+          '</div>';
+      };
+
+      const svcEl = document.getElementById('an-top-services');
+      if (svcEl) {
+        const ranked = Object.entries(bySvc).sort((a, b) => b[1].count - a[1].count).slice(0, 8);
+        if (!ranked.length) svcEl.innerHTML = '<p class="text-sm text-slate-500">Insights will appear as your business receives bookings.</p>';
+        else {
+          const max = ranked[0][1].count;
+          svcEl.innerHTML = ranked.map(([name, info]) => {
+            let extra = '';
+            if (info.completedValue) {
+              try { extra = ' · completed value ' + formatMoney(info.completedValue, currentCurrencyCode()); } catch (e) {}
+            }
+            return barRow(name + extra, info.count, max);
+          }).join('');
+        }
+      }
+
+      const daysEl = document.getElementById('an-busy-days');
+      if (daysEl) {
+        const order = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+        const ranked = order.map(d => [d, byDay[d] || 0]).sort((a, b) => b[1] - a[1]);
+        const max = ranked[0] ? ranked[0][1] : 0;
+        if (!max) daysEl.innerHTML = '<p class="text-sm text-slate-500">Not enough data yet.</p>';
+        else daysEl.innerHTML = ranked.map(([d, n]) => barRow(d, n, max)).join('');
+      }
+
+      const timesEl = document.getElementById('an-busy-times');
+      if (timesEl) {
+        const ranked = [['Morning', byPeriod.Morning], ['Afternoon', byPeriod.Afternoon], ['Evening', byPeriod.Evening]]
+          .sort((a, b) => b[1] - a[1]);
+        const max = ranked[0][1];
+        if (!max) timesEl.innerHTML = '<p class="text-sm text-slate-500">Not enough data yet.</p>';
+        else timesEl.innerHTML = ranked.map(([d, n]) => barRow(d, n, max)).join('');
+      }
+
+      // Retention across ALL appointments
+      const allKeys = {};
+      allAppointments.forEach(a => {
+        const key = (typeof customerKeyFromAppt === 'function') ? customerKeyFromAppt(a) : (a.customerEmail || a.customerName || a.id);
+        allKeys[key] = (allKeys[key] || 0) + 1;
+      });
+      const allCust = Object.keys(allKeys).length;
+      const allRepeat = Object.values(allKeys).filter(n => n > 1).length;
+      const allNew = allCust - allRepeat;
+      setTxt('an-ret-total', String(allCust));
+      setTxt('an-ret-repeat', String(allRepeat));
+      setTxt('an-ret-new', String(allNew));
+      const insight = document.getElementById('an-insight');
+      if (insight) {
+        if (!allCust) insight.textContent = 'Insights will appear as your business receives bookings.';
+        else insight.textContent = allRepeat
+          ? ((Math.round((allRepeat / allCust) * 100)) + '% of customers have booked more than once.')
+          : 'No repeat customers yet — share your booking link to grow visits.';
+      }
+      const pop = document.getElementById('an-popular');
+      if (pop) {
+        const top = Object.entries(bySvc).sort((a, b) => b[1].count - a[1].count)[0];
+        pop.textContent = top ? ('Top service this period: ' + top[0] + ' (' + top[1].count + ')') : '';
+      }
+
+      renderRebookList();
+    }
+
+
+    // ----- Communication templates & follow-up (Batch 21) -----
+    const DEFAULT_MSG_TEMPLATES = {
+      confirmation: 'Hi {{customerName}},\n\nYour appointment at {{businessName}} is confirmed.\nService: {{serviceName}}\nDate: {{date}}\nTime: {{time}}{{staffLine}}\n\nWe look forward to seeing you.\n— {{businessName}}',
+      reminder: 'Hi {{customerName}},\n\nThis is a friendly reminder of your appointment at {{businessName}}.\nService: {{serviceName}}\nDate: {{date}}\nTime: {{time}}{{staffLine}}\n\nSee you soon.\n— {{businessName}}',
+      followup: 'Hi {{customerName}},\n\nThank you for visiting {{businessName}}. We hope you were happy with {{serviceName}}.\n\nIf you need anything else, reply to this message or book again anytime.\n— {{businessName}}',
+      rebooking: 'Hi {{customerName}},\n\nIt has been a while since your last {{serviceName}} at {{businessName}}. We would be happy to help you book your next appointment when you are ready.\n\n— {{businessName}}',
+      waitlist: 'Hi {{customerName}},\n\nA suitable time may be opening at {{businessName}} for {{serviceName}}{{dateLine}}.\nPlease reply if you would still like to book — this message is not a confirmed appointment.\n\n— {{businessName}}',
+      general: 'Hi {{customerName}},\n\nThis is {{businessName}}. Please reply when convenient.\n\nThank you.'
+    };
+    const TEMPLATE_LABELS = {
+      confirmation: 'Booking confirmation',
+      reminder: 'Appointment reminder',
+      followup: 'Follow-up after visit',
+      rebooking: 'Rebooking invitation',
+      waitlist: 'Waitlist availability',
+      general: 'General message'
+    };
+
+    let commContext = { customerName: '', serviceName: '', date: '', time: '', staffName: '', email: '', phone: '', customerKey: '' };
+    let customerMetaCache = {}; // customerId -> { followUpStatus, notes }
+
+    function getTemplateBody(key) {
+      const custom = (settings && settings.messageTemplates && settings.messageTemplates[key]) || null;
+      return custom || DEFAULT_MSG_TEMPLATES[key] || DEFAULT_MSG_TEMPLATES.general;
+    }
+
+    function fillTemplate(text, ctx) {
+      const c = ctx || commContext;
+      const staffLine = c.staffName ? ('\nStaff: ' + c.staffName) : '';
+      const dateLine = c.date ? (' on ' + c.date) : '';
+      let out = String(text || '');
+      const map = {
+        '{{customerName}}': c.customerName || 'Customer',
+        '{{businessName}}': (settings && settings.businessName) || 'our business',
+        '{{serviceName}}': c.serviceName || 'your service',
+        '{{date}}': c.date || '',
+        '{{time}}': c.time || '',
+        '{{staffName}}': c.staffName || '',
+        '{{staffLine}}': staffLine,
+        '{{dateLine}}': dateLine
+      };
+      Object.keys(map).forEach(k => { out = out.split(k).join(map[k]); });
+      // clean leftover empty lines from missing optional
+      out = out.replace(/\n{3,}/g, '\n\n').trim();
+      return out;
+    }
+
+    function setCommContext(partial) {
+      commContext = Object.assign({}, commContext, partial || {});
+      refreshCommPreview();
+      const hint = document.getElementById('comm-context-hint');
+      if (hint) {
+        const bits = [];
+        if (commContext.customerName) bits.push(commContext.customerName);
+        if (commContext.serviceName) bits.push(commContext.serviceName);
+        if (commContext.date) bits.push(commContext.date);
+        if (commContext.time) bits.push(commContext.time);
+        hint.textContent = bits.length ? ('Context: ' + bits.join(' · ')) : 'Select an appointment or customer to personalize the message.';
+      }
+    }
+
+    function populateTemplateSelect() {
+      const sel = document.getElementById('comm-template-key');
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = Object.keys(TEMPLATE_LABELS).map(k =>
+        '<option value="' + k + '">' + TEMPLATE_LABELS[k] + '</option>'
+      ).join('');
+      if (cur && TEMPLATE_LABELS[cur]) sel.value = cur;
+    }
+
+    function refreshCommPreview() {
+      const key = document.getElementById('comm-template-key')?.value || 'general';
+      const ta = document.getElementById('comm-message');
+      if (ta) ta.value = fillTemplate(getTemplateBody(key));
+    }
+
+    function buildContactActions(email, phone, opts) {
+      opts = opts || {};
+      const parts = [];
+      const em = (email || '').trim();
+      const ph = (phone || '').replace(/[^\d+]/g, '');
+      if (em && em.includes('@')) {
+        const subj = encodeURIComponent(opts.subject || ((settings && settings.businessName) || 'BookAI'));
+        const body = encodeURIComponent(opts.body || '');
+        parts.push('<a class="appt-act appt-act-primary text-xs min-h-[36px] inline-flex items-center" href="mailto:' + esc(em) + '?subject=' + subj + (body ? ('&body=' + body) : '') + '">Email</a>');
+      }
+      if (ph) {
+        parts.push('<a class="appt-act text-xs min-h-[36px] inline-flex items-center" href="tel:' + esc(ph) + '">Call</a>');
+      }
+      parts.push('<button type="button" class="appt-act text-xs min-h-[36px] btn-copy-msg" data-copy-msg="1">Copy message</button>');
+      return parts.join('');
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('Message copied', 'success');
+      } catch (e) {
+        toast('Could not copy — select and copy manually', 'error');
+      }
+    }
+
+    document.getElementById('comm-template-key')?.addEventListener('change', refreshCommPreview);
+    document.getElementById('comm-copy')?.addEventListener('click', () => {
+      copyText(document.getElementById('comm-message')?.value || '');
+    });
+    document.getElementById('comm-restore')?.addEventListener('click', () => {
+      const key = document.getElementById('comm-template-key')?.value || 'general';
+      const ta = document.getElementById('comm-message');
+      if (ta) ta.value = fillTemplate(DEFAULT_MSG_TEMPLATES[key] || '');
+      toast('Default template restored in preview (save to keep)', 'success');
+    });
+    document.getElementById('comm-save-tpl')?.addEventListener('click', async () => {
+      const key = document.getElementById('comm-template-key')?.value || 'general';
+      const body = document.getElementById('comm-message')?.value || '';
+      try {
+        const templates = Object.assign({}, (settings && settings.messageTemplates) || {});
+        templates[key] = body.slice(0, 2000);
+        await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), {
+          messageTemplates: templates,
+          updatedAt: serverTimestamp()
+        });
+        settings = settings || {};
+        settings.messageTemplates = templates;
+        toast('Template saved for this business', 'success');
+      } catch (e) {
+        toast(e.message || 'Save failed', 'error');
+      }
+    });
+
+    async function loadCustomerMeta(customerId) {
+      if (!customerId || !tenantId) return null;
+      if (customerMetaCache[customerId]) return customerMetaCache[customerId];
+      try {
+        const snap = await getDoc(doc(db, 'tenants', tenantId, 'customers', customerId));
+        const data = snap.exists() ? snap.data() : {};
+        customerMetaCache[customerId] = data;
+        return data;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function setFollowUpStatus(customerId, status, extra) {
+      if (!customerId) return;
+      const idToken = await auth.currentUser.getIdToken();
+      const res = await fetch('/api/business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({
+          action: 'saveCustomerNotes',
+          idToken,
+          tenantId,
+          customerId,
+          followUpStatus: status
+        }, extra || {}))
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res, data, 'Update failed'));
+      customerMetaCache[customerId] = Object.assign({}, customerMetaCache[customerId] || {}, { followUpStatus: status });
+    }
+
+    function customerKeyFromAppt(a) {
+      const em = (a.customerEmail || '').toLowerCase().trim();
+      if (em) return em.replace(/\//g, '_');
+      const ph = (a.customerPhone || '').replace(/\D/g, '');
+      if (ph) return 'p_' + ph;
+      return 'n_' + String(a.customerName || 'guest').toLowerCase().replace(/\s+/g, '_').slice(0, 40);
+    }
+
+    populateTemplateSelect();
+
+    function renderRebookList() {
+      const el = document.getElementById('an-rebook-list');
+      if (!el) return;
+      const days = parseInt(document.getElementById('an-rebook-days')?.value || '30', 10);
+      const today = localTodayISO();
+      const threshold = addDaysToISO(today, -days);
+      // group by customer key
+      const map = new Map();
+      allAppointments.forEach(a => {
+        const key = (typeof customerKeyFromAppt === 'function') ? customerKeyFromAppt(a) : (a.customerEmail || a.customerName || a.id);
+        if (!map.has(key)) {
+          map.set(key, { name: a.customerName || 'Customer', email: a.customerEmail || '', phone: a.customerPhone || '', lastCompleted: null, lastService: '', hasUpcoming: false });
+        }
+        const c = map.get(key);
+        if (a.customerName) c.name = a.customerName;
+        if (a.customerEmail) c.email = a.customerEmail;
+        if (a.customerPhone) c.phone = a.customerPhone;
+        const st = a.status || 'confirmed';
+        if (st === 'completed') {
+          if (!c.lastCompleted || a.date > c.lastCompleted) {
+            c.lastCompleted = a.date;
+            c.lastService = a.serviceName || 'Service';
+          }
+        }
+        if (a.date >= today && st !== 'cancelled' && st !== 'no_show' && st !== 'completed') {
+          c.hasUpcoming = true;
+        }
+      });
+      const candidates = Array.from(map.values()).filter(c =>
+        c.lastCompleted && c.lastCompleted <= threshold && !c.hasUpcoming
+      ).sort((a, b) => String(a.lastCompleted).localeCompare(String(b.lastCompleted)));
+
+      if (!candidates.length) {
+        el.innerHTML = '<p class="text-sm text-slate-500">No rebooking candidates with the current threshold. This list only includes customers with a completed visit and no upcoming appointment.</p>';
+        return;
+      }
+      el.innerHTML = candidates.slice(0, 20).map(c => {
+        const key = (c.email || ('n_' + c.name)).toLowerCase().replace(/\//g, '_');
+        const fu = (customerMetaCache[key] && customerMetaCache[key].followUpStatus) || 'not_contacted';
+        let actions = '';
+        actions += '<button type="button" class="appt-act text-xs" data-rebook-msg="' + esc(key) + '">Message</button>';
+        if (c.email && c.email.includes('@')) actions += '<a class="appt-act text-xs" href="mailto:' + esc(c.email) + '">Email</a>';
+        if (c.phone) actions += '<a class="appt-act text-xs" href="tel:' + esc(String(c.phone).replace(/[^\d+]/g, '')) + '">Call</a>';
+        actions += '<button type="button" class="appt-act text-xs" data-fu-status="' + esc(key) + '" data-fu-next="' + (fu === 'not_contacted' ? 'contacted' : 'completed') + '">' + (fu === 'completed' ? 'Follow-up done' : (fu === 'contacted' ? 'Mark done' : 'Mark contacted')) + '</button>';
+        return '<div class="an-rebook-card" data-rebook-key="' + esc(key) + '">' +
+          '<div class="min-w-0">' +
+          '<p class="font-semibold text-sm">' + esc(c.name) + '</p>' +
+          '<p class="text-xs text-slate-500">Last completed: ' + esc(formatDisplayDate(c.lastCompleted)) + ' · ' + esc(c.lastService) + '</p>' +
+          '<p class="text-xs text-slate-500">Follow-up: ' + esc(fu.replace('_', ' ')) + '</p>' +
+          '</div>' +
+          '<div class="flex flex-wrap gap-2 shrink-0">' + actions + '</div>' +
+          '</div>';
+      }).join('');
+      el.querySelectorAll('[data-rebook-msg]').forEach(btn => {
+        btn.onclick = () => {
+          const key = btn.getAttribute('data-rebook-msg');
+          const c = candidates.find(x => ((x.email || ('n_' + x.name)).toLowerCase().replace(/\//g, '_')) === key);
+          if (!c) return;
+          setCommContext({
+            customerName: c.name, serviceName: c.lastService, date: c.lastCompleted ? formatDisplayDate(c.lastCompleted) : '',
+            time: '', staffName: '', email: c.email || '', phone: c.phone || '', customerKey: key
+          });
+          const keyEl = document.getElementById('comm-template-key');
+          if (keyEl) { keyEl.value = 'rebooking'; refreshCommPreview(); }
+          document.getElementById('panel-customers')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          toast('Rebooking message ready — copy or email from Communication', 'success');
+        };
+      });
+      el.querySelectorAll('[data-fu-status]').forEach(btn => {
+        btn.onclick = async () => {
+          try {
+            const id = btn.getAttribute('data-fu-status');
+            const next = btn.getAttribute('data-fu-next') || 'contacted';
+            await setFollowUpStatus(id, next);
+            toast('Follow-up updated', 'success');
+            renderRebookList();
+          } catch (e) { toast(e.message || 'Failed', 'error'); }
+        };
+      });
+    }
+
+    document.getElementById('an-range')?.addEventListener('change', computeAnalytics);
+    document.getElementById('an-rebook-days')?.addEventListener('change', () => {
+      try {
+        localStorage.setItem('bookai_rebook_days_' + (tenantId || ''), document.getElementById('an-rebook-days').value);
+      } catch (e) {}
+      renderRebookList();
+    });
+
+
 
     function drawQr() {
       const box = document.getElementById('qr-box');
@@ -1542,12 +3148,15 @@
       if (!src) { toast('QR not ready', 'error'); return; }
       const w = window.open('');
       if (w) {
+        const safeName = String(name).replace(/</g, '');
+        const safeUrl = String(url).replace(/</g, '');
         w.document.write('<!DOCTYPE html><html><head><title>Scan to Book</title></head><body style="font-family:system-ui;text-align:center;padding:32px">');
-        w.document.write('<h1 style="font-size:20px">' + name.replace(/</g,'') + '</h1>');
+        w.document.write('<h1 style="font-size:20px">' + safeName + '</h1>');
         w.document.write('<p>Scan to Book</p>');
-        w.document.write('<img src="'+src+'" style="width:240px;height:240px" />');
-        w.document.write('<p style="font-size:12px;word-break:break-all">' + url.replace(/</g,'') + '</p>');
-        w.document.write('<script>window.onload=function(){window.print()}<\/script></body></html>');
+        w.document.write('<img src="' + src + '" style="width:240px;height:240px" alt="QR" />');
+        w.document.write('<p style="font-size:12px;word-break:break-all">' + safeUrl + '</p>');
+        w.document.write('<' + 'script>window.onload=function(){window.print()}<' + '/script>');
+        w.document.write('</body></html>');
         w.document.close();
       }
     });
@@ -1564,6 +3173,12 @@
         btn.classList.add('active');
         ['home','bookings','services','customers','analytics','settings'].forEach(p => {
           document.getElementById('panel-' + p)?.classList.toggle('hidden', p !== panel);
+          if (panel === 'settings') {
+            if (typeof applyReminderPrefsToForm === 'function') applyReminderPrefsToForm();
+            if (typeof fillBookingPoliciesForm === 'function') fillBookingPoliciesForm(settings);
+            const sm = document.getElementById('set-staff-mode');
+            if (sm) sm.value = (settings && settings.staffSelectionMode) || 'optional';
+          }
         });
         if (panel === 'customers') loadCRM();
         if (panel === 'home') loadBusinessSummary();
@@ -1668,7 +3283,18 @@
       return String(d.getHours()).padStart(2, '0') + ':' + String(Math.floor(d.getMinutes() / 5) * 5).padStart(2, '0');
     }
 
-    document.getElementById('qa-walkin')?.addEventListener('click', async () => {
+    
+    document.getElementById('qa-waitlist')?.addEventListener('click', () => {
+      document.querySelector('.nav-item[data-panel="customers"]')?.click();
+    });
+    document.getElementById('qa-add-service')?.addEventListener('click', () => {
+      document.querySelector('.nav-item[data-panel="services"]')?.click();
+      setTimeout(() => document.getElementById('btn-add-service')?.click(), 50);
+    });
+    document.getElementById('qa-view-bookings')?.addEventListener('click', () => {
+      document.querySelector('.nav-item[data-panel="bookings"]')?.click();
+    });
+document.getElementById('qa-walkin')?.addEventListener('click', async () => {
       const sel = document.getElementById('wi-service');
       if (sel) {
         const snap = await getDocs(collection(db, 'tenants', tenantId, 'services'));
@@ -1685,10 +3311,50 @@
       const nowT = localTimeHHMM();
       document.getElementById('wi-time').value = nowT;
       mountAmPmPicker('wi-time-picker', 'wi-time', nowT);
+      await loadStaff();
+      refreshWalkInStaffOptions();
       openModal('modal-walkin');
     });
+    document.getElementById('wi-service')?.addEventListener('change', refreshWalkInStaffOptions);
+
+    function refreshWalkInStaffOptions() {
+      const sel = document.getElementById('wi-staff');
+      const hint = document.getElementById('wi-staff-hint');
+      if (!sel) return;
+      const serviceId = document.getElementById('wi-service')?.value || '';
+      const active = (allStaff || []).filter(s => s.active !== false);
+      let eligible = active;
+      if (serviceId) {
+        eligible = active.filter(s => {
+          if (!s.serviceIds || !s.serviceIds.length) return true;
+          return s.serviceIds.includes(serviceId);
+        });
+      }
+      sel.innerHTML = '<option value="">Any available staff</option>';
+      eligible.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.id;
+        o.textContent = s.name + (s.role ? ' · ' + s.role : '');
+        sel.appendChild(o);
+      });
+      if (hint) {
+        if (!active.length) {
+          hint.textContent = 'No team members yet — walk-in uses business-level scheduling.';
+          sel.classList.add('hidden');
+        } else {
+          sel.classList.remove('hidden');
+          hint.textContent = eligible.length
+            ? 'Only staff who can perform this service are listed.'
+            : 'No staff assigned to this service. Use Any available or assign services in Team.';
+        }
+      }
+    }
+
     document.getElementById('wi-cancel')?.addEventListener('click', () => closeModal('modal-walkin'));
     document.getElementById('wi-save')?.addEventListener('click', async () => {
+      const wiBtn = document.getElementById('wi-save');
+      if (wiBtn && wiBtn.dataset.busy === '1') return;
+      if (wiBtn) { wiBtn.dataset.busy = '1'; wiBtn.disabled = true; }
       try {
         const startTime = document.getElementById('wi-time').value;
         if (!/^\d{2}:\d{2}$/.test(startTime)) {
@@ -1710,14 +3376,19 @@
             serviceId: document.getElementById('wi-service').value,
             date: document.getElementById('wi-date').value,
             startTime,
-            customerName: document.getElementById('wi-name').value.trim() || 'Walk-in'
+            customerName: document.getElementById('wi-name').value.trim() || 'Walk-in',
+            staffId: document.getElementById('wi-staff')?.value || ''
           })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed');
+        let data = {};
+        try { data = await res.json(); } catch (e) {}
+        if (!res.ok) throw new Error(apiErrorMessage(res, data, 'Walk-in failed'));
         toast('Walk-in saved for ' + formatTime12(startTime), 'success');
         closeModal('modal-walkin');
-      } catch (e) { toast(e.message, 'error'); }
+      } catch (e) { toast(e.message || 'Walk-in failed', 'error'); }
+      finally {
+        if (wiBtn) { delete wiBtn.dataset.busy; wiBtn.disabled = false; }
+      }
     });
 
     document.getElementById('qa-block')?.addEventListener('click', () => {
@@ -1758,6 +3429,10 @@
     });
 
     document.getElementById('qa-emergency')?.addEventListener('click', async () => {
+      if (!hasPermission('manageEmergencyClosure') && !userContext.isOwner) {
+        toast('Only the business owner can change emergency closure', 'error');
+        return;
+      }
       const currently = settings?.emergencyClosure?.isClosed;
       const next = !currently;
       const msg = next
@@ -1827,6 +3502,209 @@
       } catch (e) { console.warn(e); }
     }
 
+    let crmCustomers = [];
+    let crmFilter = 'all';
+    let crmNotesById = {};
+
+    function customerKeyFromAppt(a) {
+      const email = String(a.customerEmail || '').trim().toLowerCase();
+      if (email && email.includes('@')) return 'e:' + email;
+      const phone = String(a.customerPhone || '').replace(/\D/g, '');
+      if (phone.length >= 8) return 'p:' + phone;
+      const name = String(a.customerName || '').trim().toLowerCase();
+      if (name) return 'n:' + name + '|' + String(a.customerEmail || '').toLowerCase();
+      return 'id:' + (a.id || Math.random());
+    }
+
+    function buildCustomersFromAppointments() {
+      const today = localTodayISO();
+      const map = new Map();
+      allAppointments.forEach(a => {
+        const key = customerKeyFromAppt(a);
+        if (!map.has(key)) {
+          map.set(key, {
+            id: key,
+            name: a.customerName || 'Customer',
+            email: a.customerEmail || '',
+            phone: a.customerPhone || '',
+            appointments: [],
+            total: 0,
+            completed: 0,
+            cancelled: 0,
+            upcoming: 0,
+            lastDate: '',
+            nextUpcoming: null,
+            notes: crmNotesById[key] || ''
+          });
+        }
+        const c = map.get(key);
+        c.appointments.push(a);
+        c.total += 1;
+        const st = a.status || 'confirmed';
+        if (st === 'completed') c.completed += 1;
+        if (st === 'cancelled') c.cancelled += 1;
+        if (a.date >= today && st !== 'cancelled' && st !== 'no_show') {
+          c.upcoming += 1;
+          if (!c.nextUpcoming || (a.date + a.startTime) < (c.nextUpcoming.date + (c.nextUpcoming.startTime || ''))) {
+            c.nextUpcoming = a;
+          }
+        }
+        if (!c.lastDate || a.date > c.lastDate) c.lastDate = a.date;
+        if ((!c.email || !c.email.includes('@')) && a.customerEmail) c.email = a.customerEmail;
+        if (!c.phone && a.customerPhone) c.phone = a.customerPhone;
+        if (a.customerName) c.name = a.customerName;
+      });
+      // merge notes from server customer docs keyed by email id
+      Object.keys(crmNotesById).forEach(nid => {
+        if (map.has(nid)) map.get(nid).notes = crmNotesById[nid];
+      });
+      const list = Array.from(map.values());
+      list.forEach(c => {
+        c.appointments.sort((a, b) => (b.date + (b.startTime || '')).localeCompare(a.date + (a.startTime || '')));
+        c.isRepeat = c.total > 1;
+      });
+      list.sort((a, b) => String(b.lastDate || '').localeCompare(String(a.lastDate || '')));
+      crmCustomers = list;
+      return list;
+    }
+
+    function renderCrmMetrics(list) {
+      const total = list.length;
+      const repeat = list.filter(c => c.isRepeat).length;
+      const upcoming = list.filter(c => c.upcoming > 0).length;
+      const elT = document.getElementById('crm-m-total');
+      const elR = document.getElementById('crm-m-repeat');
+      const elU = document.getElementById('crm-m-upcoming');
+      if (elT) elT.textContent = String(total);
+      if (elR) elR.textContent = String(repeat);
+      if (elU) elU.textContent = String(upcoming);
+    }
+
+    function renderCustomersList() {
+      const q = (document.getElementById('crm-search')?.value || '').toLowerCase().trim();
+      let list = crmCustomers.slice();
+      if (crmFilter === 'repeat') list = list.filter(c => c.isRepeat);
+      else if (crmFilter === 'new') list = list.filter(c => !c.isRepeat);
+      else if (crmFilter === 'upcoming') list = list.filter(c => c.upcoming > 0);
+      if (q) {
+        list = list.filter(c => [c.name, c.email, c.phone].join(' ').toLowerCase().includes(q));
+      }
+      renderCrmMetrics(crmCustomers);
+      const el = document.getElementById('customers-list');
+      if (!el) return;
+      if (!list.length) {
+        el.innerHTML = '<div class="ops-empty"><p class="text-sm font-medium">No customers match</p><p class="text-xs text-slate-500 mt-1">Customers appear from bookings on this business.</p></div>';
+        return;
+      }
+      el.innerHTML = list.map(c => {
+        const badge = c.isRepeat
+          ? '<span class="crm-badge crm-badge-repeat">Repeat customer</span>'
+          : '<span class="crm-badge crm-badge-new">New customer</span>';
+        const next = c.nextUpcoming
+          ? ('Next: ' + formatDisplayDate(c.nextUpcoming.date) + ' · ' + formatTime12(c.nextUpcoming.startTime))
+          : (c.lastDate ? ('Last: ' + formatDisplayDate(c.lastDate)) : '');
+        return '<button type="button" class="crm-row" data-crm-id="' + esc(c.id) + '">' +
+          '<div class="min-w-0 flex-1">' +
+          '<div class="flex flex-wrap items-center gap-2">' +
+          '<p class="crm-row-name">' + esc(c.name) + '</p>' + badge +
+          '</div>' +
+          '<p class="crm-row-meta">' + esc(c.email || c.phone || 'No contact on file') + '</p>' +
+          '<p class="crm-row-meta">' + c.total + ' booking' + (c.total === 1 ? '' : 's') + (next ? ' · ' + esc(next) : '') + '</p>' +
+          '</div></button>';
+      }).join('');
+      el.querySelectorAll('[data-crm-id]').forEach(btn => {
+        btn.onclick = () => openCrmProfile(btn.dataset.crmId);
+      });
+    }
+
+    function openCrmProfile(id) {
+      const c = crmCustomers.find(x => x.id === id);
+      if (!c) return;
+      const body = document.getElementById('crm-profile-body');
+      const modal = document.getElementById('crm-profile-modal');
+      const contactBtns = [];
+      if (c.email && c.email.includes('@')) {
+        contactBtns.push('<button type="button" class="appt-act appt-act-primary" data-crm-msg="1">Message</button>');
+        contactBtns.push('<a class="appt-act appt-act-primary" href="mailto:' + esc(c.email) + '">Email</a>');
+      }
+      if (c.phone) {
+        contactBtns.push('<a class="appt-act" href="tel:' + esc(c.phone.replace(/[^\d+]/g, '')) + '">Call</a>');
+      }
+      const hist = c.appointments.slice(0, 20).map(a => {
+        const st = a.status || 'confirmed';
+        return '<button type="button" class="crm-hist-row" data-open-appt="' + esc(a.id) + '">' +
+          '<div class="min-w-0">' +
+          '<p class="font-semibold text-sm">' + esc(a.serviceName || 'Service') + '</p>' +
+          '<p class="text-xs text-slate-500">' + esc(formatDisplayDate(a.date)) + ' · ' + esc(formatTime12(a.startTime)) + '</p>' +
+          '</div>' +
+          '<span class="badge badge-' + esc(st) + '">' + esc(statusLabel(st)) + '</span>' +
+          '</button>';
+      }).join('');
+      body.innerHTML =
+        '<div class="space-y-1">' +
+        '<p class="text-lg font-bold">' + esc(c.name) + '</p>' +
+        (c.isRepeat ? '<span class="crm-badge crm-badge-repeat">Repeat customer</span>' : '<span class="crm-badge crm-badge-new">New customer</span>') +
+        '<p class="text-sm text-slate-500 break-all mt-1">' + esc(c.email || '—') + '</p>' +
+        (c.phone ? '<p class="text-sm text-slate-500">' + esc(c.phone) + '</p>' : '') +
+        '</div>' +
+        (contactBtns.length ? '<div class="flex flex-wrap gap-2">' + contactBtns.join('') + '</div>' : '') +
+        '<div class="grid grid-cols-2 gap-2">' +
+        '<div class="card p-2"><p class="ops-metric-label">Total</p><p class="font-bold">' + c.total + '</p></div>' +
+        '<div class="card p-2"><p class="ops-metric-label">Completed</p><p class="font-bold">' + c.completed + '</p></div>' +
+        '<div class="card p-2"><p class="ops-metric-label">Cancelled</p><p class="font-bold">' + c.cancelled + '</p></div>' +
+        '<div class="card p-2"><p class="ops-metric-label">Upcoming</p><p class="font-bold">' + c.upcoming + '</p></div>' +
+        '</div>' +
+        '<div>' +
+        '<label class="label" for="crm-notes">Private notes (owner only)</label>' +
+        '<textarea id="crm-notes" class="input text-sm" rows="3" placeholder="Preferences, internal reminders…">' + esc(c.notes || '') + '</textarea>' +
+        '<button type="button" id="crm-notes-save" data-crm-id="' + esc(c.id) + '" class="btn btn-secondary text-xs mt-2 min-h-[40px]">Save notes</button>' +
+        '<p class="text-[11px] text-slate-500 mt-1">Not shown on the public booking page.</p>' +
+        '</div>' +
+        '<div><p class="font-semibold text-sm mb-2">Booking history</p><div class="space-y-2">' + (hist || '<p class="text-xs text-slate-500">No bookings</p>') + '</div></div>';
+      body.querySelectorAll('[data-open-appt]').forEach(btn => {
+        btn.onclick = () => openApptDetail(btn.dataset.openAppt);
+      });
+      body.querySelector('#crm-notes-save')?.addEventListener('click', async () => {
+        const notes = document.getElementById('crm-notes')?.value || '';
+        try {
+          const idToken = await auth.currentUser.getIdToken();
+          // Prefer email-based server id when possible
+          const serverId = (c.email && c.email.includes('@')) ? c.email.toLowerCase() : c.id.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
+          const r = await fetch('/api/business', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'saveCustomerNotes',
+              idToken,
+              tenantId,
+              customerId: serverId,
+              notes,
+              name: c.name,
+              email: c.email,
+              phone: c.phone
+            })
+          });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Save failed');
+          crmNotesById[c.id] = notes;
+          if (c.email) crmNotesById['e:' + c.email.toLowerCase()] = notes;
+          c.notes = notes;
+          toast('Notes saved', 'success');
+        } catch (e) {
+          toast(e.message || 'Save failed', 'error');
+        }
+      });
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeCrmProfile() {
+      const modal = document.getElementById('crm-profile-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
     async function loadCRM() {
       try {
         const idToken = await auth.currentUser.getIdToken();
@@ -1836,45 +3714,116 @@
         ]);
         const cust = await custRes.json();
         const wl = await wlRes.json();
-        const list = document.getElementById('customers-list');
-        if (list) {
-          const items = cust.items || [];
-          list.innerHTML = items.length ? items.map(c => `
-            <div class="card p-3">
-              <div class="flex justify-between gap-2">
-                <div>
-                  <p class="font-medium text-sm">${esc(c.name)}</p>
-                  <p class="text-xs text-slate-500">${esc(c.phone||'')} ${esc(c.email||'')}</p>
-                  <p class="text-xs mt-1">Visits: ${c.completedBookings||0} · Spent: ${c.totalSpent||0} · ${esc((c.tags||[]).join(', '))}</p>
-                </div>
-              </div>
-              <textarea data-notes="${esc(c.id)}" class="input text-xs mt-2" rows="2" placeholder="Private notes…">${esc(c.notes||'')}</textarea>
-              <button type="button" data-save-notes="${esc(c.id)}" class="text-xs text-sky-600 font-semibold mt-1">Save notes</button>
-            </div>`).join('') : '<p class="text-sm text-slate-500 text-center py-6">No customers yet — they appear after bookings</p>';
-          list.querySelectorAll('[data-save-notes]').forEach(btn => {
-            btn.onclick = async () => {
-              const id = btn.dataset.saveNotes;
-              const ta = list.querySelector(`[data-notes="${id}"]`);
-              const idToken2 = await auth.currentUser.getIdToken();
-              const r = await fetch('/api/business', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'saveCustomerNotes', idToken: idToken2, tenantId, customerId: id, notes: ta.value })
-              });
-              if (r.ok) toast('Notes saved', 'success');
-              else toast('Save failed', 'error');
-            };
-          });
-        }
+        crmNotesById = {};
+        (cust.items || []).forEach(c => {
+          const notes = c.notes || '';
+          if (c.id) crmNotesById[c.id] = notes;
+          if (c.email) crmNotesById['e:' + String(c.email).toLowerCase()] = notes;
+        });
+        buildCustomersFromAppointments();
+        renderCustomersList();
+
         const wle = document.getElementById('waitlist-owner');
         if (wle) {
           const items = wl.items || [];
+          const pendingWl = items.filter(w => w.status === 'waiting' || w.status === 'offered').length;
+          window.__waitlistPendingCount = pendingWl;
+          const mWl = document.getElementById('m-waitlist');
+          if (mWl) mWl.textContent = String(pendingWl);
+          renderOpsAttention();
+          const statusLabelWl = (s) => {
+            if (s === 'waiting' || s === 'offered') return 'Pending';
+            if (s === 'contacted') return 'Contacted';
+            if (s === 'resolved') return 'Resolved';
+            return s || 'Pending';
+          };
+          const statusClass = (s) => {
+            if (s === 'contacted') return 'badge badge-confirmed';
+            if (s === 'resolved') return 'badge badge-completed';
+            return 'badge badge-pending';
+          };
           wle.innerHTML = items.length
-            ? items.map(w => `<div class="py-1">${esc(w.customerName)} · ${esc(w.preferredDate)} ${esc(w.preferredStartTime)}–${esc(w.preferredEndTime)} · <span class="badge badge-pending">${esc(w.status)}</span></div>`).join('')
-            : '<span class="text-slate-400">No active waitlist</span>';
+            ? items.map(w => `
+              <div class="border border-slate-200 rounded-xl p-3 space-y-1.5">
+                <div class="flex justify-between gap-2 items-start">
+                  <div class="min-w-0">
+                    <p class="font-semibold text-sm truncate">${esc(w.customerName)}</p>
+                    <p class="text-xs text-slate-500 truncate">${esc(w.customerEmail || w.customerPhone || '')}</p>
+                  </div>
+                  <span class="${statusClass(w.status)}">${esc(statusLabelWl(w.status))}</span>
+                </div>
+                <p class="text-xs text-slate-600">${esc(w.serviceName || w.serviceId || 'Service')} · ${esc(w.preferredDate)}${w.preferredPeriod ? ' · ' + esc(w.preferredPeriod) : ''}</p>
+                ${w.notes ? `<p class="text-xs text-slate-500">Notes: ${esc(w.notes)}</p>` : ''}
+                <div class="flex flex-wrap gap-2 pt-1">
+                  <button type="button" data-wl-msg="${esc(w.id)}" class="text-xs font-semibold text-sky-600 min-h-[36px]">Message</button>
+                  ${w.customerEmail ? `<a class="text-xs font-semibold text-sky-600 min-h-[36px] inline-flex items-center" href="mailto:${esc(w.customerEmail)}">Email</a>` : ''}
+                  ${w.customerPhone ? `<a class="text-xs font-semibold text-sky-600 min-h-[36px] inline-flex items-center" href="tel:${esc(String(w.customerPhone).replace(/[^\d+]/g, ''))}">Call</a>` : ''}
+                  ${w.status === 'waiting' || w.status === 'offered' ? `<button type="button" data-wl-status="contacted" data-wl-id="${esc(w.id)}" class="text-xs font-semibold text-sky-600">Mark contacted</button>` : ''}
+                  ${w.status !== 'resolved' ? `<button type="button" data-wl-status="resolved" data-wl-id="${esc(w.id)}" class="text-xs font-semibold text-slate-600">Mark resolved</button>` : ''}
+                </div>
+              </div>`).join('')
+            : '<span class="text-slate-400">No waitlist requests</span>';
+          wle.querySelectorAll('[data-wl-msg]').forEach(btn => {
+            btn.onclick = () => {
+              const w = items.find(x => x.id === btn.dataset.wlMsg);
+              if (!w || typeof setCommContext !== 'function') return;
+              setCommContext({
+                customerName: w.customerName || '',
+                serviceName: w.serviceName || '',
+                date: w.preferredDate ? formatDisplayDate(w.preferredDate) : '',
+                time: w.preferredPeriod || '',
+                staffName: '',
+                email: w.customerEmail || '',
+                phone: w.customerPhone || '',
+                customerKey: (w.customerEmail || w.id || '').toLowerCase().replace(/\//g, '_')
+              });
+              const keyEl = document.getElementById('comm-template-key');
+              if (keyEl) { keyEl.value = 'waitlist'; refreshCommPreview(); }
+              toast('Waitlist message ready — copy from Communication above', 'success');
+              document.getElementById('comm-center')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            };
+          });
+          wle.querySelectorAll('[data-wl-status]').forEach(btn => {
+            btn.onclick = async () => {
+              try {
+                const idToken2 = await auth.currentUser.getIdToken();
+                const r = await fetch('/api/business', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'updateWaitlistStatus',
+                    idToken: idToken2,
+                    tenantId,
+                    waitlistId: btn.dataset.wlId,
+                    status: btn.dataset.wlStatus
+                  })
+                });
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.error || 'Update failed');
+                toast('Waitlist updated', 'success');
+                loadCRM();
+              } catch (e) {
+                toast(e.message || 'Update failed', 'error');
+              }
+            };
+          });
         }
       } catch (e) { console.warn(e); }
     }
+
+    
+    document.getElementById('crm-search')?.addEventListener('input', renderCustomersList);
+    document.querySelectorAll('[data-crm-filter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        crmFilter = btn.dataset.crmFilter;
+        document.querySelectorAll('[data-crm-filter]').forEach(x => x.classList.toggle('is-active', x === btn));
+        renderCustomersList();
+      });
+    });
+    document.getElementById('crm-profile-close')?.addEventListener('click', closeCrmProfile);
+    document.getElementById('crm-profile-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'crm-profile-modal') closeCrmProfile();
+    });
 
     document.getElementById('btn-refresh-crm')?.addEventListener('click', () => { loadCRM(); loadBusinessSummary(); });
 
@@ -1921,8 +3870,694 @@
     });
     updateInstallUI();
 
-    // ----- Real notifications -----
+    
+    // ----- Staff / Team (Batch 19) -----
+    let allStaff = [];
+    let allServicesCache = [];
+    const STAFF_DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    const STAFF_DAY_LABELS = { monday:'Mon', tuesday:'Tue', wednesday:'Wed', thursday:'Thu', friday:'Fri', saturday:'Sat', sunday:'Sun' };
+
+    function defaultStaffHours() {
+      const h = {};
+      STAFF_DAYS.forEach(d => {
+        h[d] = { enabled: d !== 'sunday', open: '09:00', close: '17:00' };
+      });
+      return h;
+    }
+
+    function renderStaffHoursForm(hours) {
+      const el = document.getElementById('staff-hours');
+      if (!el) return;
+      const h = hours || defaultStaffHours();
+      el.innerHTML = STAFF_DAYS.map(d => {
+        const day = h[d] || { enabled: false, open: '09:00', close: '17:00' };
+        return '<div class="flex flex-wrap items-center gap-2">' +
+          '<label class="flex items-center gap-1 min-w-[4rem]"><input type="checkbox" data-sh-day="' + d + '" class="rounded" ' + (day.enabled !== false && day.closed !== true ? 'checked' : '') + '/> ' + STAFF_DAY_LABELS[d] + '</label>' +
+          '<input type="time" data-sh-open="' + d + '" class="input text-xs" style="width:auto;min-height:36px" value="' + esc(day.open || '09:00') + '" />' +
+          '<span class="text-xs text-slate-500">to</span>' +
+          '<input type="time" data-sh-close="' + d + '" class="input text-xs" style="width:auto;min-height:36px" value="' + esc(day.close || '17:00') + '" />' +
+          '</div>';
+      }).join('');
+    }
+
+    function readStaffHoursForm() {
+      const h = {};
+      STAFF_DAYS.forEach(d => {
+        const en = document.querySelector('[data-sh-day="' + d + '"]');
+        const o = document.querySelector('[data-sh-open="' + d + '"]');
+        const c = document.querySelector('[data-sh-close="' + d + '"]');
+        h[d] = {
+          enabled: !!(en && en.checked),
+          open: o ? o.value : '09:00',
+          close: c ? c.value : '17:00'
+        };
+      });
+      return h;
+    }
+
+    function renderStaffServiceChecks(selectedIds) {
+      const el = document.getElementById('staff-services');
+      if (!el) return;
+      const sel = selectedIds || [];
+      if (!allServicesCache.length) {
+        el.innerHTML = '<p class="text-xs text-slate-500">Add services first.</p>';
+        return;
+      }
+      el.innerHTML = allServicesCache.map(s =>
+        '<label class="flex items-center gap-2"><input type="checkbox" data-staff-svc="' + esc(s.id) + '" class="rounded" ' +
+        (sel.includes(s.id) ? 'checked' : '') + '/> ' + esc(s.name || 'Service') + '</label>'
+      ).join('');
+    }
+
+    function readStaffServiceIds() {
+      return Array.from(document.querySelectorAll('[data-staff-svc]:checked')).map(x => x.dataset.staffSvc);
+    }
+
+    async function loadStaff() {
+      if (!tenantId) return;
+      try {
+        const snap = await getDocs(collection(db, 'tenants', tenantId, 'staff'));
+        allStaff = [];
+        snap.forEach(d => allStaff.push({ id: d.id, ...d.data() }));
+        allStaff.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        await loadStaffTimeOff();
+        renderStaffList();
+        refreshCalStaffFilter();
+      } catch (e) { console.warn('staff load', e); }
+    }
+
+    function staffDayStatus(s) {
+      if (s.active === false) return { label: 'Inactive', cls: 'crm-badge' };
+      const leave = typeof staffTimeOffStatus === 'function' ? staffTimeOffStatus(s) : null;
+      if (leave) return leave;
+      const today = localTodayISO();
+      const weekday = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date(today + 'T12:00:00').getDay()];
+      const hours = s.workingHours && s.workingHours[weekday];
+      if (hours && (hours.enabled === false || hours.closed === true)) {
+        return { label: 'Off today', cls: 'crm-badge' };
+      }
+      const nowMin = (function () {
+        const n = new Date();
+        return n.getHours() * 60 + n.getMinutes();
+      })();
+      // break now?
+      const keyMap = { sunday:'sun', monday:'mon', tuesday:'tue', wednesday:'wed', thursday:'thu', friday:'fri', saturday:'sat' };
+      const bk = keyMap[weekday];
+      const breaks = (s.staffBreaks && s.staffBreaks[bk]) || [];
+      for (let i = 0; i < breaks.length; i++) {
+        const br = breaks[i];
+        const bs = (function (t) { const p = String(t||'').split(':'); return (+p[0]||0)*60+(+p[1]||0); })(br.start);
+        const be = (function (t) { const p = String(t||'').split(':'); return (+p[0]||0)*60+(+p[1]||0); })(br.end);
+        if (nowMin >= bs && nowMin < be) return { label: 'On break', cls: 'crm-badge' };
+      }
+      if (hours && hours.open && hours.close) {
+        const openM = (function (t) { const p = String(t).split(':'); return (+p[0]||0)*60+(+p[1]||0); })(hours.open);
+        const closeM = (function (t) { const p = String(t).split(':'); return (+p[0]||0)*60+(+p[1]||0); })(hours.close);
+        if (nowMin < openM) return { label: 'Working later today', cls: 'crm-badge crm-badge-repeat' };
+        if (nowMin >= closeM) return { label: 'Shift ended', cls: 'crm-badge' };
+      }
+      return { label: 'On schedule today', cls: 'crm-badge crm-badge-repeat' };
+    }
+
+    function renderStaffList() {
+      const el = document.getElementById('staff-list');
+      if (!el) return;
+      if (!allStaff.length) {
+        el.innerHTML = '<div class="ops-empty"><p class="text-sm font-medium">No team members yet</p><p class="text-xs text-slate-500 mt-1">Optional. Without staff, bookings work at the business level as before.</p></div>';
+        return;
+      }
+      const today = localTodayISO();
+      el.innerHTML = allStaff.map(s => {
+        const active = s.active !== false;
+        const st = staffDayStatus(s);
+        const todayCount = (allAppointments || []).filter(a =>
+          a.staffId === s.id && a.date === today && a.status !== 'cancelled' && a.status !== 'no_show'
+        ).length;
+        const upcomingCount = (allAppointments || []).filter(a =>
+          a.staffId === s.id && a.date >= today && a.status !== 'cancelled' && a.status !== 'no_show'
+        ).length;
+        return '<div class="card p-3 flex justify-between gap-2 items-start">' +
+          '<div class="min-w-0">' +
+          '<div class="flex flex-wrap items-center gap-2">' +
+          '<p class="font-semibold text-sm">' + esc(s.name || 'Staff') +
+          (s.role ? ' <span class="text-xs font-normal text-slate-500">· ' + esc(s.role) + '</span>' : '') + '</p>' +
+          '<span class="' + st.cls + '">' + esc(st.label) + '</span>' +
+          '</div>' +
+          '<p class="text-xs text-slate-500 mt-1">Today: ' + todayCount + ' · Upcoming: ' + upcomingCount +
+          (s.serviceIds && s.serviceIds.length ? ' · ' + s.serviceIds.length + ' services' : ' · all services') + (s.accountStatus && s.accountStatus !== 'not_connected' ? ' · Access: ' + String(s.accountStatus).replace(/_/g, ' ') : '') + '</p>' +
+          '</div>' +
+          '<div class="flex flex-col gap-1 shrink-0">' +
+          '<button type="button" class="text-xs font-semibold text-sky-600 min-h-[36px]" data-edit-staff="' + esc(s.id) + '">Edit</button>' +
+          '<button type="button" class="text-xs font-semibold text-slate-600 min-h-[36px]" data-timeoff-staff="' + esc(s.id) + '">Time off</button>' +
+          '</div></div>';
+      }).join('');
+      el.querySelectorAll('[data-edit-staff]').forEach(btn => {
+        btn.onclick = () => openStaffForm(btn.dataset.editStaff);
+      });
+      el.querySelectorAll('[data-timeoff-staff]').forEach(btn => {
+        btn.onclick = () => openTimeOffModal(btn.dataset.timeoffStaff);
+      });
+    }
+
+    function openStaffForm(id) {
+      const wrap = document.getElementById('staff-form-wrap');
+      wrap.classList.remove('hidden');
+      const s = id ? allStaff.find(x => x.id === id) : null;
+      document.getElementById('staff-id').value = s ? s.id : '';
+      document.getElementById('staff-name').value = s ? (s.name || '') : '';
+      document.getElementById('staff-role').value = s ? (s.role || '') : '';
+      document.getElementById('staff-desc').value = s ? (s.description || '') : '';
+      document.getElementById('staff-active').checked = s ? s.active !== false : true;
+      renderStaffServiceChecks(s ? (s.serviceIds || []) : []);
+      renderStaffHoursForm(s ? s.workingHours : defaultStaffHours());
+      renderStaffBreaksForm(s ? (s.staffBreaks || emptyBreaks()) : emptyBreaks());
+      const ae = document.getElementById('staff-account-email');
+      const ar = document.getElementById('staff-access-role');
+      const stLab = document.getElementById('staff-account-status-label');
+      if (ae) ae.value = s ? (s.accountEmail || '') : '';
+      if (ar) ar.value = s && s.accessRole === 'manager' ? 'manager' : 'staff';
+      if (stLab) {
+        const st = s ? (s.accountStatus || 'not_connected') : 'not_connected';
+        stLab.textContent = 'Status: ' + String(st).replace(/_/g, ' ');
+      }
+    }
+
+    document.getElementById('btn-add-staff')?.addEventListener('click', () => openStaffForm(null));
+    document.getElementById('btn-cancel-staff')?.addEventListener('click', () => {
+      document.getElementById('staff-form-wrap')?.classList.add('hidden');
+    });
+    document.getElementById('btn-goto-staff')?.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('[id^="panel-"]').forEach(p => p.classList.add('hidden'));
+      document.getElementById('panel-staff')?.classList.remove('hidden');
+      loadStaff();
+    });
+    
+    document.getElementById('btn-link-staff-account')?.addEventListener('click', async () => {
+      const staffId = document.getElementById('staff-id')?.value;
+      const accountEmail = document.getElementById('staff-account-email')?.value.trim();
+      const accessRole = document.getElementById('staff-access-role')?.value || 'staff';
+      if (!staffId) { toast('Save the staff profile first', 'error'); return; }
+      if (!accountEmail || !accountEmail.includes('@')) { toast('Enter a valid account email', 'error'); return; }
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const res = await fetch('/api/business', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'linkStaffAccount', idToken, tenantId, staffId, accountEmail, accessRole })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Link failed');
+        toast(data.message || 'Account linked', 'success');
+        loadStaff();
+        openStaffForm(staffId);
+      } catch (e) { toast(e.message || 'Failed', 'error'); }
+    });
+    document.getElementById('btn-unlink-staff-account')?.addEventListener('click', async () => {
+      const staffId = document.getElementById('staff-id')?.value;
+      if (!staffId) return;
+      if (!confirm('Disconnect dashboard access? Scheduling profile and appointments stay.')) return;
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const res = await fetch('/api/business', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'unlinkStaffAccount', idToken, tenantId, staffId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unlink failed');
+        toast('Access disconnected', 'success');
+        loadStaff();
+        openStaffForm(staffId);
+      } catch (e) { toast(e.message || 'Failed', 'error'); }
+    });
+    document.getElementById('btn-disable-staff-account')?.addEventListener('click', async () => {
+      const staffId = document.getElementById('staff-id')?.value;
+      if (!staffId) return;
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const res = await fetch('/api/business', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'setStaffAccountStatus', idToken, tenantId, staffId, accountStatus: 'disabled' })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        toast('Access disabled', 'success');
+        loadStaff();
+        openStaffForm(staffId);
+      } catch (e) { toast(e.message || 'Failed', 'error'); }
+    });
+
+    document.getElementById('btn-save-staff')?.addEventListener('click', async () => {
+      const name = document.getElementById('staff-name').value.trim();
+      if (name.length < 2) { toast('Enter a staff name', 'error'); return; }
+      const payload = {
+        name,
+        role: document.getElementById('staff-role').value.trim().slice(0, 80),
+        description: document.getElementById('staff-desc').value.trim().slice(0, 300),
+        serviceIds: readStaffServiceIds(),
+        workingHours: readStaffHoursForm(),
+        staffBreaks: readStaffBreaksForm(),
+        active: !!document.getElementById('staff-active').checked,
+        updatedAt: serverTimestamp()
+      };
+      try {
+        const id = document.getElementById('staff-id').value;
+        if (id) {
+          await updateDoc(doc(db, 'tenants', tenantId, 'staff', id), payload);
+        } else {
+          payload.createdAt = serverTimestamp();
+          await addDoc(collection(db, 'tenants', tenantId, 'staff'), payload);
+        }
+        document.getElementById('staff-form-wrap').classList.add('hidden');
+        toast('Staff saved', 'success');
+        loadStaff();
+      } catch (e) {
+        toast(e.message || 'Save failed', 'error');
+      }
+    });
+
+    
+    async function loadStaffTimeOff() {
+      if (!tenantId) return;
+      try {
+        const snap = await getDocs(collection(db, 'tenants', tenantId, 'staffTimeOff'));
+        staffTimeOffCache = [];
+        snap.forEach(d => staffTimeOffCache.push({ id: d.id, ...d.data() }));
+        staffTimeOffCache.sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
+      } catch (e) { console.warn('timeoff', e); }
+    }
+
+    function staffTimeOffStatus(s) {
+      const today = localTodayISO();
+      const items = staffTimeOffCache.filter(t => t.staffId === s.id && today >= (t.startDate || '') && today <= (t.endDate || t.startDate || ''));
+      if (!items.length) return null;
+      const t0 = items[0];
+      if (!t0.startTime && !t0.endTime) return { label: 'On leave today', cls: 'crm-badge' };
+      return { label: 'Partial leave today', cls: 'crm-badge' };
+    }
+
+    function openTimeOffModal(staffId) {
+      const s = allStaff.find(x => x.id === staffId);
+      if (!s) return;
+      document.getElementById('to-staff-id').value = staffId;
+      document.getElementById('to-staff-label').textContent = (s.name || 'Staff') + (s.role ? ' · ' + s.role : '');
+      document.getElementById('to-start').value = localTodayISO();
+      document.getElementById('to-end').value = localTodayISO();
+      document.getElementById('to-partial').checked = false;
+      document.getElementById('to-partial-times')?.classList.add('hidden');
+      document.getElementById('to-note').value = '';
+      renderTimeOffList(staffId);
+      openModal('modal-timeoff');
+    }
+
+    function renderTimeOffList(staffId) {
+      const el = document.getElementById('to-list');
+      if (!el) return;
+      const today = localTodayISO();
+      const items = staffTimeOffCache.filter(t => t.staffId === staffId && (t.endDate || t.startDate) >= today);
+      if (!items.length) {
+        el.innerHTML = '<p class="text-xs text-slate-500">No upcoming time off.</p>';
+        return;
+      }
+      el.innerHTML = items.map(t => {
+        const range = t.startDate === t.endDate || !t.endDate
+          ? formatDisplayDate(t.startDate)
+          : formatDisplayDate(t.startDate) + ' – ' + formatDisplayDate(t.endDate);
+        const time = (t.startTime && t.endTime) ? (formatTime12(t.startTime) + ' – ' + formatTime12(t.endTime)) : 'All day';
+        return '<div class="border border-slate-200 rounded-lg p-2 flex justify-between gap-2">' +
+          '<div><p class="font-semibold text-xs">' + esc(t.type || 'Leave') + ' · ' + esc(range) + '</p>' +
+          '<p class="text-xs text-slate-500">' + esc(time) + (t.note ? ' · ' + esc(t.note) : '') + '</p></div>' +
+          '<button type="button" class="text-xs text-red-600 font-semibold min-h-[36px]" data-del-to="' + esc(t.id) + '">Remove</button></div>';
+      }).join('');
+      el.querySelectorAll('[data-del-to]').forEach(btn => {
+        btn.onclick = async () => {
+          try {
+            await deleteDoc(doc(db, 'tenants', tenantId, 'staffTimeOff', btn.dataset.delTo));
+            toast('Time off removed', 'success');
+            await loadStaffTimeOff();
+            renderTimeOffList(staffId);
+            renderStaffList();
+          } catch (e) { toast(e.message || 'Remove failed', 'error'); }
+        };
+      });
+    }
+
+    document.getElementById('to-partial')?.addEventListener('change', (e) => {
+      document.getElementById('to-partial-times')?.classList.toggle('hidden', !e.target.checked);
+      if (e.target.checked) {
+        const d = document.getElementById('to-start').value;
+        document.getElementById('to-end').value = d;
+      }
+    });
+    document.getElementById('to-cancel')?.addEventListener('click', () => closeModal('modal-timeoff'));
+    document.getElementById('to-save')?.addEventListener('click', async () => {
+      const staffId = document.getElementById('to-staff-id').value;
+      const startDate = document.getElementById('to-start').value;
+      let endDate = document.getElementById('to-end').value || startDate;
+      const partial = document.getElementById('to-partial').checked;
+      if (!staffId || !startDate) { toast('Select dates', 'error'); return; }
+      if (endDate < startDate) { toast('End date must be on or after start date', 'error'); return; }
+      const payload = {
+        staffId,
+        startDate,
+        endDate: partial ? startDate : endDate,
+        type: document.getElementById('to-type').value || 'unavailable',
+        note: (document.getElementById('to-note').value || '').trim().slice(0, 200),
+        createdAt: serverTimestamp()
+      };
+      if (partial) {
+        const st = document.getElementById('to-start-time').value;
+        const et = document.getElementById('to-end-time').value;
+        if (!st || !et || st >= et) { toast('Partial day requires a valid time range', 'error'); return; }
+        payload.startTime = st;
+        payload.endTime = et;
+      }
+      try {
+        await addDoc(collection(db, 'tenants', tenantId, 'staffTimeOff'), payload);
+        toast('Time off saved', 'success');
+        await loadStaffTimeOff();
+        renderTimeOffList(staffId);
+        renderStaffList();
+      } catch (e) { toast(e.message || 'Save failed', 'error'); }
+    });
+
+    function refreshCalStaffFilter() {
+      const sel = document.getElementById('cal-staff-filter');
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">All staff</option>' +
+        allStaff.filter(s => s.active !== false).map(s =>
+          '<option value="' + esc(s.id) + '">' + esc(s.name || 'Staff') + '</option>'
+        ).join('');
+      if (cur) sel.value = cur;
+    }
+    document.getElementById('cal-staff-filter')?.addEventListener('change', () => {
+      if (typeof renderCalendar === 'function') renderCalendar();
+      updateCalStaffOffHint();
+    });
+    function updateCalStaffOffHint() {
+      const hint = document.getElementById('cal-staff-off-hint');
+      if (!hint) return;
+      const staffF = document.getElementById('cal-staff-filter')?.value || '';
+      const day = typeof calSelectedDate === 'string' ? calSelectedDate : (typeof localTodayISO === 'function' ? localTodayISO() : '');
+      if (!staffF || !day) { hint.classList.add('hidden'); return; }
+      const offs = staffTimeOffCache.filter(t => t.staffId === staffF && day >= (t.startDate||'') && day <= (t.endDate || t.startDate || ''));
+      if (!offs.length) { hint.classList.add('hidden'); return; }
+      const t0 = offs[0];
+      const time = (t0.startTime && t0.endTime) ? (formatTime12(t0.startTime) + '–' + formatTime12(t0.endTime)) : 'all day';
+      hint.textContent = 'Selected staff has time off on this day (' + time + ').';
+      hint.classList.remove('hidden');
+    }
+
+    // Filter day view by staff
+    const _apptsForDate = typeof apptsForDate === 'function' ? null : null;
+
+    
+    
+    // ----- Special hours & closures (Batch 23) -----
+    let specialHoursCache = [];
+
+    async function loadSpecialHours() {
+      if (!tenantId) return;
+      try {
+        const snap = await getDocs(collection(db, 'tenants', tenantId, 'specialHours'));
+        specialHoursCache = [];
+        snap.forEach(d => specialHoursCache.push({ id: d.id, ...d.data() }));
+        specialHoursCache.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+        renderSpecialHoursList();
+        if (typeof updateCalSpecialHint === 'function') updateCalSpecialHint();
+      } catch (e) { console.warn('specialHours', e); }
+    }
+
+    function renderSpecialHoursList() {
+      const el = document.getElementById('special-hours-list');
+      if (!el) return;
+      const today = localTodayISO();
+      const upcoming = specialHoursCache.filter(s => (s.date || '') >= today);
+      if (!upcoming.length) {
+        el.innerHTML = '<p class="text-xs text-slate-500">No upcoming special hours or closures.</p>';
+        return;
+      }
+      el.innerHTML = upcoming.map(s => {
+        const status = s.type === 'closed'
+          ? '<span class="crm-badge">Closed</span>'
+          : ('<span class="crm-badge crm-badge-repeat">' + esc(formatTime12(s.open)) + ' – ' + esc(formatTime12(s.close)) + '</span>');
+        return '<div class="border border-slate-200 rounded-lg p-2 flex justify-between gap-2 items-start">' +
+          '<div class="min-w-0">' +
+          '<p class="font-semibold text-sm">' + esc(formatDisplayDate(s.date)) + '</p>' +
+          '<p class="text-xs text-slate-500 mt-0.5">' + (s.title ? esc(s.title) + ' · ' : '') +
+          (s.type === 'closed' ? 'Closed all day' : 'Custom hours') + '</p>' +
+          '<div class="mt-1">' + status + '</div></div>' +
+          '<button type="button" class="text-xs text-red-600 font-semibold min-h-[36px] shrink-0" data-del-sh="' + esc(s.id) + '">Remove</button>' +
+          '</div>';
+      }).join('');
+      el.querySelectorAll('[data-del-sh]').forEach(btn => {
+        btn.onclick = async () => {
+          try {
+            await deleteDoc(doc(db, 'tenants', tenantId, 'specialHours', btn.dataset.delSh));
+            toast('Special date removed', 'success');
+            loadSpecialHours();
+          } catch (e) { toast(e.message || 'Remove failed', 'error'); }
+        };
+      });
+    }
+
+    document.getElementById('sh-type')?.addEventListener('change', () => {
+      const wrap = document.getElementById('sh-hours-wrap');
+      if (wrap) wrap.classList.toggle('hidden', document.getElementById('sh-type').value !== 'custom_hours');
+    });
+
+    document.getElementById('sh-date')?.addEventListener('change', () => {
+      const d = document.getElementById('sh-date').value;
+      const warn = document.getElementById('sh-warn');
+      if (!warn) return;
+      const hasAppt = (allAppointments || []).some(a => a.date === d && a.status !== 'cancelled');
+      warn.classList.toggle('hidden', !hasAppt);
+    });
+
+    document.getElementById('btn-save-special-hours')?.addEventListener('click', async () => {
+      const date = document.getElementById('sh-date')?.value;
+      const type = document.getElementById('sh-type')?.value || 'closed';
+      const title = (document.getElementById('sh-title')?.value || '').trim().slice(0, 80);
+      const note = (document.getElementById('sh-note')?.value || '').trim().slice(0, 200);
+      if (!date) { toast('Select a date', 'error'); return; }
+      let open = null, close = null;
+      if (type === 'custom_hours') {
+        open = document.getElementById('sh-open')?.value;
+        close = document.getElementById('sh-close')?.value;
+        if (!open || !close || open >= close) {
+          toast('Custom hours need a valid open time before close time', 'error');
+          return;
+        }
+      }
+      try {
+        // Replace any existing record for same date
+        const existing = specialHoursCache.filter(s => s.date === date);
+        for (const e of existing) {
+          await deleteDoc(doc(db, 'tenants', tenantId, 'specialHours', e.id));
+        }
+        await addDoc(collection(db, 'tenants', tenantId, 'specialHours'), {
+          date,
+          type,
+          open: open || null,
+          close: close || null,
+          title: title || null,
+          note: note || null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        toast('Special date saved', 'success');
+        document.getElementById('sh-title').value = '';
+        document.getElementById('sh-note').value = '';
+        await loadSpecialHours();
+      } catch (e) {
+        toast(e.message || 'Save failed', 'error');
+      }
+    });
+
+    function updateCalSpecialHint() {
+      const hint = document.getElementById('cal-special-hint');
+      if (!hint) return;
+      const day = typeof calSelectedDate === 'string' ? calSelectedDate : localTodayISO();
+      const s = specialHoursCache.find(x => x.date === day);
+      if (!s) { hint.classList.add('hidden'); return; }
+      if (s.type === 'closed') {
+        hint.textContent = 'Business closed this day' + (s.title ? (': ' + s.title) : '') + '.';
+      } else {
+        hint.textContent = 'Special hours: ' + formatTime12(s.open) + ' – ' + formatTime12(s.close) +
+          (s.title ? (' (' + s.title + ')') : '') + '.';
+      }
+      hint.classList.remove('hidden');
+    }
+
+    // ----- Staff breaks & time-off (Batch 22) -----
+    const BREAK_DAY_KEYS = ['mon','tue','wed','thu','fri','sat','sun'];
+    const BREAK_DAY_LABELS = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
+    let staffTimeOffCache = [];
+
+    function emptyBreaks() {
+      const o = {};
+      BREAK_DAY_KEYS.forEach(k => { o[k] = []; });
+      return o;
+    }
+
+    function renderStaffBreaksForm(breaks) {
+      const el = document.getElementById('staff-breaks');
+      if (!el) return;
+      const b = breaks || emptyBreaks();
+      const rows = [];
+      BREAK_DAY_KEYS.forEach(day => {
+        (b[day] || []).forEach((br, idx) => {
+          rows.push(
+            '<div class="flex flex-wrap items-center gap-2" data-break-day="' + day + '" data-break-idx="' + idx + '">' +
+            '<span class="text-xs font-semibold w-8">' + BREAK_DAY_LABELS[day] + '</span>' +
+            '<input type="time" class="input text-xs" style="width:auto;min-height:36px" data-br-start value="' + esc(br.start || '12:00') + '" />' +
+            '<span class="text-xs">–</span>' +
+            '<input type="time" class="input text-xs" style="width:auto;min-height:36px" data-br-end value="' + esc(br.end || '13:00') + '" />' +
+            '<input class="input text-xs flex-1" style="min-height:36px" data-br-label placeholder="Label" value="' + esc(br.label || '') + '" />' +
+            '<button type="button" class="text-xs text-red-600 font-semibold min-h-[36px]" data-br-remove>Remove</button>' +
+            '</div>'
+          );
+        });
+      });
+      el.innerHTML = rows.length ? rows.join('') : '<p class="text-xs text-slate-500">No breaks configured.</p>';
+      el.querySelectorAll('[data-br-remove]').forEach(btn => {
+        btn.onclick = () => {
+          const row = btn.closest('[data-break-day]');
+          if (row) row.remove();
+        };
+      });
+    }
+
+    function readStaffBreaksForm() {
+      const out = emptyBreaks();
+      document.querySelectorAll('#staff-breaks [data-break-day]').forEach(row => {
+        const day = row.getAttribute('data-break-day');
+        const start = row.querySelector('[data-br-start]')?.value;
+        const end = row.querySelector('[data-br-end]')?.value;
+        const label = row.querySelector('[data-br-label]')?.value?.trim() || '';
+        if (!start || !end || start >= end) return;
+        out[day].push({ id: 'br_' + day + '_' + start.replace(':',''), start, end, label });
+      });
+      return out;
+    }
+
+    document.getElementById('btn-add-break')?.addEventListener('click', () => {
+      const el = document.getElementById('staff-breaks');
+      if (!el) return;
+      if (el.querySelector('.text-slate-500') && !el.querySelector('[data-break-day]')) el.innerHTML = '';
+      const day = 'mon';
+      const wrap = document.createElement('div');
+      wrap.className = 'flex flex-wrap items-center gap-2';
+      wrap.setAttribute('data-break-day', day);
+      wrap.innerHTML =
+        '<select class="input text-xs" style="width:auto;min-height:36px" data-br-day-sel>' +
+        BREAK_DAY_KEYS.map(k => '<option value="' + k + '">' + BREAK_DAY_LABELS[k] + '</option>').join('') +
+        '</select>' +
+        '<input type="time" class="input text-xs" style="width:auto;min-height:36px" data-br-start value="12:00" />' +
+        '<span class="text-xs">–</span>' +
+        '<input type="time" class="input text-xs" style="width:auto;min-height:36px" data-br-end value="13:00" />' +
+        '<input class="input text-xs flex-1" style="min-height:36px" data-br-label placeholder="Lunch" />' +
+        '<button type="button" class="text-xs text-red-600 font-semibold min-h-[36px]" data-br-remove>Remove</button>';
+      el.appendChild(wrap);
+      wrap.querySelector('[data-br-day-sel]').onchange = (e) => wrap.setAttribute('data-break-day', e.target.value);
+      wrap.querySelector('[data-br-remove]').onclick = () => wrap.remove();
+    });
+
+    // patch openStaffForm / save to include breaks
+
+    // ----- Real notifications + in-app reminders (Batch 16) -----
     let unsubNotif = null;
+    let notifCache = [];
+    let reminderTimer = null;
+    const DEFAULT_REMINDER_PREFS = { enabled: true, intervals: [60, 30, 15] };
+
+    function reminderStorageKey() {
+      return 'bookai_reminders_fired_' + (tenantId || 'x');
+    }
+    function reminderPrefsKey() {
+      return 'bookai_reminder_prefs_' + (tenantId || 'x');
+    }
+    function loadReminderPrefs() {
+      try {
+        const raw = localStorage.getItem(reminderPrefsKey());
+        if (raw) return { ...DEFAULT_REMINDER_PREFS, ...JSON.parse(raw) };
+      } catch (e) {}
+      if (settings && settings.inAppReminders) {
+        return { ...DEFAULT_REMINDER_PREFS, ...settings.inAppReminders };
+      }
+      return { ...DEFAULT_REMINDER_PREFS };
+    }
+    function saveReminderPrefsLocal(prefs) {
+      try { localStorage.setItem(reminderPrefsKey(), JSON.stringify(prefs)); } catch (e) {}
+    }
+    function loadFiredReminders() {
+      try { return JSON.parse(localStorage.getItem(reminderStorageKey()) || '{}'); } catch (e) { return {}; }
+    }
+    function markReminderFired(key) {
+      const map = loadFiredReminders();
+      map[key] = Date.now();
+      // prune older than 7 days
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      Object.keys(map).forEach(k => { if (map[k] < cutoff) delete map[k]; });
+      try { localStorage.setItem(reminderStorageKey(), JSON.stringify(map)); } catch (e) {}
+    }
+
+    function relativeNotifTime(createdAt) {
+      try {
+        let ms = 0;
+        if (createdAt && createdAt.toMillis) ms = createdAt.toMillis();
+        else if (createdAt && createdAt.seconds) ms = createdAt.seconds * 1000;
+        else if (typeof createdAt === 'number') ms = createdAt;
+        if (!ms) return '';
+        const diff = Math.max(0, Date.now() - ms);
+        const m = Math.floor(diff / 60000);
+        if (m < 1) return 'Just now';
+        if (m < 60) return m + 'm ago';
+        const h = Math.floor(m / 60);
+        if (h < 24) return h + 'h ago';
+        const d = Math.floor(h / 24);
+        return d + 'd ago';
+      } catch (e) { return ''; }
+    }
+
+    function notifTypeLabel(type) {
+      const t = String(type || '');
+      if (t === 'new_booking' || t === 'booking') return 'New booking';
+      if (t === 'cancel' || t === 'cancelled' || t === 'booking_cancelled') return 'Cancelled';
+      if (t === 'waitlist') return 'Waitlist';
+      if (t === 'reminder' || t === 'upcoming') return 'Reminder';
+      if (t === 'walk_in') return 'Walk-in';
+      if (t === 'status') return 'Status';
+      return 'Update';
+    }
+
+    async function handleNotifClick(n) {
+      try {
+        if (n.id) await updateDoc(doc(db, 'tenants', tenantId, 'notifications', n.id), { read: true });
+      } catch (e) {}
+      document.getElementById('notif-panel')?.classList.add('hidden');
+      const type = String(n.type || '');
+      const meta = n.meta || {};
+      const apptId = meta.appointmentId || n.appointmentId || null;
+      if (type === 'waitlist') {
+        document.querySelector('.nav-item[data-panel="customers"]')?.click();
+        return;
+      }
+      if (apptId) {
+        document.querySelector('.nav-item[data-panel="bookings"]')?.click();
+        setTimeout(() => {
+          if (typeof openApptDetail === 'function') openApptDetail(apptId);
+        }, 80);
+        return;
+      }
+      if (type === 'new_booking' || type === 'walk_in' || type === 'cancel' || type === 'cancelled' || type === 'status' || type === 'reminder') {
+        document.querySelector('.nav-item[data-panel="bookings"]')?.click();
+      }
+    }
+
     function bindNotifications() {
       if (!tenantId || unsubNotif) return;
       const badge = document.getElementById('notif-badge');
@@ -1935,28 +4570,133 @@
           const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
           return tb - ta;
         });
+        notifCache = items;
         const unread = items.filter(i => !i.read).length;
-        if (badge) badge.classList.toggle('hidden', unread === 0);
+        if (badge) {
+          badge.classList.toggle('hidden', unread === 0);
+          badge.textContent = unread > 0 ? String(Math.min(unread, 9)) : '';
+          if (unread > 0) badge.classList.add('notif-badge-count');
+          else badge.classList.remove('notif-badge-count');
+        }
+        if (typeof renderOpsAttention === 'function') renderOpsAttention();
         if (list) {
           if (!items.length) {
             list.innerHTML = '<p class="text-xs text-slate-500 p-3">You\'re all caught up.</p>';
           } else {
-            list.innerHTML = items.slice(0, 30).map(n => `
-              <div class="notif-item ${n.read ? '' : 'unread'}" data-nid="${n.id}">
-                <p class="font-medium">${esc(n.title || 'Update')}</p>
-                <p class="text-slate-500">${esc(n.message || '')}</p>
-              </div>`).join('');
+            list.innerHTML = items.slice(0, 40).map(n => {
+              const rel = relativeNotifTime(n.createdAt);
+              return '<button type="button" class="notif-item ' + (n.read ? '' : 'unread') + '" data-nid="' + esc(n.id) + '">' +
+                '<div class="notif-item-top">' +
+                '<span class="notif-type">' + esc(notifTypeLabel(n.type)) + '</span>' +
+                (rel ? '<span class="notif-time">' + esc(rel) + '</span>' : '') +
+                '</div>' +
+                '<p class="notif-title">' + esc(n.title || 'Update') + '</p>' +
+                '<p class="notif-msg">' + esc(n.message || '') + '</p>' +
+                '</button>';
+            }).join('');
             list.querySelectorAll('[data-nid]').forEach(el => {
-              el.onclick = async () => {
-                try {
-                  await updateDoc(doc(db, 'tenants', tenantId, 'notifications', el.dataset.nid), { read: true });
-                } catch (e) {}
+              el.onclick = () => {
+                const n = notifCache.find(x => x.id === el.dataset.nid);
+                if (n) handleNotifClick(n);
               };
             });
           }
         }
       }, (err) => console.warn('notif', err));
+      startReminderLoop();
     }
+
+    function stopReminderLoop() {
+      if (reminderTimer) { clearInterval(reminderTimer); reminderTimer = null; }
+    }
+
+    function startReminderLoop() {
+      stopReminderLoop();
+      checkUpcomingReminders();
+      reminderTimer = setInterval(checkUpcomingReminders, 60000);
+    }
+
+    function checkUpcomingReminders() {
+      if (!tenantId) return;
+      const prefs = loadReminderPrefs();
+      if (!prefs.enabled) return;
+      const intervals = (prefs.intervals || [60, 30, 15]).map(Number).filter(n => n > 0);
+      if (!intervals.length) return;
+      const fired = loadFiredReminders();
+      const today = localTodayISO();
+      const active = (allAppointments || []).filter(a => {
+        const st = a.status || 'confirmed';
+        if (st === 'cancelled' || st === 'completed' || st === 'no_show') return false;
+        return a.date === today || a.date === addDaysToISO(today, 1);
+      });
+      active.forEach(a => {
+        if (typeof minutesUntilStart !== 'function') return;
+        const mins = minutesUntilStart(a.date, a.startTime);
+        if (mins == null || mins < 0) return;
+        intervals.forEach(th => {
+          // fire when within threshold window (th down to th-1 minute)
+          if (mins <= th && mins > th - 2) {
+            const key = tenantId + '_' + a.id + '_' + th;
+            if (fired[key]) return;
+            markReminderFired(key);
+            const title = 'Upcoming appointment';
+            const message = (a.customerName || 'Customer') + ' · ' + (a.serviceName || 'Service') + ' at ' + formatTime12(a.startTime) + ' (in about ' + mins + ' min)';
+            toast(title + ': ' + message, 'success');
+            // Best-effort write for notification center (owner rules may allow client create; if not, toast still works)
+            try {
+              addDoc(collection(db, 'tenants', tenantId, 'notifications'), {
+                type: 'reminder',
+                title,
+                message,
+                read: false,
+                meta: { appointmentId: a.id, threshold: th },
+                createdAt: new Date()
+              }).catch(() => {});
+            } catch (e) {}
+            if (typeof renderOpsAttention === 'function') renderOpsAttention();
+          }
+        });
+      });
+    }
+
+    function applyReminderPrefsToForm() {
+      const prefs = loadReminderPrefs();
+      const en = document.getElementById('rem-enabled');
+      if (en) en.checked = !!prefs.enabled;
+      const ints = prefs.intervals || [];
+      const c60 = document.getElementById('rem-60');
+      const c30 = document.getElementById('rem-30');
+      const c15 = document.getElementById('rem-15');
+      if (c60) c60.checked = ints.includes(60);
+      if (c30) c30.checked = ints.includes(30);
+      if (c15) c15.checked = ints.includes(15);
+    }
+
+    document.getElementById('btn-save-reminders')?.addEventListener('click', async () => {
+      const intervals = [];
+      if (document.getElementById('rem-60')?.checked) intervals.push(60);
+      if (document.getElementById('rem-30')?.checked) intervals.push(30);
+      if (document.getElementById('rem-15')?.checked) intervals.push(15);
+      const prefs = {
+        enabled: !!document.getElementById('rem-enabled')?.checked,
+        intervals
+      };
+      saveReminderPrefsLocal(prefs);
+      try {
+        if (tenantId && auth.currentUser) {
+          await updateDoc(doc(db, 'tenants', tenantId, 'settings', 'config'), {
+            inAppReminders: prefs,
+            updatedAt: serverTimestamp()
+          });
+          if (settings) settings.inAppReminders = prefs;
+        }
+      } catch (e) { console.warn('reminder prefs cloud', e); }
+      const msg = document.getElementById('rem-save-msg');
+      if (msg) { msg.classList.remove('hidden'); setTimeout(() => msg.classList.add('hidden'), 2000); }
+      toast('Reminder preferences saved', 'success');
+      startReminderLoop();
+    });
+
     document.getElementById('btn-notif')?.addEventListener('click', () => {
       document.getElementById('notif-panel')?.classList.toggle('hidden');
     });
@@ -1972,6 +4712,7 @@
       } catch (e) { toast('Could not update', 'error'); }
     });
 
+
     
     async function refreshTrialBanner() {
       const el = document.getElementById('trial-banner');
@@ -1980,7 +4721,7 @@
         const res = await fetch('/api/create-booking', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'getSlots', tenantId, date: new Date().toISOString().slice(0,10), duration: 30 })
+          body: JSON.stringify({ action: 'getSlots', tenantId, date: (typeof localTodayISO === 'function' ? localTodayISO() : new Date().toISOString().slice(0,10)), duration: 30 })
         });
         // Prefer platform doc via a lightweight approach: settings + client read not allowed for platformTenants
       } catch (e) {}
@@ -2167,5 +4908,60 @@
   </script>
 <script src="/pwa-register.js"></script>
 <p id="app-version" class="text-center text-xs text-slate-400 py-2"></p>
+
+  <div id="modal-timeoff" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-end sm:items-center justify-center p-4">
+    <div class="card w-full max-w-md p-4 space-y-3 max-h-[90vh] overflow-y-auto">
+      <h3 class="font-semibold">Time off / leave</h3>
+      <p class="text-xs text-slate-500" id="to-staff-label"></p>
+      <input type="hidden" id="to-staff-id" />
+      <div>
+        <label class="label" for="to-type">Type</label>
+        <select id="to-type" class="select">
+          <option value="vacation">Vacation</option>
+          <option value="sick">Sick leave</option>
+          <option value="personal">Personal leave</option>
+          <option value="training">Training</option>
+          <option value="unavailable">Unavailable</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="label" for="to-start">Start date</label>
+          <input type="date" id="to-start" class="input" />
+        </div>
+        <div>
+          <label class="label" for="to-end">End date</label>
+          <input type="date" id="to-end" class="input" />
+        </div>
+      </div>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" id="to-partial" class="rounded" /> Partial day only (single day)
+      </label>
+      <div id="to-partial-times" class="grid grid-cols-2 gap-2 hidden">
+        <div>
+          <label class="label" for="to-start-time">From</label>
+          <input type="time" id="to-start-time" class="input" value="13:00" />
+        </div>
+        <div>
+          <label class="label" for="to-end-time">Until</label>
+          <input type="time" id="to-end-time" class="input" value="17:00" />
+        </div>
+      </div>
+      <div>
+        <label class="label" for="to-note">Note (optional)</label>
+        <input id="to-note" class="input" maxlength="200" />
+      </div>
+      <div class="flex gap-2">
+        <button type="button" id="to-save" class="btn btn-primary flex-1 min-h-[44px]">Save time off</button>
+        <button type="button" id="to-cancel" class="btn btn-secondary min-h-[44px]">Close</button>
+      </div>
+      <div>
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Upcoming / current</p>
+        <div id="to-list" class="space-y-2 text-sm"></div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

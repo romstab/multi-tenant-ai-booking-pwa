@@ -4,14 +4,41 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Manage booking — BookAI</title>
+  <link rel="manifest" href="/manifest-booking.json" />
+  <meta name="theme-color" content="#0f172a" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="robots" content="noindex" />
+  <style>
+    .mb-slot {
+      min-height: 44px;
+      padding: 0.55rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid var(--border, #e2e8f0);
+      background: var(--bg-elevated, #fff);
+      color: var(--text, #0f172a);
+      font-size: 0.875rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .mb-slot.is-selected {
+      border-color: var(--primary, #0284c7);
+      background: var(--primary-soft, #e0f2fe);
+    }
+    .mb-section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+    }
+  </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 antialiased">
   <div class="max-w-md mx-auto px-4 py-8">
     <h1 class="text-xl font-bold mb-1">Your appointment</h1>
-    <p class="text-sm text-slate-500 mb-6">View or cancel using your secure link. No account required.</p>
+    <p class="text-sm text-slate-500 mb-6">View, reschedule, or cancel using your secure link. No account required.</p>
 
     <div id="loading" class="text-sm text-slate-500">Loading…</div>
     <div id="error" class="hidden card p-4 text-red-700 text-sm border border-red-200 bg-red-50"></div>
@@ -26,10 +53,47 @@
         <p id="m-when" class="text-sm text-slate-600"></p>
         <p id="m-name" class="text-sm text-slate-600"></p>
         <p class="text-xs text-slate-500 mt-2">Payment: Pay at venue</p>
+        <p id="m-policy" class="text-xs text-slate-500 mt-2 hidden"></p>
       </div>
-      <button type="button" id="btn-cancel" class="btn btn-secondary btn-block">Cancel appointment</button>
-      <p class="text-xs text-slate-500 text-center">Reschedule: cancel then book a new time on the business page.</p>
-      <a id="book-again" class="btn btn-primary btn-block text-center" href="/">Book again</a>
+
+      <div id="actions-main" class="space-y-2">
+        <button type="button" id="btn-reschedule" class="btn btn-primary btn-block min-h-[44px]">Reschedule appointment</button>
+        <button type="button" id="btn-cancel" class="btn btn-secondary btn-block min-h-[44px]">Cancel appointment</button>
+        <p id="reschedule-hint" class="text-xs text-slate-500 text-center hidden"></p>
+      </div>
+
+      <!-- Reschedule wizard -->
+      <div id="reschedule-panel" class="hidden space-y-4">
+        <div class="card p-4 space-y-3">
+          <p class="mb-section-title">Current schedule</p>
+          <p id="rs-current" class="text-sm font-medium"></p>
+          <hr class="border-slate-200" />
+          <p class="mb-section-title">Choose a new date</p>
+          <input type="date" id="rs-date" class="input" />
+          <p class="mb-section-title mt-2">Available times</p>
+          <p id="rs-slots-status" class="text-xs text-slate-500">Select a date to load times.</p>
+          <div id="rs-slots" class="grid grid-cols-2 gap-2"></div>
+        </div>
+
+        <div id="rs-confirm-box" class="card p-4 space-y-2 hidden">
+          <p class="mb-section-title">Confirm change</p>
+          <p class="text-sm"><span class="text-slate-500">From:</span> <span id="rs-from"></span></p>
+          <p class="text-sm"><span class="text-slate-500">To:</span> <strong id="rs-to"></strong></p>
+          <p class="text-xs text-slate-500">Your booking reference stays the same. The previous time will be released for others.</p>
+          <button type="button" id="btn-rs-confirm" class="btn btn-primary btn-block min-h-[44px]">Confirm reschedule</button>
+        </div>
+
+        <button type="button" id="btn-rs-back" class="btn btn-secondary btn-block min-h-[44px]">Back</button>
+        <p id="rs-error" class="hidden text-sm text-red-600"></p>
+      </div>
+
+      <div id="rs-success" class="hidden card p-4 space-y-2 border border-emerald-200 bg-emerald-50">
+        <p class="font-semibold text-emerald-800">Appointment rescheduled</p>
+        <p id="rs-success-when" class="text-sm text-emerald-900"></p>
+        <p class="text-xs text-emerald-800">Your reference is unchanged. Keep this page or your confirmation link.</p>
+      </div>
+
+      <a id="book-again" class="btn btn-secondary btn-block text-center min-h-[44px]" href="/">Book again</a>
     </div>
   </div>
   <p class="text-center text-xs text-slate-400 pb-6" id="app-version"></p>
@@ -45,6 +109,11 @@
     h = h % 12; if (h === 0) h = 12;
     return h + ':' + m + ' ' + ap;
   }
+  function localTodayISO() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   (async function () {
     const q = new URLSearchParams(location.search);
     const tenantId = q.get('tenant') || '';
@@ -53,12 +122,24 @@
     const loading = document.getElementById('loading');
     const err = document.getElementById('error');
     const panel = document.getElementById('panel');
+
+    let booking = null;
+    let selectedSlot = null;
+    let busy = false;
+
     if (!tenantId || !token || token.length < 16) {
       loading.classList.add('hidden');
       err.textContent = 'This management link is invalid or incomplete.';
       err.classList.remove('hidden');
       return;
     }
+
+    function showWhen(data) {
+      document.getElementById('m-when').textContent =
+        (data.date || '') + ' · ' + formatTime12(data.startTime) +
+        (data.endTime ? (' – ' + formatTime12(data.endTime)) : '');
+    }
+
     try {
       const res = await fetch('/api/create-booking', {
         method: 'POST',
@@ -67,38 +148,214 @@
       });
       const data = await res.json();
       loading.classList.add('hidden');
-      if (!res.ok) throw new Error(data.error || 'Not found');
+      if (!res.ok) throw new Error(apiErrorMessage(res, data, 'Not found'));
+      booking = data;
       document.getElementById('m-ref').textContent = data.bookingRef || ref;
       document.getElementById('m-status').textContent = data.status || '';
       document.getElementById('m-service').textContent = data.serviceName || 'Service';
-      document.getElementById('m-when').textContent = (data.date || '') + ' · ' + formatTime12(data.startTime);
+      showWhen(data);
       document.getElementById('m-name').textContent = data.customerName || '';
       document.getElementById('book-again').href = '/booking.html?tenant=' + encodeURIComponent(tenantId);
       panel.classList.remove('hidden');
-      if (['cancelled', 'completed', 'no_show'].includes(data.status)) {
+
+      const pol = document.getElementById('m-policy');
+      if (pol && data.policySummary) {
+        pol.textContent = data.policySummary;
+        pol.classList.remove('hidden');
+      }
+      if (!data.canCancel) {
         document.getElementById('btn-cancel').disabled = true;
-        document.getElementById('btn-cancel').textContent = 'Cannot cancel';
+        document.getElementById('btn-cancel').textContent = 'Cannot cancel online';
+        const ch = document.getElementById('reschedule-hint');
+        // prefer dedicated cancel message area - append to hint if both blocked
+        if (data.cancelBlockedReason) {
+          const hint = document.getElementById('reschedule-hint');
+          hint.textContent = data.cancelBlockedReason;
+          hint.classList.remove('hidden');
+        }
+      }
+      if (!data.canReschedule) {
+        document.getElementById('btn-reschedule').disabled = true;
+        document.getElementById('btn-reschedule').textContent = 'Cannot reschedule online';
+        const hint = document.getElementById('reschedule-hint');
+        const msg = data.rescheduleBlockedReason || 'Online rescheduling is not available for this appointment.';
+        if (!data.canCancel && data.cancelBlockedReason) {
+          hint.textContent = data.cancelBlockedReason + ' ' + msg;
+        } else {
+          hint.textContent = msg;
+        }
+        hint.classList.remove('hidden');
+      } else if (data.canCancel === false && data.cancelBlockedReason) {
+        document.getElementById('reschedule-hint').textContent = data.cancelBlockedReason;
+        document.getElementById('reschedule-hint').classList.remove('hidden');
       }
     } catch (e) {
       loading.classList.add('hidden');
       err.textContent = e.message || 'Failed to load';
       err.classList.remove('hidden');
+      return;
     }
+
     document.getElementById('btn-cancel').onclick = async () => {
+      if (busy) return;
       if (!confirm('Cancel this appointment?')) return;
+      const btn = document.getElementById('btn-cancel');
+      const prevLabel = btn.textContent;
+      busy = true;
+      btn.disabled = true;
+      btn.textContent = 'Cancelling…';
       try {
         const res = await fetch('/api/create-booking', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'cancelManagedBooking', tenantId, ref, token })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Cancel failed');
+        let data = {};
+        try { data = await res.json(); } catch (e) {}
+        if (!res.ok) throw new Error(apiErrorMessage(res, data, 'Cancel failed'));
         document.getElementById('m-status').textContent = 'cancelled';
-        document.getElementById('btn-cancel').disabled = true;
+        btn.textContent = 'Cancelled';
+        document.getElementById('btn-reschedule').disabled = true;
         alert('Appointment cancelled.');
       } catch (e) {
         alert(e.message || 'Cancel failed');
+        btn.disabled = false;
+        btn.textContent = prevLabel;
+      } finally {
+        busy = false;
+      }
+    };
+
+    document.getElementById('btn-reschedule').onclick = () => {
+      if (!booking || !booking.canReschedule) return;
+      document.getElementById('actions-main').classList.add('hidden');
+      document.getElementById('reschedule-panel').classList.remove('hidden');
+      document.getElementById('rs-current').textContent =
+        (booking.serviceName || 'Service') + ' · ' + (booking.date || '') + ' · ' + formatTime12(booking.startTime);
+      document.getElementById('rs-from').textContent =
+        (booking.date || '') + ' · ' + formatTime12(booking.startTime);
+      const dateInput = document.getElementById('rs-date');
+      dateInput.min = localTodayISO();
+      dateInput.value = '';
+      document.getElementById('rs-slots').innerHTML = '';
+      document.getElementById('rs-slots-status').textContent = 'Select a date to load times.';
+      document.getElementById('rs-confirm-box').classList.add('hidden');
+      document.getElementById('rs-error').classList.add('hidden');
+      selectedSlot = null;
+    };
+
+    document.getElementById('btn-rs-back').onclick = () => {
+      document.getElementById('reschedule-panel').classList.add('hidden');
+      document.getElementById('actions-main').classList.remove('hidden');
+    };
+
+    async function loadSlots() {
+      const date = document.getElementById('rs-date').value;
+      const box = document.getElementById('rs-slots');
+      const status = document.getElementById('rs-slots-status');
+      document.getElementById('rs-confirm-box').classList.add('hidden');
+      selectedSlot = null;
+      if (!date) {
+        box.innerHTML = '';
+        status.textContent = 'Select a date to load times.';
+        return;
+      }
+      if (!booking.serviceId) {
+        status.textContent = 'This booking is missing service information and cannot load slots automatically.';
+        box.innerHTML = '';
+        return;
+      }
+      status.textContent = 'Loading available times…';
+      box.innerHTML = '';
+      try {
+        const res = await fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'getSlots',
+            tenantId,
+            serviceId: booking.serviceId,
+            date,
+            excludeAppointmentId: booking.appointmentId
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(apiErrorMessage(res, data, 'Could not load slots'));
+        if (data.closed) {
+          status.textContent = data.message || 'Business is closed on this date.';
+          return;
+        }
+        const slots = data.slots || [];
+        if (!slots.length) {
+          status.textContent = 'No available times on this date. Try another day.';
+          return;
+        }
+        status.textContent = slots.length + ' available time' + (slots.length === 1 ? '' : 's');
+        box.innerHTML = slots.map(s =>
+          '<button type="button" class="mb-slot" data-start="' + s.startTime + '" data-end="' + s.endTime + '">' +
+          formatTime12(s.startTime) + '</button>'
+        ).join('');
+        box.querySelectorAll('.mb-slot').forEach(btn => {
+          btn.onclick = () => {
+            box.querySelectorAll('.mb-slot').forEach(b => b.classList.remove('is-selected'));
+            btn.classList.add('is-selected');
+            selectedSlot = { startTime: btn.dataset.start, endTime: btn.dataset.end, date };
+            document.getElementById('rs-to').textContent =
+              date + ' · ' + formatTime12(selectedSlot.startTime);
+            document.getElementById('rs-confirm-box').classList.remove('hidden');
+            document.getElementById('rs-error').classList.add('hidden');
+          };
+        });
+      } catch (e) {
+        status.textContent = e.message || 'Failed to load times';
+      }
+    }
+
+    document.getElementById('rs-date').addEventListener('change', loadSlots);
+
+    document.getElementById('btn-rs-confirm').onclick = async () => {
+      if (busy || !selectedSlot) return;
+      busy = true;
+      const btn = document.getElementById('btn-rs-confirm');
+      const prev = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Rescheduling appointment…';
+      document.getElementById('rs-error').classList.add('hidden');
+      try {
+        const res = await fetch('/api/create-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'rescheduleManagedBooking',
+            tenantId,
+            ref,
+            token,
+            newDate: selectedSlot.date,
+            newStartTime: selectedSlot.startTime
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(apiErrorMessage(res, data, 'Reschedule failed'));
+        booking.date = data.date;
+        booking.startTime = data.startTime;
+        booking.endTime = data.endTime;
+        showWhen(booking);
+        document.getElementById('reschedule-panel').classList.add('hidden');
+        document.getElementById('actions-main').classList.remove('hidden');
+        document.getElementById('rs-success').classList.remove('hidden');
+        document.getElementById('rs-success-when').textContent =
+          (data.date || '') + ' · ' + formatTime12(data.startTime) +
+          (data.endTime ? (' – ' + formatTime12(data.endTime)) : '');
+      } catch (e) {
+        const el = document.getElementById('rs-error');
+        el.textContent = e.message || 'Reschedule failed';
+        el.classList.remove('hidden');
+        // refresh slots if conflict
+        if (/no longer available|choose another/i.test(e.message || '')) loadSlots();
+      } finally {
+        busy = false;
+        btn.disabled = false;
+        btn.textContent = prev;
       }
     };
   })();
