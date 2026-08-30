@@ -717,14 +717,65 @@
         </div>
       </section>
 
-      <section id="panel-settings" class="hidden space-y-4">
-        <div class="card p-4 space-y-3" data-owner-only data-settings-group="owner">
-          <h2 class="font-semibold text-sm">Business settings</h2>
-          <p class="text-xs text-slate-500">Owner only — business identity and public profile.</p>
-          <div><label class="label" for="set-name">Business name</label><input id="set-name" class="input" /></div>
-          <div>
-            <label class="label" for="set-category">Business category</label>
-            <select id="set-category" class="select">
+      <section id="panel-settings" class="hidden space-y-3 pb-2">
+        <div id="settings-hub" class="settings-hub">
+          <div class="settings-hub-header">
+            <h2 class="settings-hub-title">Settings</h2>
+            <p class="settings-hub-sub">Choose a category to manage your business</p>
+          </div>
+          <div class="settings-hub-grid" role="navigation" aria-label="Settings categories">
+            <button type="button" class="settings-hub-card" data-open-settings-room="profile" data-owner-only>
+              <span class="settings-hub-icon" aria-hidden="true">🏢</span>
+              <span class="settings-hub-card-title">Business Profile</span>
+              <span class="settings-hub-card-desc">Name, category, contact</span>
+            </button>
+            <button type="button" class="settings-hub-card" data-open-settings-room="location" data-owner-only>
+              <span class="settings-hub-icon" aria-hidden="true">📍</span>
+              <span class="settings-hub-card-title">Location</span>
+              <span class="settings-hub-card-desc">Region, city, address</span>
+            </button>
+            <button type="button" class="settings-hub-card" data-open-settings-room="hours">
+              <span class="settings-hub-icon" aria-hidden="true">🕒</span>
+              <span class="settings-hub-card-title">Operating Hours</span>
+              <span class="settings-hub-card-desc">Weekly schedule</span>
+            </button>
+            <button type="button" class="settings-hub-card" data-open-settings-room="special" data-requires="manageSpecialHours">
+              <span class="settings-hub-icon" aria-hidden="true">📅</span>
+              <span class="settings-hub-card-title">Special Hours</span>
+              <span class="settings-hub-card-desc">Holidays &amp; closures</span>
+            </button>
+            <button type="button" class="settings-hub-card" data-open-settings-room="reminders">
+              <span class="settings-hub-icon" aria-hidden="true">🔔</span>
+              <span class="settings-hub-card-title">Reminders</span>
+              <span class="settings-hub-card-desc">In-app alerts</span>
+            </button>
+            <button type="button" class="settings-hub-card" data-open-settings-room="booking" data-owner-only>
+              <span class="settings-hub-icon" aria-hidden="true">💰</span>
+              <span class="settings-hub-card-title">Booking &amp; Policies</span>
+              <span class="settings-hub-card-desc">Currency, staff, rules</span>
+            </button>
+            <button type="button" class="settings-hub-card" data-open-settings-room="appearance">
+              <span class="settings-hub-icon" aria-hidden="true">🎨</span>
+              <span class="settings-hub-card-title">Appearance</span>
+              <span class="settings-hub-card-desc">Booking page theme</span>
+            </button>
+            <button type="button" class="settings-hub-card" data-open-settings-room="account">
+              <span class="settings-hub-icon" aria-hidden="true">🔐</span>
+              <span class="settings-hub-card-title">Account &amp; Support</span>
+              <span class="settings-hub-card-desc">Password &amp; help</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="settings-room-profile" class="settings-room hidden" data-settings-room="profile" data-owner-only data-settings-group="owner">
+          <button type="button" class="settings-back" data-settings-back>&larr; All settings</button>
+          <div class="card p-4 space-y-3">
+            <h2 class="font-semibold text-base">Business Profile</h2>
+            <p class="text-xs text-slate-500">Public business identity and contact details.</p>
+            <div><label class="label" for="set-name">Business name</label><input id="set-name" class="input" /></div>
+            <div>
+              <label class="label" for="set-category">Business category</label>
+              <select id="set-category" class="select">
               <option value="Barbershop">Barbershop</option>
               <option value="Hair Salon">Hair Salon</option>
               <option value="Beauty Salon">Beauty Salon</option>
@@ -747,55 +798,73 @@
               <option value="Pet Grooming">Pet Grooming</option>
               <option value="Restaurant / Food Reservation">Restaurant / Food Reservation</option>
               <option value="Other">Other</option>
-            </select>
+              </select>
+            </div>
+            <div id="set-category-other-wrap" class="hidden">
+              <label class="label" for="set-category-other">Specify your business type *</label>
+              <input id="set-category-other" class="input" maxlength="80" placeholder="e.g. Mobile car detailing" />
+            </div>
+            <div>
+              <label class="label" for="set-description">Description</label>
+              <textarea id="set-description" class="input" rows="3" maxlength="500" placeholder="Short public description"></textarea>
+            </div>
+            <div>
+              <label class="label" for="set-email">Business email</label>
+              <input id="set-email" type="email" inputmode="email" class="input" autocomplete="email" />
+              <p class="field-hint">Shown on your public booking page.</p>
+            </div>
+            <div>
+              <label class="label" for="set-phone">Business phone number</label>
+              <input id="set-phone" type="tel" inputmode="tel" class="input" placeholder="0917XXXXXXX or +63917XXXXXXX" />
+              <p class="field-hint">Public business number (PH: 09XX or +639).</p>
+            </div>
+            <button type="button" id="btn-save-settings" class="btn btn-primary btn-block min-h-[44px]">Save profile</button>
+            <p id="settings-msg" class="text-sm hidden"></p>
           </div>
-          <div id="set-category-other-wrap" class="hidden">
-            <label class="label" for="set-category-other">Specify your business type *</label>
-            <input id="set-category-other" class="input" maxlength="80" placeholder="Your business type" />
-          </div>
-          <div><label class="label" for="set-description">Description</label><textarea id="set-description" class="textarea" rows="3"></textarea></div>
-          <div>
-            <label class="label" for="set-email">Business email</label>
-            <input id="set-email" type="email" inputmode="email" class="input" placeholder="business@example.com" />
-            <p class="field-hint">Public contact for customers. Format validated only.</p>
-          </div>
-          <div>
-            <label class="label" for="set-phone">Business phone number</label>
-            <input id="set-phone" type="tel" inputmode="tel" class="input" placeholder="0917XXXXXXX or +63917XXXXXXX" />
-            <p class="field-hint">Public business number (PH: 09XX or +639).</p>
-          </div>
-          <div class="ph-address-block" id="set-address-block">
-            <p class="label" style="margin-bottom:0.5rem">Business location (Philippines)</p>
-            <p class="field-hint mb-2">Structured PH address. Legacy plain address is kept if present.</p>
-            <p id="set-loc-status" class="field-hint ph-loc-status"></p>
-            <div class="space-y-2 mt-2">
-              <div>
-                <label class="label" for="set-loc-region">Region</label>
-                <select id="set-loc-region" class="select" disabled><option value="">Loading…</option></select>
-              </div>
-              <div id="set-loc-province-wrap">
-                <label class="label" for="set-loc-province">Province</label>
-                <select id="set-loc-province" class="select" disabled><option value="">Select province</option></select>
-              </div>
-              <div>
-                <label class="label" for="set-loc-city">City / Municipality</label>
-                <select id="set-loc-city" class="select" disabled><option value="">Select city / municipality</option></select>
-              </div>
-              <div>
-                <label class="label" for="set-loc-barangay">Barangay</label>
-                <select id="set-loc-barangay" class="select" disabled><option value="">Select barangay</option></select>
-              </div>
-              <div>
-                <label class="label" for="set-loc-specific">Specific address / street / building / unit</label>
-                <input id="set-loc-specific" class="input" placeholder="Street, building, unit, landmark" />
-              </div>
-              <div>
-                <label class="label" for="set-address">Legacy address text</label>
-                <input id="set-address" class="input" placeholder="Previous free-text address (kept for compatibility)" />
-                <p class="field-hint">Shown only if structured location is incomplete.</p>
+        </div>
+
+        <div id="settings-room-location" class="settings-room hidden" data-settings-room="location" data-owner-only>
+          <button type="button" class="settings-back" data-settings-back>&larr; All settings</button>
+          <div class="card p-4 space-y-3">
+            <h2 class="font-semibold text-base">Business Location</h2>
+            <div class="ph-address-block" id="set-address-block">
+              <p class="field-hint mb-2">Structured Philippines address. Legacy plain text is kept if present.</p>
+              <p id="set-loc-status" class="field-hint ph-loc-status"></p>
+              <div class="space-y-2 mt-2">
+                <div>
+                  <label class="label" for="set-loc-region">Region</label>
+                  <select id="set-loc-region" class="select" disabled><option value="">Loading…</option></select>
+                </div>
+                <div id="set-loc-province-wrap">
+                  <label class="label" for="set-loc-province">Province</label>
+                  <select id="set-loc-province" class="select" disabled><option value="">Select province</option></select>
+                </div>
+                <div>
+                  <label class="label" for="set-loc-city">City / Municipality</label>
+                  <select id="set-loc-city" class="select" disabled><option value="">Select city / municipality</option></select>
+                </div>
+                <div>
+                  <label class="label" for="set-loc-barangay">Barangay</label>
+                  <select id="set-loc-barangay" class="select" disabled><option value="">Select barangay</option></select>
+                </div>
+                <div>
+                  <label class="label" for="set-loc-specific">Specific address / street / building / unit</label>
+                  <input id="set-loc-specific" class="input" placeholder="Street, building, unit, landmark" />
+                </div>
+                <div>
+                  <label class="label" for="set-address">Legacy address text</label>
+                  <input id="set-address" class="input" placeholder="Previous free-text address (kept for compatibility)" />
+                  <p class="field-hint">Shown only if structured location is incomplete.</p>
+                </div>
               </div>
             </div>
+            <button type="button" class="btn btn-primary btn-block min-h-[44px]" id="btn-save-location">Save location</button>
+            <p class="text-xs text-slate-500">Saves with the same business settings document as Profile.</p>
           </div>
+        </div>
+
+        <div id="settings-room-reminders" class="settings-room hidden" data-settings-room="reminders">
+          <button type="button" class="settings-back" data-settings-back>&larr; All settings</button>
           <div class="card p-4 space-y-3 mt-3" id="reminder-settings-card">
             <h2 class="font-semibold text-sm">Appointment reminders</h2>
             <p class="text-xs text-slate-500">In-app alerts while the dashboard is open. BookAI does not send SMS, email, or guaranteed background push in this version.</p>
@@ -811,6 +880,12 @@
             <button type="button" id="btn-save-reminders" class="btn btn-secondary text-xs min-h-[40px]">Save reminder preferences</button>
             <p id="rem-save-msg" class="text-xs text-emerald-600 hidden">Saved</p>
           </div>
+        </div>
+
+        <div id="settings-room-booking" class="settings-room hidden" data-settings-room="booking" data-owner-only>
+          <button type="button" class="settings-back" data-settings-back>&larr; All settings</button>
+          <div class="card p-4 space-y-3">
+            <h2 class="font-semibold text-base">Booking &amp; Policies</h2>
           <div class="mt-3">
           <label class="label">Currency</label>
           <select id="set-currency" class="input">
@@ -821,16 +896,6 @@
             <option value="JPY">Japanese Yen (¥)</option>
           </select>
           <p class="text-xs text-slate-500 mt-1">Prices on the booking page use this currency.</p>
-        </div>
-        <div class="mt-3">
-          <label class="label">Booking page theme</label>
-          <div id="set-themes" class="grid grid-cols-5 gap-2 mt-1">
-            <button type="button" data-theme="light" class="set-theme-opt text-xs py-2 rounded-lg border-2">Light</button>
-            <button type="button" data-theme="dark" class="set-theme-opt text-xs py-2 rounded-lg border-2">Dark</button>
-            <button type="button" data-theme="blue" class="set-theme-opt text-xs py-2 rounded-lg border-2">Blue</button>
-            <button type="button" data-theme="pink" class="set-theme-opt text-xs py-2 rounded-lg border-2">Pink</button>
-            <button type="button" data-theme="gold" class="set-theme-opt text-xs py-2 rounded-lg border-2">Gold</button>
-          </div>
         </div>
         <div class="card p-4 space-y-3 mt-3" data-owner-only>
           <h2 class="font-semibold text-sm">Staff selection on booking page</h2>
@@ -897,30 +962,39 @@
             </div>
           </div>
         </div>
-        <button type="button" id="btn-save-settings" class="btn btn-primary btn-block mt-3">Save settings</button>
-        <details id="advanced-account" class="card p-4 mt-4">
-          <summary class="font-semibold text-sm cursor-pointer">Account security (password)</summary>
-          <div class="space-y-3 mt-3">
-          <h3 class="font-semibold text-sm sr-only">Change password</h3>
-          <input id="pw-current" type="password" class="input" placeholder="Current password" autocomplete="current-password" />
-          <input id="pw-new" type="password" class="input" placeholder="New password (min 6)" autocomplete="new-password" />
-          <input id="pw-confirm" type="password" class="input" placeholder="Confirm new password" autocomplete="new-password" />
-          <button type="button" id="btn-change-password" class="btn btn-secondary btn-block">Update password</button>
+            <button type="button" class="btn btn-primary btn-block min-h-[44px]" id="btn-save-booking-settings">Save booking settings</button>
           </div>
-        </details>
-        <div class="card p-4 space-y-2 mt-4">
-          <h3 class="font-semibold text-sm">Need help / trial ended?</h3>
-          <p class="text-xs text-slate-500">Write your request or problem. The platform admin will see it in their panel.</p>
-          <textarea id="support-msg" class="input" rows="3" placeholder="Message / feedback…"></textarea>
-          <button type="button" id="btn-support-msg" class="btn btn-primary btn-block">Send message</button>
         </div>
-          <p id="settings-msg" class="text-sm hidden"></p>
+
+        <div id="settings-room-appearance" class="settings-room hidden" data-settings-room="appearance">
+          <button type="button" class="settings-back" data-settings-back>&larr; All settings</button>
+          <div class="card p-4 space-y-3">
+            <h2 class="font-semibold text-base">Appearance</h2>
+            <p class="text-xs text-slate-500">Theme for your public booking page.</p>
+        <div class="mt-3">
+          <label class="label">Booking page theme</label>
+          <div id="set-themes" class="grid grid-cols-5 gap-2 mt-1">
+            <button type="button" data-theme="light" class="set-theme-opt text-xs py-2 rounded-lg border-2">Light</button>
+            <button type="button" data-theme="dark" class="set-theme-opt text-xs py-2 rounded-lg border-2">Dark</button>
+            <button type="button" data-theme="blue" class="set-theme-opt text-xs py-2 rounded-lg border-2">Blue</button>
+            <button type="button" data-theme="pink" class="set-theme-opt text-xs py-2 rounded-lg border-2">Pink</button>
+            <button type="button" data-theme="gold" class="set-theme-opt text-xs py-2 rounded-lg border-2">Gold</button>
+          </div>
         </div>
+          </div>
+        </div>
+
+        <div id="settings-room-hours" class="settings-room hidden" data-settings-room="hours">
+          <button type="button" class="settings-back" data-settings-back>&larr; All settings</button>
         <div class="card p-4">
           <h2 class="font-semibold text-sm mb-3">Operating hours</h2>
           <div id="hours-form" class="space-y-2"></div>
           <button id="btn-save-hours" class="btn btn-primary btn-block mt-4">Save hours</button>
+          <p id="hours-msg" class="text-sm mt-2 hidden"></p>
+        </div>
 
+        <div id="settings-room-special" class="settings-room hidden" data-settings-room="special" data-requires="manageSpecialHours">
+          <button type="button" class="settings-back" data-settings-back>&larr; All settings</button>
         <div class="card p-4 mt-4 space-y-3" id="special-hours-section" data-requires="manageSpecialHours">
           <h3 class="font-semibold text-sm">Special hours &amp; closures</h3>
           <p class="text-xs text-slate-500">Override the weekly schedule for holidays or one-time dates. Existing appointments on a closed date are not deleted — handle them manually if needed.</p>
@@ -957,12 +1031,26 @@
           </div>
           <p id="sh-warn" class="text-xs text-amber-700 hidden">This date already has appointments. Saving a closure will not cancel them — contact customers if needed.</p>
           <button type="button" id="btn-save-special-hours" class="btn btn-primary btn-block min-h-[44px]">Save special date</button>
-          <div>
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Upcoming special dates</p>
-            <div id="special-hours-list" class="space-y-2 text-sm"></div>
-          </div>
         </div>
-          <p id="hours-msg" class="text-sm mt-2 hidden"></p>
+
+        <div id="settings-room-account" class="settings-room hidden" data-settings-room="account">
+          <button type="button" class="settings-back" data-settings-back>&larr; All settings</button>
+        <details id="advanced-account" class="card p-4 mt-4">
+          <summary class="font-semibold text-sm cursor-pointer">Account security (password)</summary>
+          <div class="space-y-3 mt-3">
+          <h3 class="font-semibold text-sm sr-only">Change password</h3>
+          <input id="pw-current" type="password" class="input" placeholder="Current password" autocomplete="current-password" />
+          <input id="pw-new" type="password" class="input" placeholder="New password (min 6)" autocomplete="new-password" />
+          <input id="pw-confirm" type="password" class="input" placeholder="Confirm new password" autocomplete="new-password" />
+          <button type="button" id="btn-change-password" class="btn btn-secondary btn-block">Update password</button>
+          </div>
+        </details>
+        <div class="card p-4 space-y-2 mt-4">
+          <h3 class="font-semibold text-sm">Need help / trial ended?</h3>
+          <p class="text-xs text-slate-500">Write your request or problem. The platform admin will see it in their panel.</p>
+          <textarea id="support-msg" class="input" rows="3" placeholder="Message / feedback…"></textarea>
+          <button type="button" id="btn-support-msg" class="btn btn-primary btn-block">Send message</button>
+        </div>
         </div>
       </section>
     </main>
@@ -985,13 +1073,17 @@
       </div>
       <div id="notif-list" class="notif-list-scroll"><p class="text-xs text-slate-500 p-3">You're all caught up.</p></div>
     </div>
-    <nav class="bottom-nav md:max-w-5xl md:mx-auto md:left-0 md:right-0">
-      <button type="button" data-panel="home" class="nav-item active"><span>⌂</span>Home</button>
-      <button type="button" data-panel="bookings" class="nav-item"><span>☰</span>Bookings</button>
-      <button type="button" data-panel="services" class="nav-item nav-fab" title="Services">+</button>
-      <button type="button" data-panel="customers" class="nav-item"><span>◎</span>CRM</button>
-      <button type="button" data-panel="analytics" class="nav-item"><span>▣</span>Insights</button>
-      <button type="button" data-panel="settings" class="nav-item"><span>⚙</span>Settings</button>
+    <nav class="bottom-nav" aria-label="Main">
+      <div class="nav-side nav-side-left">
+        <button type="button" data-panel="home" class="nav-item active"><span class="nav-ico" aria-hidden="true">⌂</span><span class="nav-label">Home</span></button>
+        <button type="button" data-panel="bookings" class="nav-item"><span class="nav-ico" aria-hidden="true">☰</span><span class="nav-label">Bookings</span></button>
+      </div>
+      <button type="button" data-panel="services" class="nav-item nav-fab" title="Services" aria-label="Services">+</button>
+      <div class="nav-side nav-side-right">
+        <button type="button" data-panel="customers" class="nav-item"><span class="nav-ico" aria-hidden="true">◎</span><span class="nav-label">CRM</span></button>
+        <button type="button" data-panel="analytics" class="nav-item"><span class="nav-ico" aria-hidden="true">▣</span><span class="nav-label">Insights</span></button>
+        <button type="button" data-panel="settings" class="nav-item"><span class="nav-ico" aria-hidden="true">⚙</span><span class="nav-label">Settings</span></button>
+      </div>
     </nav>
   </div>
 
@@ -3492,6 +3584,38 @@ let obAddressForm = null;
       toast(ok ? 'Link copied' : 'Copy failed', ok ? 'success' : 'error');
     };
 
+
+    // Settings hub ↔ rooms (UI only; same field IDs & save handlers)
+    function openSettingsRoom(roomId) {
+      const hub = document.getElementById('settings-hub');
+      if (hub) hub.classList.add('hidden');
+      document.querySelectorAll('.settings-room').forEach(function (r) { r.classList.add('hidden'); });
+      const room = document.getElementById('settings-room-' + roomId);
+      if (room) {
+        room.classList.remove('hidden');
+        try { room.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+      }
+    }
+    function closeSettingsRoom() {
+      document.querySelectorAll('.settings-room').forEach(function (r) { r.classList.add('hidden'); });
+      const hub = document.getElementById('settings-hub');
+      if (hub) hub.classList.remove('hidden');
+    }
+    document.querySelectorAll('[data-open-settings-room]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openSettingsRoom(btn.getAttribute('data-open-settings-room'));
+      });
+    });
+    document.querySelectorAll('[data-settings-back]').forEach(function (btn) {
+      btn.addEventListener('click', function () { closeSettingsRoom(); });
+    });
+    document.getElementById('btn-save-location')?.addEventListener('click', function () {
+      document.getElementById('btn-save-settings')?.click();
+    });
+    document.getElementById('btn-save-booking-settings')?.addEventListener('click', function () {
+      document.getElementById('btn-save-settings')?.click();
+    });
+
     // Bottom nav
     document.querySelectorAll('.nav-item').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -3501,6 +3625,7 @@ let obAddressForm = null;
         ['home','bookings','services','customers','analytics','settings'].forEach(p => {
           document.getElementById('panel-' + p)?.classList.toggle('hidden', p !== panel);
           if (panel === 'settings') {
+            if (typeof closeSettingsRoom === 'function') closeSettingsRoom();
             if (typeof applyReminderPrefsToForm === 'function') applyReminderPrefsToForm();
             if (typeof fillBookingPoliciesForm === 'function') fillBookingPoliciesForm(settings);
             const sm = document.getElementById('set-staff-mode');
