@@ -1,9 +1,15 @@
 /**
- * BookAI SW v11 — v2.5.0-final (Batches 1–7) — batch2 public booking safety
- * Network-first for HTML. Never cache tenant-specific booking navigations.
- * Static shell assets only in precache.
+ * BookAI Service Worker v12 — Batch 28 PWA production pack
+ *
+ * Strategy:
+ * - Precache static shell only (CSS, icons, offline, manifests, register)
+ * - Never cache /api/*, Firebase, CDNs, or non-GET
+ * - Public booking pages: network-only (tenant-specific, no stale availability)
+ * - Other HTML navigations: network-first, optional shell cache without query strings
+ * - Static assets: cache-first with network refresh
+ * - No offline mutation queue; no token caching
  */
-const CACHE_NAME = 'bookai-static-v11';
+const CACHE_NAME = 'bookai-static-v12';
 const PRECACHE = [
   '/offline.html',
   '/styles.css',
@@ -38,27 +44,40 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
+function isSensitiveHost(hostname) {
+  return (
+    hostname.includes('googleapis.com') ||
+    hostname.includes('firebase') ||
+    hostname.includes('gstatic.com') ||
+    hostname.includes('firestore') ||
+    hostname.includes('cdn.') ||
+    hostname.includes('cdnjs.') ||
+    hostname.includes('jsdelivr') ||
+    hostname.includes('unpkg.com')
+  );
+}
 
-  // APIs + Firebase/CDN always network (tenant data must not be cached by SW)
-  if (
-    url.pathname.startsWith('/api/') ||
-    url.hostname.includes('googleapis.com') ||
-    url.hostname.includes('firebase') ||
-    url.hostname.includes('gstatic.com') ||
-    url.hostname.includes('cdn.') ||
-    url.hostname.includes('cdnjs.') ||
-    url.hostname.includes('firestore')
-  ) {
-    return;
-  }
-
-  const isBookingPage =
+function isBookingNav(url) {
+  return (
     url.pathname.endsWith('/booking.html') ||
     url.pathname === '/booking.html' ||
-    url.pathname.startsWith('/b/');
+    url.pathname.startsWith('/b/')
+  );
+}
+
+function isManageNav(url) {
+  return url.pathname.endsWith('/manage-booking.html') || url.pathname === '/manage-booking.html';
+}
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+
+  // Cross-origin / API / auth backends: network only (do not intercept)
+  if (url.pathname.startsWith('/api/') || isSensitiveHost(url.hostname)) {
+    return;
+  }
 
   const isNav =
     event.request.mode === 'navigate' ||
@@ -66,9 +85,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.html') ||
     url.pathname === '/';
 
-  // Public booking + handle routes: network-only (no cache put)
-  // Prevents stale HTML and avoids confusing offline fallback across tenants
-  if (isNav && isBookingPage) {
+  // Booking + manage flows: never serve stale tenant/token pages from cache
+  if (isNav && (isBookingNav(url) || isManageNav(url))) {
     event.respondWith(
       fetch(event.request)
         .then((res) => res)
@@ -81,7 +99,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          // Cache only path without query for generic pages
+          // Cache generic shell pages only (no query) — not tokenized URLs
           if (res && res.ok && !url.search) {
             const copy = res.clone();
             caches.open(CACHE_NAME).then((c) => c.put(url.pathname, copy)).catch(() => {});
@@ -95,11 +113,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Same-origin static assets
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const net = fetch(event.request)
         .then((res) => {
-          if (res && res.ok) {
+          if (res && res.ok && url.origin === self.location.origin) {
             const copy = res.clone();
             caches.open(CACHE_NAME).then((c) => c.put(event.request, copy)).catch(() => {});
           }

@@ -2,21 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
   <title>Offline — BookAI</title>
+  <link rel="stylesheet" href="/styles.css" />
   <style>
-    body{font-family:system-ui,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#f1f5f9;padding:1.5rem;text-align:center}
-    .card{max-width:22rem;background:#1e293b;border-radius:1rem;padding:1.5rem;border:1px solid #334155}
-    h1{font-size:1.15rem;margin:0 0 .5rem}
-    p{font-size:.875rem;color:#94a3b8;margin:0 0 1rem;line-height:1.45}
-    button{background:#0ea5e9;color:#fff;border:0;border-radius:.75rem;padding:.75rem 1.25rem;font-weight:600;width:100%;cursor:pointer}
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+      background: var(--bg, #0f172a); color: var(--text, #f8fafc); font-family: system-ui, sans-serif; }
+    .box { max-width: 22rem; width: 100%; text-align: center; }
+    h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 0.5rem; }
+    p { font-size: 0.875rem; line-height: 1.5; color: var(--muted, #94a3b8); margin: 0 0 1rem; }
+    button, a.btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 44px; padding: 0 1.25rem; border-radius: 0.75rem;
+      font-weight: 600; font-size: 0.875rem; text-decoration: none; border: none; cursor: pointer;
+      background: #0ea5e9; color: #fff; width: 100%;
+    }
+    .note { font-size: 0.75rem; margin-top: 1rem; color: var(--muted, #64748b); }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>You're offline</h1>
-    <p>BookAI needs a connection for bookings and live data. Check your network and try again.</p>
-    <button type="button" onclick="location.reload()">Retry</button>
+  <div class="box">
+    <h1>You’re offline</h1>
+    <p>Live availability, bookings, and account data need an internet connection. BookAI does not create appointments offline.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+    <p class="note">If you were booking, reopen your business link once you’re back online.</p>
   </div>
 </body>
 </html>
