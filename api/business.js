@@ -6,6 +6,7 @@
 
 const admin = require('firebase-admin');
 const crypto = require('crypto');
+const authz = require('./authz');
 
 function initAdmin() {
   if (admin.apps.length) return true;
@@ -41,6 +42,192 @@ async function verifyOwner(idToken) {
   const decoded = await admin.auth().verifyIdToken(idToken);
   return decoded.uid;
 }
+
+const ROLE_PERMS = {
+  owner: [
+    'full',
+    'viewAppointments', 'manageAppointments', 'manageCustomers', 'manageWaitlist',
+    'manageStaff', 'manageStaffAvailability', 'manageSpecialHours', 'manageSettings',
+    'manageServices', 'viewAnalytics', 'manageTeamAccounts'
+  ],
+  manager: [
+    'viewAppointments', 'manageAppointments', 'manageCustomers', 'manageWaitlist',
+    'manageStaffAvailability', 'manageSpecialHours', 'manageServices', 'viewAnalytics'
+  ],
+  staff: [
+    'viewOwnAppointments', 'updateOwnAppointmentStatus', 'viewOwnSchedule'
+  ]
+};
+
+function hasPermission(role, perm) {
+  const r = String(role || '').toLowerCase();
+  const list = ROLE_PERMS[r] || ROLE_PERMS.staff;
+  return list.indexOf('full') !== -1 || list.indexOf(perm) !== -1;
+}
+
+/**
+ * Resolve authenticated user context.
+ * Owner: uid === tenantId (legacy BookAI model).
+ * Staff: platformStaffIndex/{uid} + staff doc accountStatus active.
+ */
+async function resolveMembership(db, idToken) {
+  const decoded = await admin.auth().verifyIdToken(idToken);
+  const uid = decoded.uid;
+  const email = (decoded.email || '').toLowerCase();
+
+  // Owner path: platform tenant or settings under tenants/uid
+  const plat = await db.doc('platformTenants/' + uid).get();
+  const settings = await db.doc('tenants/' + uid + '/settings/config').get();
+  if (plat.exists || settings.exists) {
+    return {
+      uid,
+      email,
+      isOwner: true,
+      tenantId: uid,
+      staffId: null,
+      accessRole: 'owner',
+      accountStatus: 'active',
+      permissions: ROLE_PERMS.owner
+    };
+  }
+
+  // Staff path via index
+  const idx = await db.doc('platformStaffIndex/' + uid).get();
+  if (idx.exists) {
+    const ix = idx.data() || {};
+    if (ix.status === 'disabled') {
+      return { uid, email, isOwner: false, denied: true, reason: 'Your staff access has been disabled.' };
+    }
+    const tenantId = ix.tenantId;
+    const staffId = ix.staffId;
+    if (!tenantId || !staffId) {
+      return { uid, email, isOwner: false, denied: true, reason: 'Staff membership is incomplete.' };
+    }
+    const staffSnap = await db.doc('tenants/' + tenantId + '/staff/' + staffId).get();
+    if (!staffSnap.exists) {
+      return { uid, email, isOwner: false, denied: true, reason: 'Staff profile not found.' };
+    }
+    const staff = staffSnap.data();
+    if (staff.authUid && staff.authUid !== uid) {
+      return { uid, email, isOwner: false, denied: true, reason: 'Account mismatch.' };
+    }
+    if (staff.accountStatus === 'disabled') {
+      return { uid, email, isOwner: false, denied: true, reason: 'Your staff access has been disabled.' };
+    }
+    if (staff.accountStatus !== 'active' && staff.accountStatus !== 'invited') {
+      // invited can activate on first login
+    }
+    const role = (staff.accessRole || ix.accessRole || 'staff').toLowerCase();
+    if (role !== 'manager' && role !== 'staff') {
+      // invalid
+    }
+    // Auto-activate invited on successful login
+    if (staff.accountStatus === 'invited' || staff.accountStatus === 'pending') {
+      await staffSnap.ref.set({
+        accountStatus: 'active',
+        authUid: uid,
+        accountEmail: email || staff.accountEmail || null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      await idx.ref.set({ status: 'active', accessRole: role }, { merge: true });
+    }
+    return {
+      uid,
+      email,
+      isOwner: false,
+      isStaff: true,
+      tenantId,
+      staffId,
+      accessRole: role === 'manager' ? 'manager' : 'staff',
+      accountStatus: 'active',
+      staffName: staff.name || 'Staff',
+      permissions: ROLE_PERMS[role === 'manager' ? 'manager' : 'staff']
+    };
+  }
+
+  // Fallback: invited staff by email (collection group not used — scan requires owner to re-link after signup)
+  // When staff signs up with invited email, owner should click Connect again OR we search platformStaffIndex by email field
+  if (email) {
+    const byEmail = await db.collection('platformStaffIndex').where('accountEmail', '==', email).limit(3).get();
+    if (!byEmail.empty) {
+      // Prefer matching invited entries and bind uid
+      let chosen = null;
+      byEmail.forEach(function (d) {
+        const x = d.data();
+        if (!chosen) chosen = { id: d.id, data: x, ref: d.ref };
+      });
+      if (chosen && chosen.data.tenantId && chosen.data.staffId) {
+        const staffRef = db.doc('tenants/' + chosen.data.tenantId + '/staff/' + chosen.data.staffId);
+        const staffSnap = await staffRef.get();
+        if (staffSnap.exists && staffSnap.data().accountStatus !== 'disabled') {
+          const role = (staffSnap.data().accessRole || chosen.data.accessRole || 'staff').toLowerCase();
+          // Re-key index to real uid
+          if (chosen.id !== uid) {
+            await chosen.ref.delete();
+          }
+          await db.doc('platformStaffIndex/' + uid).set({
+            tenantId: chosen.data.tenantId,
+            staffId: chosen.data.staffId,
+            accessRole: role === 'manager' ? 'manager' : 'staff',
+            status: 'active',
+            accountEmail: email,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          await staffRef.set({
+            authUid: uid,
+            accountEmail: email,
+            accountStatus: 'active',
+            accessRole: role === 'manager' ? 'manager' : 'staff',
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          return {
+            uid,
+            email,
+            isOwner: false,
+            isStaff: true,
+            tenantId: chosen.data.tenantId,
+            staffId: chosen.data.staffId,
+            accessRole: role === 'manager' ? 'manager' : 'staff',
+            accountStatus: 'active',
+            staffName: staffSnap.data().name || 'Staff',
+            permissions: ROLE_PERMS[role === 'manager' ? 'manager' : 'staff']
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    uid,
+    email,
+    isOwner: false,
+    isStaff: false,
+    denied: true,
+    reason: 'No business access is linked to this account. Ask the business owner to connect your email in Team settings.'
+  };
+}
+
+async function requireMembership(db, idToken, opts) {
+  opts = opts || {};
+  const m = await resolveMembership(db, idToken);
+  if (m.denied) {
+    const err = new Error(m.reason || 'Access denied');
+    err.status = 403;
+    throw err;
+  }
+  if (opts.ownerOnly && !m.isOwner) {
+    const err = new Error('Owner access required');
+    err.status = 403;
+    throw err;
+  }
+  if (opts.permission && !hasPermission(m.accessRole, opts.permission)) {
+    const err = new Error('You do not have permission for this action');
+    err.status = 403;
+    throw err;
+  }
+  return m;
+}
+
 
 function tagCustomer(c) {
   const tags = [];
@@ -203,14 +390,19 @@ module.exports = async function handler(req, res) {
       const expires = new Date();
       expires.setDate(expires.getDate() + 14);
 
+      const notes = String(body.notes || '').trim().slice(0, 500);
+      const serviceName = String(body.serviceName || '').trim().slice(0, 120);
       const ref = await db.collection('tenants/' + tenantId + '/waitlist').add({
         customerName,
         customerEmail,
         customerPhone,
         serviceId,
+        serviceName: serviceName || null,
         preferredDate,
         preferredStartTime,
         preferredEndTime,
+        preferredPeriod: body.preferredPeriod || null,
+        notes: notes || null,
         staffId: body.staffId || null,
         status: 'waiting',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -218,18 +410,36 @@ module.exports = async function handler(req, res) {
         expiresAt: admin.firestore.Timestamp.fromDate(expires)
       });
 
+      try {
+        await db.collection('tenants/' + tenantId + '/notifications').add({
+          type: 'waitlist',
+          title: 'New waitlist request',
+          message: customerName + ' is waiting for ' + (serviceName || 'a service') + ' on ' + preferredDate,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          meta: { waitlistId: ref.id },
+          waitlistId: ref.id
+        });
+      } catch (ne) {
+        console.warn('waitlist notify', ne.message);
+      }
+
       return res.status(201).json({ success: true, waitlistId: ref.id });
     }
 
     // ---------- Owner: list waitlist ----------
     if (action === 'listWaitlist') {
-      const uid = await verifyOwner(body.idToken);
-      const tenantId = body.tenantId || uid;
-      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+      let m, tenantId;
+      try {
+        m = await authz.requireMembership(db, body.idToken, { permission: 'manageWaitlist' });
+        tenantId = m.tenantId;
+      } catch (e) {
+        return res.status(e.status || 403).json({ error: e.message || 'Forbidden' });
+      }
       const snap = await db
         .collection('tenants/' + tenantId + '/waitlist')
-        .where('status', 'in', ['waiting', 'offered'])
-        .limit(50)
+        .where('status', 'in', ['waiting', 'offered', 'contacted', 'resolved'])
+        .limit(80)
         .get();
       const items = [];
       snap.forEach((d) => {
@@ -240,20 +450,332 @@ module.exports = async function handler(req, res) {
           preferredDate: x.preferredDate,
           preferredStartTime: x.preferredStartTime,
           preferredEndTime: x.preferredEndTime,
+          preferredPeriod: x.preferredPeriod || null,
           serviceId: x.serviceId,
+          serviceName: x.serviceName || null,
           status: x.status,
           customerPhone: x.customerPhone,
-          customerEmail: x.customerEmail
+          customerEmail: x.customerEmail,
+          notes: x.notes || null
         });
+      });
+      items.sort(function (a, b) {
+        return String(b.preferredDate || '').localeCompare(String(a.preferredDate || ''));
       });
       return res.status(200).json({ items });
     }
 
+    // ---------- Owner: update waitlist status ----------
+    if (action === 'updateWaitlistStatus') {
+      let m, tenantId;
+      try {
+        m = await authz.requireMembership(db, body.idToken, { permission: 'manageWaitlist' });
+        tenantId = m.tenantId;
+      } catch (e) {
+        return res.status(e.status || 403).json({ error: e.message || 'Forbidden' });
+      }
+      const waitlistId = body.waitlistId;
+      const status = String(body.status || '').trim();
+      if (!waitlistId || !['waiting', 'contacted', 'resolved', 'offered'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid waitlist status update' });
+      }
+      const ref = db.doc('tenants/' + tenantId + '/waitlist/' + waitlistId);
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(404).json({ error: 'Waitlist entry not found' });
+      await ref.set({
+        status,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      return res.status(200).json({ success: true, status });
+    }
+
     // ---------- Owner: list customers ----------
-    if (action === 'listCustomers') {
-      const uid = await verifyOwner(body.idToken);
-      const tenantId = body.tenantId || uid;
-      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+
+    // ---------- Session / membership (Batch 24) ----------
+    if (action === 'resolveSession') {
+      const m = await authz.resolveMembership(db, body.idToken);
+      return res.status(200).json({
+        uid: m.uid,
+        email: m.email || null,
+        isOwner: !!m.isOwner,
+        isStaff: !!m.isStaff,
+        denied: !!m.denied,
+        reason: m.reason || null,
+        tenantId: m.tenantId || null,
+        staffId: m.staffId || null,
+        accessRole: m.accessRole || null,
+        accountStatus: m.accountStatus || null,
+        staffName: m.staffName || null,
+        permissions: m.permissions || []
+      });
+    }
+
+    // ---------- Owner: link staff account (no email send) ----------
+    if (action === 'linkStaffAccount') {
+      const m = await authz.requireMembership(db, body.idToken, { ownerOnly: true });
+      const staffId = String(body.staffId || '').trim();
+      const accountEmail = String(body.accountEmail || '').trim().toLowerCase();
+      const accessRole = String(body.accessRole || 'staff').toLowerCase() === 'manager' ? 'manager' : 'staff';
+      if (!staffId || !accountEmail || !accountEmail.includes('@')) {
+        return res.status(400).json({ error: 'staffId and valid accountEmail required' });
+      }
+      const staffRef = db.doc('tenants/' + m.tenantId + '/staff/' + staffId);
+      const staffSnap = await staffRef.get();
+      if (!staffSnap.exists) return res.status(404).json({ error: 'Staff not found' });
+
+      // If Firebase user already exists with this email, link authUid immediately
+      let authUid = null;
+      let accountStatus = 'invited';
+      try {
+        const user = await admin.auth().getUserByEmail(accountEmail);
+        authUid = user.uid;
+        // Prevent linking owner account as staff on same tenant if uid === tenantId
+        if (authUid === m.tenantId) {
+          return res.status(400).json({ error: 'Cannot link the owner account as staff' });
+        }
+        // Check index not used by another tenant
+        const existingIdx = await db.doc('platformStaffIndex/' + authUid).get();
+        if (existingIdx.exists && existingIdx.data().tenantId !== m.tenantId) {
+          return res.status(409).json({ error: 'This account is already linked to another business' });
+        }
+        accountStatus = 'active';
+        await db.doc('platformStaffIndex/' + authUid).set({
+          tenantId: m.tenantId,
+          staffId,
+          accessRole,
+          status: 'active',
+          accountEmail,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (e) {
+        if (e.code !== 'auth/user-not-found') {
+          console.warn('getUserByEmail', e.message);
+        }
+        // User not registered yet — leave invited; store email-keyed pending index for later bind
+        accountStatus = 'invited';
+        const emailKey = 'email_' + require('crypto').createHash('sha256').update(accountEmail).digest('hex').slice(0, 24);
+        await db.doc('platformStaffIndex/' + emailKey).set({
+          tenantId: m.tenantId,
+          staffId,
+          accessRole,
+          status: 'invited',
+          accountEmail,
+          pendingEmail: true,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+
+      // Clear previous index if staff had different authUid
+      const prev = staffSnap.data() || {};
+      if (prev.authUid && prev.authUid !== authUid) {
+        try {
+          await db.doc('platformStaffIndex/' + prev.authUid).delete();
+        } catch (e) {}
+      }
+
+      await staffRef.set({
+        accountEmail,
+        accessRole,
+        accountStatus,
+        authUid: authUid || null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      return res.status(200).json({
+        success: true,
+        accountStatus,
+        authUid: authUid || null,
+        message: accountStatus === 'active'
+          ? 'Account linked. The staff member can sign in with this email.'
+          : 'Email saved as invited. Ask them to create a BookAI login with this exact email, then sign in. No invitation email was sent by the system.'
+      });
+    }
+
+    if (action === 'unlinkStaffAccount') {
+      const m = await authz.requireMembership(db, body.idToken, { ownerOnly: true });
+      const staffId = String(body.staffId || '').trim();
+      if (!staffId) return res.status(400).json({ error: 'staffId required' });
+      const staffRef = db.doc('tenants/' + m.tenantId + '/staff/' + staffId);
+      const staffSnap = await staffRef.get();
+      if (!staffSnap.exists) return res.status(404).json({ error: 'Staff not found' });
+      const prev = staffSnap.data() || {};
+      if (prev.authUid) {
+        try { await db.doc('platformStaffIndex/' + prev.authUid).delete(); } catch (e) {}
+      }
+      await staffRef.set({
+        authUid: null,
+        accountEmail: null,
+        accountStatus: 'not_connected',
+        accessRole: null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      return res.status(200).json({ success: true });
+    }
+
+    if (action === 'setStaffAccountStatus') {
+      const m = await authz.requireMembership(db, body.idToken, { ownerOnly: true });
+      const staffId = String(body.staffId || '').trim();
+      const status = String(body.accountStatus || '').trim();
+      if (!staffId || ['active', 'disabled', 'invited', 'not_connected'].indexOf(status) === -1) {
+        return res.status(400).json({ error: 'Invalid staffId or status' });
+      }
+      const staffRef = db.doc('tenants/' + m.tenantId + '/staff/' + staffId);
+      const staffSnap = await staffRef.get();
+      if (!staffSnap.exists) return res.status(404).json({ error: 'Staff not found' });
+      const prev = staffSnap.data() || {};
+      await staffRef.set({
+        accountStatus: status,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      if (prev.authUid) {
+        await db.doc('platformStaffIndex/' + prev.authUid).set({
+          status: status === 'disabled' ? 'disabled' : (status === 'active' ? 'active' : 'invited'),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+      return res.status(200).json({ success: true });
+    }
+
+    if (action === 'setStaffAccessRole') {
+      const m = await authz.requireMembership(db, body.idToken, { ownerOnly: true });
+      const staffId = String(body.staffId || '').trim();
+      const accessRole = String(body.accessRole || 'staff').toLowerCase() === 'manager' ? 'manager' : 'staff';
+      if (!staffId) return res.status(400).json({ error: 'staffId required' });
+      const staffRef = db.doc('tenants/' + m.tenantId + '/staff/' + staffId);
+      const staffSnap = await staffRef.get();
+      if (!staffSnap.exists) return res.status(404).json({ error: 'Staff not found' });
+      const prev = staffSnap.data() || {};
+      await staffRef.set({ accessRole, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      if (prev.authUid) {
+        await db.doc('platformStaffIndex/' + prev.authUid).set({ accessRole }, { merge: true });
+      }
+      return res.status(200).json({ success: true, accessRole });
+    }
+
+    // Staff: list own appointments
+    if (action === 'listMyAppointments') {
+      const m = await authz.requireMembership(db, body.idToken, { permission: 'viewOwnAppointments' });
+      if (m.isOwner && !m.isStaff) {
+        return res.status(400).json({ error: 'Use owner appointment views' });
+      }
+      if (!m.staffId) return res.status(403).json({ error: 'Staff profile required' });
+      const snap = await db.collection('tenants/' + m.tenantId + '/appointments')
+        .where('staffId', '==', m.staffId)
+        .limit(120)
+        .get();
+      const items = [];
+      snap.forEach(function (d) {
+        const a = d.data();
+        // Never return manage tokens or internal secrets
+        items.push({
+          id: d.id,
+          date: a.date,
+          startTime: a.startTime,
+          endTime: a.endTime,
+          status: a.status || 'confirmed',
+          serviceName: a.serviceName || '',
+          serviceId: a.serviceId || null,
+          durationMinutes: a.durationMinutes || a.serviceDuration || a.duration || null,
+          customerName: a.customerName || '',
+          customerEmail: a.customerEmail || null,
+          customerPhone: a.customerPhone || null,
+          notes: a.notes || null,
+          staffId: a.staffId || null,
+          staffName: a.staffName || null,
+          bookingRef: a.bookingRef || null,
+          source: a.source || null
+        });
+      });
+      items.sort(function (a, b) {
+        return String((a.date || '') + (a.startTime || '')).localeCompare(String((b.date || '') + (b.startTime || '')));
+      });
+      return res.status(200).json({
+        items,
+        staffId: m.staffId,
+        tenantId: m.tenantId,
+        staffName: m.staffName || null,
+        accessRole: m.accessRole
+      });
+    }
+
+    // Staff: update status on OWN assigned appointments only
+    if (action === 'updateMyAppointmentStatus') {
+      const m = await authz.requireMembership(db, body.idToken, { permission: 'updateOwnAppointmentStatus' });
+      if (!m.staffId || !m.tenantId) {
+        return res.status(403).json({ error: 'Staff profile required' });
+      }
+      const appointmentId = String(body.appointmentId || '').trim();
+      const newStatus = String(body.status || '').trim();
+      if (!appointmentId || !newStatus) {
+        return res.status(400).json({ error: 'appointmentId and status required' });
+      }
+      // Staff operational transitions only
+      // Staff: operational transitions only — cancellation is owner/manager
+      const STAFF_ALLOWED = {
+        pending: ['confirmed'],
+        pending_verification: ['confirmed'],
+        confirmed: ['checked_in', 'completed', 'no_show'],
+        checked_in: ['completed'],
+        completed: [],
+        cancelled: [],
+        no_show: []
+      };
+      const ref = db.doc('tenants/' + m.tenantId + '/appointments/' + appointmentId);
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) {
+          const err = new Error('Appointment not found');
+          err.status = 404;
+          throw err;
+        }
+        const a = snap.data();
+        // Critical: must be assigned to this staff member
+        if (a.staffId !== m.staffId) {
+          const err = new Error('You can only update appointments assigned to you');
+          err.status = 403;
+          throw err;
+        }
+        const cur = a.status || 'confirmed';
+        const allowed = STAFF_ALLOWED[cur] || [];
+        if (allowed.indexOf(newStatus) === -1) {
+          const err = new Error('Invalid status transition from ' + cur + ' to ' + newStatus);
+          err.status = 400;
+          throw err;
+        }
+        const patch = {
+          status: newStatus,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastStatusBy: 'staff:' + m.staffId
+        };
+        if (newStatus === 'checked_in') patch.checkedInAt = admin.firestore.FieldValue.serverTimestamp();
+        if (newStatus === 'completed') patch.completedAt = admin.firestore.FieldValue.serverTimestamp();
+        if (newStatus === 'no_show') patch.noShowProcessedAt = admin.firestore.FieldValue.serverTimestamp();
+        tx.update(ref, patch);
+      });
+      try {
+        const snap = await ref.get();
+        const appt = snap.exists ? snap.data() : {};
+        await db.collection('tenants/' + m.tenantId + '/notifications').add({
+          type: 'status',
+          title: 'Staff updated booking',
+          message: (m.staffName || 'Staff') + ' set ' + (appt.customerName || 'customer') + ' → ' + newStatus,
+          read: false,
+          meta: { appointmentId: appointmentId, staffId: m.staffId },
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e) {}
+      return res.status(200).json({ success: true, status: newStatus });
+    }
+
+
+        if (action === 'listCustomers') {
+      let m, tenantId;
+      try {
+        m = await authz.requireMembership(db, body.idToken, { permission: 'manageCustomers' });
+        tenantId = m.tenantId;
+      } catch (e) {
+        return res.status(e.status || 403).json({ error: e.message || 'Forbidden' });
+      }
       const snap = await db.collection('tenants/' + tenantId + '/customers').limit(100).get();
       const items = [];
       snap.forEach((d) => {
@@ -284,15 +806,30 @@ module.exports = async function handler(req, res) {
 
     // ---------- Owner: save customer notes ----------
     if (action === 'saveCustomerNotes') {
-      const uid = await verifyOwner(body.idToken);
-      const tenantId = body.tenantId || uid;
-      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+      let m, tenantId;
+      try {
+        m = await authz.requireMembership(db, body.idToken, { permission: 'manageCustomers' });
+        tenantId = m.tenantId;
+      } catch (e) {
+        return res.status(e.status || 403).json({ error: e.message || 'Forbidden' });
+      }
       if (!body.customerId) return res.status(400).json({ error: 'customerId required' });
-      await db.doc('tenants/' + tenantId + '/customers/' + body.customerId).set(
-        {
-          notes: String(body.notes || '').slice(0, 1000),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        },
+      const patch = {
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      };
+      if (body.notes !== undefined) patch.notes = String(body.notes || '').slice(0, 1000);
+      if (body.name) patch.name = String(body.name).trim().slice(0, 120);
+      if (body.email) patch.email = String(body.email).trim().toLowerCase().slice(0, 160);
+      if (body.phone) patch.phone = String(body.phone).trim().slice(0, 40);
+      if (body.followUpStatus) {
+        const allowed = ['not_contacted', 'contacted', 'completed'];
+        if (allowed.indexOf(body.followUpStatus) !== -1) {
+          patch.followUpStatus = body.followUpStatus;
+          patch.followUpUpdatedAt = admin.firestore.FieldValue.serverTimestamp();
+        }
+      }
+      await db.doc('tenants/' + tenantId + '/customers/' + String(body.customerId).replace(/\//g, '_')).set(
+        patch,
         { merge: true }
       );
       return res.status(200).json({ success: true });
@@ -300,9 +837,13 @@ module.exports = async function handler(req, res) {
 
     // ---------- Owner: cancel appointment + waitlist offer ----------
     if (action === 'cancelAppointment') {
-      const uid = await verifyOwner(body.idToken);
-      const tenantId = body.tenantId || uid;
-      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+      let m, tenantId;
+      try {
+        m = await authz.requireMembership(db, body.idToken, { permission: 'manageAppointments' });
+        tenantId = m.tenantId;
+      } catch (e) {
+        return res.status(e.status || 403).json({ error: e.message || 'Forbidden' });
+      }
       const appointmentId = body.appointmentId;
       if (!appointmentId) return res.status(400).json({ error: 'appointmentId required' });
 
@@ -400,9 +941,13 @@ module.exports = async function handler(req, res) {
     // ---------- Claim waitlist offer (creates booking via transaction) ----------
     if (action === 'claimWaitlistOffer') {
       // Owner can confirm on behalf of customer (phone claim)
-      const uid = await verifyOwner(body.idToken);
-      const tenantId = body.tenantId || uid;
-      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+      let m, tenantId;
+      try {
+        m = await authz.requireMembership(db, body.idToken, { permission: 'manageWaitlist' });
+        tenantId = m.tenantId;
+      } catch (e) {
+        return res.status(e.status || 403).json({ error: e.message || 'Forbidden' });
+      }
       const offerId = body.offerId;
       if (!offerId) return res.status(400).json({ error: 'offerId required' });
 
@@ -494,9 +1039,13 @@ module.exports = async function handler(req, res) {
 
     // ---------- Sync CRM from appointment status (called after check-in/complete/no-show) ----------
     if (action === 'syncCustomerEvent') {
-      const uid = await verifyOwner(body.idToken);
-      const tenantId = body.tenantId || uid;
-      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+      let m, tenantId;
+      try {
+        m = await authz.requireMembership(db, body.idToken, { ownerOnly: true });
+        tenantId = m.tenantId;
+      } catch (e) {
+        return res.status(e.status || 403).json({ error: e.message || 'Forbidden' });
+      }
       const appointmentId = body.appointmentId;
       const event = body.event; // completed | no_show | created
       if (!appointmentId || !event) return res.status(400).json({ error: 'appointmentId and event required' });
@@ -518,12 +1067,21 @@ module.exports = async function handler(req, res) {
 
     // ---------- Dashboard summary ----------
     if (action === 'dashboardSummary') {
-      const uid = await verifyOwner(body.idToken);
-      const tenantId = body.tenantId || uid;
-      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+      let m, tenantId;
+      try {
+        m = await authz.requireMembership(db, body.idToken, { permission: 'dashboardSummary' });
+        tenantId = m.tenantId;
+      } catch (e) {
+        return res.status(e.status || 403).json({ error: e.message || 'Forbidden' });
+      }
 
-      const today = new Date().toISOString().slice(0, 10);
-      const apptSnap = await db.collection('tenants/' + tenantId + '/appointments').limit(500).get();
+            let settingsForTz = {};
+      try {
+        const sSnap = await db.doc('tenants/' + tenantId + '/settings/config').get();
+        if (sSnap.exists) settingsForTz = sSnap.data() || {};
+      } catch (e) {}
+      const today = authz.businessLocalDateISO(settingsForTz);
+ const apptSnap = await db.collection('tenants/' + tenantId + '/appointments').limit(500).get();
       const byService = {};
       let todayTotal = 0,
         todayDone = 0,
@@ -614,9 +1172,13 @@ module.exports = async function handler(req, res) {
 
     
     if (action === 'tenantStatus') {
-      const uid = await verifyOwner(body.idToken);
-      const tenantId = body.tenantId || uid;
-      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+      let m, tenantId;
+      try {
+        m = await authz.requireMembership(db, body.idToken, { permission: 'dashboardSummary' });
+        tenantId = m.tenantId;
+      } catch (e) {
+        return res.status(e.status || 403).json({ error: e.message || 'Forbidden' });
+      }
       const snap = await db.doc('platformTenants/' + tenantId).get();
       if (!snap.exists) {
         return res.status(200).json({ status: 'unregistered', daysLeft: null, trialExpired: false });
@@ -638,9 +1200,13 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'supportMessage') {
-      const uid = await verifyOwner(body.idToken);
-      const tenantId = body.tenantId || uid;
-      if (tenantId !== uid) return res.status(403).json({ error: 'Forbidden' });
+      let m, tenantId;
+      try {
+        m = await authz.requireMembership(db, body.idToken, { permission: 'dashboardSummary' });
+        tenantId = m.tenantId;
+      } catch (e) {
+        return res.status(e.status || 403).json({ error: e.message || 'Forbidden' });
+      }
       const message = String(body.message || '').trim().slice(0, 2000);
       if (message.length < 5) return res.status(400).json({ error: 'Message too short' });
       await db.collection('platformSupport').add({
