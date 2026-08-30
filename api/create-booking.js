@@ -1128,7 +1128,7 @@ module.exports = async function handler(req, res) {
         const tzOff = (settings.timezoneOffsetMinutes != null) ? Number(settings.timezoneOffsetMinutes) : 480;
         const startLocal = parseBusinessLocalDateTime(date, startTime, tzOff);
         const graceEnds = new Date(startLocal.getTime() + 15 * 60 * 1000);
-        const reminderFor = new Date(startLocal.getTime() - 60 * 60 * 1000);
+        const reminderFor = new Date(startLocal.getTime() - 5 * 60 * 1000); // 5 minutes before (RST email reminder)
 
         const newRef = appointmentsCol.doc();
         const appointment = {
@@ -1161,7 +1161,9 @@ module.exports = async function handler(req, res) {
           noShowProcessedAt: null,
           reminderStatus: 'scheduled',
           reminderScheduledFor: admin.firestore.Timestamp.fromDate(reminderFor),
+          reminderSent: false,
           reminderSentAt: null,
+          confirmationEmailSent: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
@@ -1243,6 +1245,67 @@ module.exports = async function handler(req, res) {
         });
       }
 
+
+      // RST: confirmation email AFTER successful Firestore write (non-fatal if email fails)
+      let emailSent = false;
+      let emailConfigured = false;
+      let emailWarning = null;
+      try {
+        const { sendMail, isEmailConfigured } = require('../services/emailService');
+        const { buildBookingConfirmationEmail } = require('../templates/bookingConfirmationTemplate');
+        emailConfigured = isEmailConfigured();
+        if (emailConfigured && customerEmail) {
+          let tenantInfo = { businessName: 'Business', category: '', email: '', phone: '' };
+          try {
+            const sSnap = await db.doc('tenants/' + tenantId + '/settings/config').get();
+            if (sSnap.exists) {
+              const s = sSnap.data() || {};
+              tenantInfo = {
+                businessName: s.businessName || s.name || 'Business',
+                category: s.category || '',
+                email: s.email || s.businessEmail || '',
+                phone: s.phone || s.businessPhone || ''
+              };
+            }
+          } catch (te) { console.warn('tenant settings for email', te.message); }
+          const tpl = buildBookingConfirmationEmail({
+            tenant: tenantInfo,
+            booking: {
+              customerName: String(customerName).trim(),
+              bookingRef,
+              bookingReference: bookingRef,
+              serviceName: result.serviceName || '',
+              staffName: result.staffName || '',
+              date,
+              startTime,
+              endTime: result.endTime || endTime || '',
+              notes: String(notes || '').trim()
+            }
+          });
+          const mail = await sendMail({
+            to: String(customerEmail).trim().toLowerCase(),
+            subject: tpl.subject,
+            html: tpl.html,
+            text: tpl.text
+          });
+          emailSent = !!(mail && mail.ok);
+          if (!emailSent) emailWarning = (mail && mail.error) || 'email_send_failed';
+          else {
+            try {
+              await db.doc('tenants/' + tenantId + '/appointments/' + result.id).set({
+                confirmationEmailSent: true,
+                confirmationEmailSentAt: admin.firestore.FieldValue.serverTimestamp()
+              }, { merge: true });
+            } catch (ue) { console.warn('confirm email flag', ue.message); }
+          }
+        } else if (!emailConfigured) {
+          emailWarning = 'Email not configured on server';
+        }
+      } catch (emailErr) {
+        console.warn('confirmation email', emailErr && emailErr.message ? emailErr.message : emailErr);
+        emailWarning = 'email_exception';
+      }
+
       return res.status(201).json(Object.assign({
         ok: true,
         success: true,
@@ -1250,6 +1313,10 @@ module.exports = async function handler(req, res) {
         bookingId: result.bookingId || result.id,
         bookingRef,
         bookingReference: bookingRef,
+        bookingCreated: true,
+        emailSent: typeof emailSent !== 'undefined' ? emailSent : false,
+        emailConfigured: typeof emailConfigured !== 'undefined' ? emailConfigured : false,
+        emailWarning: typeof emailWarning !== 'undefined' ? emailWarning : null,
         manageToken,
         manageUrl,
         status: result.status || 'confirmed',
