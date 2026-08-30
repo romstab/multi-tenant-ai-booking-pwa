@@ -1,3 +1,4 @@
+/** CREATE-BOOKING-FIX-FINAL-1 — slotStartMin/slotEndMin declared before hours checks; real BK refs only */
 
 function makeManageToken() {
   return require('crypto').randomBytes(24).toString('hex');
@@ -42,6 +43,8 @@ function initAdmin() {
     return false;
   }
 }
+
+const SERVER_BUILD = 'CREATE-BOOKING-FIX-FINAL-1';
 
 function timeToMinutes(t) {
   if (!t) return 0;
@@ -836,7 +839,8 @@ module.exports = async function handler(req, res) {
           message: 'Could not complete booking. Please try again.',
           appointmentId: null,
           bookingId: null,
-          bookingRef: null
+          bookingRef: null,
+          serverBuild: SERVER_BUILD
         });
       }
 
@@ -949,19 +953,35 @@ module.exports = async function handler(req, res) {
         const price = Number(service.price || 0);
         const buffer = (settings.bookingRules && settings.bookingRules.bufferMinutes) || 0;
 
-        // Compute minutes BEFORE any comparison (previous order caused ReferenceError / 500)
-        const startMin = timeToMinutes(startTime);
-        const finalEnd = endTime || minutesToTime(startMin + duration);
-        const reqEndMin = timeToMinutes(finalEnd);
+        // BOOKING-FIX-FINAL-1: declare ALL slot minute values BEFORE any comparison (no TDZ).
+        const slotDurationMin = Number(duration) || 30;
+        const slotStartMin = timeToMinutes(startTime);
+        if (!Number.isFinite(slotStartMin)) {
+          const err = new Error('Invalid start time.');
+          err.status = 400;
+          throw err;
+        }
+        const slotEndTime = endTime || minutesToTime(slotStartMin + slotDurationMin);
+        const slotEndMin = timeToMinutes(slotEndTime);
+        if (!Number.isFinite(slotEndMin) || slotEndMin <= slotStartMin) {
+          const err = new Error('Invalid end time for this service duration.');
+          err.status = 400;
+          throw err;
+        }
 
         // Effective hours for this date only (includes special hours / holidays)
-        const bizOpen = timeToMinutes(dayHoursCreate.open);
-        const bizClose = timeToMinutes(dayHoursCreate.close);
-        if (startMin < bizOpen || reqEndMin > bizClose) {
+        const bizOpenMin = timeToMinutes(dayHoursCreate.open);
+        const bizCloseMin = timeToMinutes(dayHoursCreate.close);
+        if (slotStartMin < bizOpenMin || slotEndMin > bizCloseMin) {
           const err = new Error('Selected time is outside business hours for this date.');
           err.status = 409;
           throw err;
         }
+
+        // Aliases used by shared helpers below (declared only after values are ready)
+        const startMin = slotStartMin;
+        const reqEndMin = slotEndMin;
+        const finalEnd = slotEndTime;
 
         // Booking rules: min advance
         const minAdvance = (settings.bookingRules && settings.bookingRules.minAdvanceHours) || 0;
@@ -1191,7 +1211,8 @@ module.exports = async function handler(req, res) {
         manageUrl,
         status: result.status || 'confirmed',
         paymentMode: 'pay_at_venue',
-        message: 'Booking confirmed — Pay at Venue'
+        message: 'Booking confirmed — Pay at Venue',
+        serverBuild: SERVER_BUILD
       });
     }
 
@@ -1850,7 +1871,8 @@ module.exports = async function handler(req, res) {
       ok: false,
       stage: err.stage || 'server',
       error: err.message || 'Internal server error',
-      message: err.message || 'Internal server error'
+      message: err.message || 'Internal server error',
+      serverBuild: SERVER_BUILD
     });
   }
 };
