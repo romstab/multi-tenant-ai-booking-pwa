@@ -1031,16 +1031,49 @@
   <div class="toast-wrap" id="toasts"></div>
 
   <script type="module">
-    import {
-      auth, db, onAuthStateChanged, signOut,
-      updatePassword, EmailAuthProvider, reauthenticateWithCredential,
-      doc, getDoc, setDoc, updateDoc, deleteDoc,
-      collection, addDoc, getDocs, onSnapshot, serverTimestamp
-    } from './firebase-config.js';
-    import { getDefaultOperatingHours, copyToClipboard, formatDisplayDate, formatMoney, formatTime12 } from './app.js';
-    import { mountPhAddressForm, displayAddress } from './ph-address.js';
+    /* Boot: progress BEFORE any dependency loads. Static imports blocked this forever when CDN/module hung. */
+    const __set = (stage, message) => {
+      try {
+        if (typeof window.__bookaiSetGate === 'function') {
+          window.__bookaiSetGate('loading', { stage, message: message || stage });
+        } else {
+          const s = document.getElementById('auth-loading-stage');
+          const m = document.getElementById('auth-loading-msg');
+          if (s) s.textContent = stage;
+          if (m) m.textContent = message || stage;
+        }
+      } catch (e) {}
+      try { console.info('[BookAI boot]', stage); } catch (e) {}
+    };
+    const __fail = (stage, err) => {
+      const msg = (err && err.message) ? String(err.message) : String(err || 'Unknown error');
+      try { console.error('[BookAI boot FAILED]', stage, msg); } catch (e) {}
+      if (typeof window.__bookaiSetGate === 'function') {
+        window.__bookaiSetGate('error', { stage, message: msg });
+      } else {
+        const el = document.getElementById('auth-loading');
+        if (el) el.style.display = 'flex';
+        const spin = document.getElementById('auth-loading-spinner');
+        if (spin) spin.style.display = 'none';
+        const box = document.getElementById('auth-loading-error');
+        if (box) box.style.display = 'block';
+        const t = document.getElementById('auth-loading-error-text');
+        if (t) t.textContent = 'FAILED AT: ' + stage + '\n' + msg;
+        const retry = document.getElementById('auth-loading-retry');
+        if (retry) retry.onclick = () => location.reload();
+        const so = document.getElementById('auth-loading-signout');
+        if (so) so.onclick = () => location.replace('/index.html');
+      }
+      if (window.__BOOKAI_GATE__) window.__BOOKAI_GATE__.terminal = true;
+    };
 
-    let obAddressForm = null;
+    // Bindings filled after dynamic import (used by rest of module)
+    let auth, db, onAuthStateChanged, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential;
+    let doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, onSnapshot, serverTimestamp;
+    let getDefaultOperatingHours, copyToClipboard, formatDisplayDate, formatMoney, formatTime12;
+    let mountPhAddressForm, displayAddress;
+
+let obAddressForm = null;
     let setAddressForm = null;
 
     const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
@@ -1338,8 +1371,52 @@
       applyRoleUi();
     }
 
-    bootStage('Checking authentication…', 'Checking authentication…');
-    onAuthStateChanged(auth, async (user) => {
+
+
+    async function __bookaiBoot() {
+      try {
+        __set('HTML/module started', 'Starting module…');
+        __set('Loading firebase-config.js', 'Loading Firebase config…');
+        const fb = await import('./firebase-config.js');
+        auth = fb.auth;
+        db = fb.db;
+        onAuthStateChanged = fb.onAuthStateChanged;
+        signOut = fb.signOut;
+        updatePassword = fb.updatePassword;
+        EmailAuthProvider = fb.EmailAuthProvider;
+        reauthenticateWithCredential = fb.reauthenticateWithCredential;
+        doc = fb.doc;
+        getDoc = fb.getDoc;
+        setDoc = fb.setDoc;
+        updateDoc = fb.updateDoc;
+        deleteDoc = fb.deleteDoc;
+        collection = fb.collection;
+        addDoc = fb.addDoc;
+        getDocs = fb.getDocs;
+        onSnapshot = fb.onSnapshot;
+        serverTimestamp = fb.serverTimestamp;
+        if (!auth || !onAuthStateChanged) throw new Error('firebase-config.js did not export auth/onAuthStateChanged');
+        __set('Firebase config ready', 'Firebase config loaded');
+
+        __set('Loading app.js', 'Loading helpers…');
+        const appMod = await import('./app.js');
+        getDefaultOperatingHours = appMod.getDefaultOperatingHours;
+        copyToClipboard = appMod.copyToClipboard;
+        formatDisplayDate = appMod.formatDisplayDate;
+        formatMoney = appMod.formatMoney;
+        formatTime12 = appMod.formatTime12;
+        __set('Helpers ready', 'Helpers loaded');
+
+        __set('Loading ph-address.js', 'Loading address module…');
+        const ph = await import('./ph-address.js');
+        mountPhAddressForm = ph.mountPhAddressForm;
+        displayAddress = ph.displayAddress;
+        __set('Modules ready', 'All modules loaded');
+
+        __set('Checking authentication…', 'Checking authentication…');
+        if (typeof onAuthStateChanged !== 'function') throw new Error('onAuthStateChanged missing');
+        onAuthStateChanged(auth, async (user) => {
+
       if (!user) {
         markTerminal('signed-out');
         location.replace('/index.html');
@@ -1394,7 +1471,13 @@
           );
         }
       }
-    });
+        });
+      } catch (err) {
+        __fail((window.__BOOKAI_GATE__ && window.__BOOKAI_GATE__.stage) || 'module-import', err);
+      }
+    }
+
+    __bookaiBoot();
 
     /**
      * Client UX gating only — server (Batch 26 authz) remains authoritative.
