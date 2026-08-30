@@ -30,6 +30,37 @@
     </div>
   </div>
 
+  
+<script>
+/* Boot watchdog: if module never finishes session bootstrap, surface error (never infinite Loading) */
+(function () {
+  window.__BOOKAI_BOOT__ = { t0: Date.now(), stage: 'html', ok: false };
+  function forceError(msg) {
+    if (window.__BOOKAI_BOOT__.ok) return;
+    var el = document.getElementById('auth-loading');
+    if (!el || el.classList.contains('hidden')) return;
+    var spin = document.getElementById('auth-loading-spinner');
+    if (spin) spin.classList.add('hidden');
+    var m = document.getElementById('auth-loading-msg');
+    if (m) m.textContent = 'Could not open your business';
+    var box = document.getElementById('auth-loading-error');
+    if (box) box.classList.remove('hidden');
+    var t = document.getElementById('auth-loading-error-text');
+    if (t) t.textContent = msg || 'Startup timed out. Check your connection, then tap Retry.';
+    var retry = document.getElementById('auth-loading-retry');
+    if (retry) retry.onclick = function () { location.reload(); };
+    var so = document.getElementById('auth-loading-signout');
+    if (so) so.onclick = function () { location.replace('/index.html'); };
+  }
+  setTimeout(function () {
+    if (!window.__BOOKAI_BOOT__.ok) {
+      var st = window.__BOOKAI_BOOT__.stage || 'unknown';
+      forceError('Still loading after 22s (stage: ' + st + '). If this keeps happening, clear site data or try Incognito, and confirm Vercel env vars FIREBASE_PROJECT_ID / CLIENT_EMAIL / PRIVATE_KEY are set.');
+    }
+  }, 22000);
+})();
+</script>
+
   <!-- ONBOARDING WIZARD -->
   <div id="onboarding" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden" style="width:100%;max-width:100vw;background:var(--bg);color:var(--text)">
     <div class="setup-shell" style="max-width:28rem">
@@ -1113,6 +1144,44 @@
       document.getElementById('auth-loading')?.classList.add('hidden');
     }
 
+    function bootStage(stage) {
+      try {
+        window.__BOOKAI_BOOT__ = window.__BOOKAI_BOOT__ || { t0: Date.now() };
+        window.__BOOKAI_BOOT__.stage = stage;
+        console.info('[BookAI boot]', stage);
+      } catch (e) {}
+    }
+
+    function markBootOk() {
+      try {
+        window.__BOOKAI_BOOT__ = window.__BOOKAI_BOOT__ || {};
+        window.__BOOKAI_BOOT__.ok = true;
+        window.__BOOKAI_BOOT__.stage = 'done';
+      } catch (e) {}
+    }
+
+    function withTimeout(promise, ms, label) {
+      return new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error((label || 'Operation') + ' timed out after ' + ms + 'ms')), ms);
+        Promise.resolve(promise).then(
+          (v) => { clearTimeout(t); resolve(v); },
+          (e) => { clearTimeout(t); reject(e); }
+        );
+      });
+    }
+
+    function formatApiError(session, res) {
+      if (!session) return res ? ('Request failed (' + res.status + ')') : 'Request failed';
+      const err = session.error;
+      if (typeof err === 'string') return err;
+      if (err && typeof err === 'object') {
+        if (err.message) return String(err.message);
+        if (err.code) return 'Error ' + err.code;
+      }
+      if (session.message) return String(session.message);
+      return res ? ('Session failed (' + res.status + ')') : 'Session failed';
+    }
+
     function showAuthLoadingBusy(msg) {
       const el = document.getElementById('auth-loading');
       if (!el) return;
@@ -1126,6 +1195,7 @@
     }
 
     function showSessionError(message) {
+      markBootOk(); // stop watchdog from double-firing; we are in a terminal UI state
       const el = document.getElementById('auth-loading');
       if (!el) {
         alert(message || 'Could not open your business. Please try again.');
@@ -1141,10 +1211,13 @@
       const retry = document.getElementById('auth-loading-retry');
       if (retry) retry.onclick = () => location.reload();
       const so = document.getElementById('auth-loading-signout');
-      if (so) so.onclick = () => signOut(auth).then(() => location.replace('/index.html'));
+      if (so) so.onclick = () => {
+        Promise.resolve(signOut(auth)).catch(() => {}).then(() => location.replace('/index.html'));
+      };
     }
 
     function showDeniedAccess(reason) {
+      markBootOk();
       hideAuthLoading();
       document.getElementById('app')?.classList.add('hidden');
       document.getElementById('onboarding')?.classList.add('hidden');
@@ -1162,43 +1235,75 @@
     }
 
     async function resolveOwnerDashboard(user, session) {
+      bootStage('owner-dashboard');
       userContext = {
         isOwner: true,
         accessRole: 'owner',
         permissions: (session && session.permissions) || []
       };
       tenantId = user.uid;
-      document.getElementById('greeting').textContent = greeting();
-      document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
-      const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
-      if (!snap.exists()) {
+      const greet = document.getElementById('greeting');
+      if (greet) greet.textContent = greeting();
+      const link = document.getElementById('booking-link');
+      if (link) link.value = location.origin + '/booking.html?tenant=' + tenantId;
+
+      bootStage('firestore-settings');
+      let snap;
+      try {
+        snap = await withTimeout(
+          getDoc(doc(db, 'tenants', tenantId, 'settings', 'config')),
+          12000,
+          'Loading business settings'
+        );
+      } catch (ge) {
+        console.error('[BookAI] settings getDoc failed', ge);
+        // No settings readable → treat as new owner onboarding (cannot stay on Loading)
         const emailEl = document.getElementById('ob-email');
         if (emailEl) emailEl.value = user.email || '';
         showOnboarding();
         return;
       }
-      settings = snap.data();
+
+      if (!snap.exists()) {
+        bootStage('onboarding');
+        const emailEl = document.getElementById('ob-email');
+        if (emailEl) emailEl.value = user.email || '';
+        showOnboarding();
+        return;
+      }
+      settings = snap.data() || {};
+      bootStage('enter-app');
       enterApp();
       applyRoleUi();
     }
 
+    bootStage('module-loaded');
     onAuthStateChanged(auth, async (user) => {
-      if (!user) { location.replace('/index.html'); return; }
+      bootStage('auth-state');
+      if (!user) {
+        markBootOk();
+        location.replace('/index.html');
+        return;
+      }
+      bootStage('user-present');
       document.getElementById('app')?.classList.add('hidden');
       document.getElementById('onboarding')?.classList.add('hidden');
       document.getElementById('no-access')?.classList.add('hidden');
       showAuthLoadingBusy('Loading…');
 
-      const SESSION_MS = 20000;
       try {
-        const idToken = await user.getIdToken();
+        bootStage('get-id-token');
+        const idToken = await withTimeout(user.getIdToken(), 10000, 'Getting sign-in token');
+
+        bootStage('resolve-session');
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timer = controller ? setTimeout(() => controller.abort(), SESSION_MS) : null;
+        const timer = controller ? setTimeout(() => controller.abort(), 15000) : null;
         let res, session;
         try {
           res = await fetch('/api/business', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
             body: JSON.stringify({ action: 'resolveSession', idToken }),
             signal: controller ? controller.signal : undefined
           });
@@ -1207,9 +1312,18 @@
           if (timer) clearTimeout(timer);
         }
 
-        if (!res.ok) {
-          // Fall through to client owner onboarding path when API is misconfigured
-          throw new Error(session.error || ('Session failed (' + res.status + ')'));
+        bootStage('session-response-' + (res ? res.status : 'none'));
+
+        if (!res || !res.ok) {
+          const msg = formatApiError(session, res);
+          // Common deployment misconfig signals
+          if (res && res.status === 500 && /Admin not configured/i.test(msg)) {
+            throw new Error('Server Firebase Admin is not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY on Vercel, then redeploy.');
+          }
+          if (res && (res.status === 401 || res.status === 403) && /Protected deployment|vercel_auth/i.test(JSON.stringify(session))) {
+            throw new Error('This Vercel deployment is password/SSO protected. Disable Deployment Protection for production, or open the site after Vercel auth so /api/* works.');
+          }
+          throw new Error(msg);
         }
 
         if (session.denied) {
@@ -1228,14 +1342,20 @@
           };
           tenantId = session.tenantId;
           if (session.accessRole === 'staff') {
+            markBootOk();
             location.replace('/staff-home.html');
             return;
           }
-          // Manager: limited owner dashboard
-          document.getElementById('greeting').textContent = greeting() + (session.staffName ? ' · ' + session.staffName : '');
-          document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
+          const greet = document.getElementById('greeting');
+          if (greet) greet.textContent = greeting() + (session.staffName ? ' · ' + session.staffName : '');
+          const link = document.getElementById('booking-link');
+          if (link) link.value = location.origin + '/booking.html?tenant=' + tenantId;
           try {
-            const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
+            const snap = await withTimeout(
+              getDoc(doc(db, 'tenants', tenantId, 'settings', 'config')),
+              12000,
+              'Loading business settings'
+            );
             settings = snap.exists() ? snap.data() : {};
           } catch (ge) {
             settings = {};
@@ -1245,19 +1365,18 @@
           return;
         }
 
-        // Owner (including provisional / needsOnboarding)
         await resolveOwnerDashboard(user, session);
       } catch (e) {
-        console.error(e);
-        // Fallback: treat as owner by uid so new accounts can still onboard offline from API failures
+        console.error('[BookAI] session bootstrap error', e);
+        bootStage('fallback-owner');
         try {
           await resolveOwnerDashboard(user, { permissions: [] });
         } catch (e2) {
-          console.error(e2);
+          console.error('[BookAI] fallback failed', e2);
           showSessionError(
-            (e && e.message ? e.message + '. ' : '') +
-            (e2 && e2.message ? e2.message : '') +
-            ' If this continues, hard-refresh the page or clear site data, then try again.'
+            (e && e.message ? e.message + ' ' : '') +
+            (e2 && e2.message ? e2.message + ' ' : '') +
+            'Tap Retry, or Sign out and try again. Stage: ' + (window.__BOOKAI_BOOT__ && window.__BOOKAI_BOOT__.stage)
           );
         }
       }
@@ -1345,9 +1464,11 @@
     }
 
     function showOnboarding() {
+      markBootOk();
       hideAuthLoading();
       document.getElementById('app')?.classList.add('hidden');
-      document.getElementById('onboarding').classList.remove('hidden');
+      const ob = document.getElementById('onboarding');
+      if (ob) ob.classList.remove('hidden');
       renderObDots();
       renderObHours(getDefaultOperatingHours());
       loadTemplateServices();
@@ -1738,16 +1859,20 @@
     };
 
     function enterApp() {
+      markBootOk();
       try {
         const mode = (settings && settings.theme && settings.theme.mode) || obTheme || 'light';
         applyTheme(mode);
         const curEl = document.getElementById('set-currency');
-        if (curEl && settings.currency) curEl.value = settings.currency;
+        if (curEl && settings && settings.currency) curEl.value = settings.currency;
       } catch (e) {}
-      document.getElementById('auth-loading')?.classList.add('hidden');
-      document.getElementById('app').classList.remove('hidden');
-      document.getElementById('header-business-name').textContent = settings?.businessName || 'Dashboard';
-      document.getElementById('set-name').value = settings?.businessName || '';
+      hideAuthLoading();
+      const appEl = document.getElementById('app');
+      if (appEl) appEl.classList.remove('hidden');
+      const hbn = document.getElementById('header-business-name');
+      if (hbn) hbn.textContent = (settings && settings.businessName) || 'Dashboard';
+      const setName = document.getElementById('set-name');
+      if (setName) setName.value = (settings && settings.businessName) || '';
       // Category select + Other custom field
       {
         const catSel = document.getElementById('set-category');
