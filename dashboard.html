@@ -17,10 +17,16 @@
     <button type="button" id="btn-sw-update" class="underline">Refresh</button>
   </div>
 
-<div id="auth-loading" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
-    <div class="text-center text-white">
-      <div class="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
-      <p class="text-sm">Loading…</p>
+<div id="auth-loading" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-6">
+    <div class="text-center text-white max-w-sm w-full">
+      <p id="auth-loading-version" class="text-xs text-white/50 mb-4">BookAI</p>
+      <div id="auth-loading-spinner" class="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
+      <p id="auth-loading-msg" class="text-sm">Loading…</p>
+      <div id="auth-loading-error" class="hidden mt-4 space-y-3 text-left">
+        <p id="auth-loading-error-text" class="text-sm text-red-200 bg-red-950/40 border border-red-500/30 rounded-lg p-3"></p>
+        <button type="button" id="auth-loading-retry" class="btn btn-primary btn-block min-h-[44px]">Retry</button>
+        <button type="button" id="auth-loading-signout" class="btn btn-secondary btn-block min-h-[44px]">Sign out</button>
+      </div>
     </div>
   </div>
 
@@ -1103,35 +1109,111 @@
       return perms.indexOf('full') !== -1 || perms.indexOf(perm) !== -1;
     }
 
+    function hideAuthLoading() {
+      document.getElementById('auth-loading')?.classList.add('hidden');
+    }
+
+    function showAuthLoadingBusy(msg) {
+      const el = document.getElementById('auth-loading');
+      if (!el) return;
+      el.classList.remove('hidden');
+      document.getElementById('auth-loading-spinner')?.classList.remove('hidden');
+      document.getElementById('auth-loading-error')?.classList.add('hidden');
+      const m = document.getElementById('auth-loading-msg');
+      if (m) m.textContent = msg || 'Loading…';
+      const ver = document.getElementById('auth-loading-version');
+      if (ver) ver.textContent = 'BookAI v' + (window.BOOKAI_VERSION || '2.6.3-release');
+    }
+
+    function showSessionError(message) {
+      const el = document.getElementById('auth-loading');
+      if (!el) {
+        alert(message || 'Could not open your business. Please try again.');
+        return;
+      }
+      el.classList.remove('hidden');
+      document.getElementById('auth-loading-spinner')?.classList.add('hidden');
+      const msg = document.getElementById('auth-loading-msg');
+      if (msg) msg.textContent = 'Could not open your business';
+      document.getElementById('auth-loading-error')?.classList.remove('hidden');
+      const t = document.getElementById('auth-loading-error-text');
+      if (t) t.textContent = message || 'Something went wrong while loading your account.';
+      const retry = document.getElementById('auth-loading-retry');
+      if (retry) retry.onclick = () => location.reload();
+      const so = document.getElementById('auth-loading-signout');
+      if (so) so.onclick = () => signOut(auth).then(() => location.replace('/index.html'));
+    }
+
+    function showDeniedAccess(reason) {
+      hideAuthLoading();
+      document.getElementById('app')?.classList.add('hidden');
+      document.getElementById('onboarding')?.classList.add('hidden');
+      let box = document.getElementById('no-access');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'no-access';
+        box.className = 'min-h-screen flex items-center justify-center p-6';
+        box.innerHTML = '<div class="card p-6 max-w-md text-center space-y-3"><h1 class="font-semibold text-lg">No business access</h1><p class="text-sm text-slate-500" id="no-access-msg"></p><button type="button" id="no-access-signout" class="btn btn-secondary btn-block">Sign out</button></div>';
+        document.body.appendChild(box);
+        document.getElementById('no-access-signout').onclick = () => signOut(auth);
+      }
+      document.getElementById('no-access-msg').textContent = reason || 'This account is not linked to a business.';
+      box.classList.remove('hidden');
+    }
+
+    async function resolveOwnerDashboard(user, session) {
+      userContext = {
+        isOwner: true,
+        accessRole: 'owner',
+        permissions: (session && session.permissions) || []
+      };
+      tenantId = user.uid;
+      document.getElementById('greeting').textContent = greeting();
+      document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
+      const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
+      if (!snap.exists()) {
+        const emailEl = document.getElementById('ob-email');
+        if (emailEl) emailEl.value = user.email || '';
+        showOnboarding();
+        return;
+      }
+      settings = snap.data();
+      enterApp();
+      applyRoleUi();
+    }
+
     onAuthStateChanged(auth, async (user) => {
       if (!user) { location.replace('/index.html'); return; }
       document.getElementById('app')?.classList.add('hidden');
       document.getElementById('onboarding')?.classList.add('hidden');
-      document.getElementById('auth-loading')?.classList.remove('hidden');
+      document.getElementById('no-access')?.classList.add('hidden');
+      showAuthLoadingBusy('Loading…');
+
+      const SESSION_MS = 20000;
       try {
         const idToken = await user.getIdToken();
-        const res = await fetch('/api/business', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'resolveSession', idToken })
-        });
-        const session = await res.json();
-        if (!res.ok) throw new Error(session.error || 'Session failed');
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = controller ? setTimeout(() => controller.abort(), SESSION_MS) : null;
+        let res, session;
+        try {
+          res = await fetch('/api/business', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'resolveSession', idToken }),
+            signal: controller ? controller.signal : undefined
+          });
+          session = await res.json().catch(() => ({}));
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+
+        if (!res.ok) {
+          // Fall through to client owner onboarding path when API is misconfigured
+          throw new Error(session.error || ('Session failed (' + res.status + ')'));
+        }
 
         if (session.denied) {
-          document.getElementById('app')?.classList.add('hidden');
-          document.getElementById('onboarding')?.classList.add('hidden');
-          let box = document.getElementById('no-access');
-          if (!box) {
-            box = document.createElement('div');
-            box.id = 'no-access';
-            box.className = 'min-h-screen flex items-center justify-center p-6';
-            box.innerHTML = '<div class="card p-6 max-w-md text-center space-y-3"><h1 class="font-semibold text-lg">No business access</h1><p class="text-sm text-slate-500" id="no-access-msg"></p><button type="button" id="no-access-signout" class="btn btn-secondary btn-block">Sign out</button></div>';
-            document.body.appendChild(box);
-            document.getElementById('no-access-signout').onclick = () => signOut(auth);
-          }
-          document.getElementById('no-access-msg').textContent = session.reason || 'This account is not linked to a business.';
-          box.classList.remove('hidden');
+          showDeniedAccess(session.reason || 'This account is not linked to a business.');
           return;
         }
 
@@ -1152,42 +1234,32 @@
           // Manager: limited owner dashboard
           document.getElementById('greeting').textContent = greeting() + (session.staffName ? ' · ' + session.staffName : '');
           document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
-          const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
-          settings = snap.exists() ? snap.data() : {};
+          try {
+            const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
+            settings = snap.exists() ? snap.data() : {};
+          } catch (ge) {
+            settings = {};
+          }
           enterApp();
           applyRoleUi();
           return;
         }
 
-        // Owner
-        userContext = { isOwner: true, accessRole: 'owner', permissions: session.permissions || [] };
-        tenantId = user.uid;
-        document.getElementById('greeting').textContent = greeting();
-        document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
-        const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
-        if (!snap.exists()) {
-          document.getElementById('ob-email').value = user.email || '';
-          showOnboarding();
-          return;
-        }
-        settings = snap.data();
-        enterApp();
-        applyRoleUi();
+        // Owner (including provisional / needsOnboarding)
+        await resolveOwnerDashboard(user, session);
       } catch (e) {
         console.error(e);
-        // Fallback: legacy owner path if API unavailable
-        tenantId = user.uid;
-        document.getElementById('greeting').textContent = greeting();
-        document.getElementById('booking-link').value = location.origin + '/booking.html?tenant=' + tenantId;
-        const snap = await getDoc(doc(db, 'tenants', tenantId, 'settings', 'config'));
-        if (!snap.exists()) {
-          document.getElementById('ob-email').value = user.email || '';
-          showOnboarding();
-          return;
+        // Fallback: treat as owner by uid so new accounts can still onboard offline from API failures
+        try {
+          await resolveOwnerDashboard(user, { permissions: [] });
+        } catch (e2) {
+          console.error(e2);
+          showSessionError(
+            (e && e.message ? e.message + '. ' : '') +
+            (e2 && e2.message ? e2.message : '') +
+            ' If this continues, hard-refresh the page or clear site data, then try again.'
+          );
         }
-        settings = snap.data();
-        enterApp();
-        applyRoleUi();
       }
     });
 
@@ -1273,6 +1345,8 @@
     }
 
     function showOnboarding() {
+      hideAuthLoading();
+      document.getElementById('app')?.classList.add('hidden');
       document.getElementById('onboarding').classList.remove('hidden');
       renderObDots();
       renderObHours(getDefaultOperatingHours());

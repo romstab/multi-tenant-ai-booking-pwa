@@ -1,3 +1,3 @@
 BookAI v2.6.3-release
-Batch 31 final release readiness
-SW cache: bookai-static-v12 (no bump — API/HTML changes; use Update bar or hard refresh after deploy)
+Batch 31 + session loading fix (provisional owner + auth-loading never stuck)
+SW cache: bookai-static-v13

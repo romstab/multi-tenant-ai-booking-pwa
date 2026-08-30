@@ -3,7 +3,7 @@
  * Classic script (not module). Safe to include on all public/auth pages.
  */
 (function () {
-  const VERSION = '2.6.0-pwa';
+  const VERSION = '2.6.3-release';
   window.BOOKAI_VERSION = VERSION;
 
   function isStandalone() {
