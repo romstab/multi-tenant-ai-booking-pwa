@@ -1,9 +1,13 @@
+/** CREATE-BOOKING-RUNTIME-TRACE-3 — zero startMin identifiers; fingerprint on every response */
 
 function makeManageToken() {
   return require('crypto').randomBytes(24).toString('hex');
 }
-function makeBookingRef() {
-  return 'BK-' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
+function makeBookingRef(dateStr) {
+  const d = (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr))
+    ? dateStr.replace(/-/g, '')
+    : new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  return 'BK-' + d + '-' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
 }
 /**
  * POST /api/create-booking
@@ -39,6 +43,18 @@ function initAdmin() {
     return false;
   }
 }
+
+const SERVER_BUILD = 'CREATE-BOOKING-RUNTIME-TRACE-3';
+const DEPLOY_VERSION = '2.6.4-runtime-trace-3';
+function runtimeMeta(requestId) {
+  return {
+    serverBuild: SERVER_BUILD,
+    deployVersion: DEPLOY_VERSION,
+    commitSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_REF || 'local',
+    requestId: requestId || null
+  };
+}
+
 
 function timeToMinutes(t) {
   if (!t) return 0;
@@ -386,18 +402,18 @@ function getActiveAppointments(list) {
   });
 }
 
-function overlapsAny(startMin, endMin, appointments, bufferMinutes) {
+function overlapsAny(fromMin, toMin, appointments, bufferMinutes) {
   const buf = bufferMinutes || 0;
   for (let i = 0; i < appointments.length; i++) {
     const a = appointments[i];
     const es = timeToMinutes(a.startTime) - buf;
     const ee = timeToMinutes(a.endTime) + buf;
-    if (hasConflict(startMin, endMin, es, ee)) return true;
+    if (hasConflict(fromMin, toMin, es, ee)) return true;
   }
   return false;
 }
 
-function overlapsBlocks(startMin, endMin, blocks, dateStr) {
+function overlapsBlocks(fromMin, toMin, blocks, dateStr) {
   for (let i = 0; i < (blocks || []).length; i++) {
     const b = blocks[i];
     if (b.status === 'inactive') continue;
@@ -405,7 +421,7 @@ function overlapsBlocks(startMin, endMin, blocks, dateStr) {
     if (b.allDay) return true;
     const bs = timeToMinutes(b.startTime);
     const be = timeToMinutes(b.endTime);
-    if (hasConflict(startMin, endMin, bs, be)) return true;
+    if (hasConflict(fromMin, toMin, bs, be)) return true;
   }
   return false;
 }
@@ -438,14 +454,14 @@ function generateSlots(date, durationMinutes, operatingHours, appointments, bloc
   return slots;
 }
 
-function overlapsStaffBreaks(startMin, endMin, breaks) {
+function overlapsStaffBreaks(fromMin, toMin, breaks) {
   for (let i = 0; i < (breaks || []).length; i++) {
     const b = breaks[i];
     if (!b || !b.start || !b.end) continue;
     const bs = timeToMinutes(b.start);
     const be = timeToMinutes(b.end);
     if (be <= bs) continue;
-    if (hasConflict(startMin, endMin, bs, be)) return true;
+    if (hasConflict(fromMin, toMin, bs, be)) return true;
   }
   return false;
 }
@@ -464,7 +480,7 @@ function getStaffBreaksForDate(staff, dateStr) {
  * timeOff records: { staffId, startDate, endDate, startTime?, endTime?, type }
  * Full day if startTime/endTime missing.
  */
-function isStaffOnTimeOff(timeOffList, staffId, dateStr, startMin, endMin) {
+function isStaffOnTimeOff(timeOffList, staffId, dateStr, fromMin, toMin) {
   const list = timeOffList || [];
   for (let i = 0; i < list.length; i++) {
     const to = list[i];
@@ -479,7 +495,7 @@ function isStaffOnTimeOff(timeOffList, staffId, dateStr, startMin, endMin) {
     const ts = to.startTime ? timeToMinutes(to.startTime) : 0;
     const te = to.endTime ? timeToMinutes(to.endTime) : 24 * 60;
     if (te <= ts) return true; // treat invalid as full day
-    if (hasConflict(startMin, endMin, ts, te)) return true;
+    if (hasConflict(fromMin, toMin, ts, te)) return true;
   }
   return false;
 }
@@ -522,17 +538,17 @@ async function loadActiveStaff(db, tenantId) {
   return list.filter(function (s) { return s.active !== false; });
 }
 
-function staffWorksAt(staff, dateStr, startMin, endMin, timeOffList) {
+function staffWorksAt(staff, dateStr, fromMin, toMin, timeOffList) {
   if (!staff || staff.active === false) return false;
-  if (isStaffOnTimeOff(timeOffList, staff.id, dateStr, startMin, endMin)) return false;
+  if (isStaffOnTimeOff(timeOffList, staff.id, dateStr, fromMin, toMin)) return false;
   const weekday = getWeekdayKey(dateStr);
   const sd = staff.workingHours && staff.workingHours[weekday];
   if (sd) {
     if (sd.enabled === false || sd.closed === true) return false;
-    if (sd.open && startMin < timeToMinutes(sd.open)) return false;
-    if (sd.close && endMin > timeToMinutes(sd.close)) return false;
+    if (sd.open && fromMin < timeToMinutes(sd.open)) return false;
+    if (sd.close && toMin > timeToMinutes(sd.close)) return false;
   }
-  if (overlapsStaffBreaks(startMin, endMin, getStaffBreaksForDate(staff, dateStr))) return false;
+  if (overlapsStaffBreaks(fromMin, toMin, getStaffBreaksForDate(staff, dateStr))) return false;
   return true;
 }
 
@@ -549,16 +565,16 @@ function countStaffUpcomingLoad(appointments, staffId, fromDateStr) {
 }
 
 /** Balanced auto-assign: fewest day load, then upcoming, then name/id. */
-function pickStaffForSlot(eligibleStaff, appointments, dateStr, startMin, endMin, buffer, serviceId, timeOffList) {
+function pickStaffForSlot(eligibleStaff, appointments, dateStr, fromMin, toMin, buffer, serviceId, timeOffList) {
   const candidates = [];
   for (let i = 0; i < eligibleStaff.length; i++) {
     const st = eligibleStaff[i];
     if (!staffCanDoService(st, serviceId)) continue;
-    if (!staffWorksAt(st, dateStr, startMin, endMin, timeOffList)) continue;
+    if (!staffWorksAt(st, dateStr, fromMin, toMin, timeOffList)) continue;
     const staffAppts = getActiveAppointments(appointments.filter(function (a) {
       return a.staffId === st.id;
     }));
-    if (overlapsAny(startMin, endMin, staffAppts, buffer)) continue;
+    if (overlapsAny(fromMin, toMin, staffAppts, buffer)) continue;
     candidates.push(st);
   }
   if (!candidates.length) return null;
@@ -604,17 +620,46 @@ const ALLOWED_STATUS = {
 };
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // --- DEPLOYMENT FINGERPRINT (runs before any booking logic) ---
+  const requestId = 'req_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  try {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-BookAI-Probe');
+    res.setHeader('X-BookAI-Server-Build', SERVER_BUILD);
+    res.setHeader('X-BookAI-Request-Id', requestId);
+  } catch (_) {}
 
   if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Source probe: proves THIS file is executing. Does not create bookings.
+  // POST { "action": "__probe" }  OR  header X-BookAI-Probe: 1
+  const probeBody = (req.body && typeof req.body === 'object') ? req.body : {};
+  const isProbe =
+    probeBody.action === '__probe' ||
+    req.headers['x-bookai-probe'] === '1' ||
+    (req.method === 'GET');
+  if (isProbe && (probeBody.action === '__probe' || req.headers['x-bookai-probe'] === '1' || req.method === 'GET')) {
+    // GET on this route also returns probe (safe) so browser can open it
+    if (req.method === 'GET' || probeBody.action === '__probe' || req.headers['x-bookai-probe'] === '1') {
+      return res.status(200).json(Object.assign({
+        ok: true,
+        probe: 'CREATE-BOOKING-SOURCE-PROBE-ONLY',
+        message: 'This response proves api/create-booking.js TRACE-3 is the live function.'
+      }, runtimeMeta(requestId)));
+    }
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json(Object.assign({ error: 'Method not allowed' }, runtimeMeta(requestId)));
+  }
 
   if (!initAdmin()) {
-    return res.status(500).json({
-      error: 'Server booking not configured. Check Firebase Admin env vars on Vercel.'
-    });
+    return res.status(500).json(Object.assign({
+      ok: false,
+      error: 'Server booking not configured. Check Firebase Admin env vars on Vercel.',
+      message: 'Server booking not configured. Check Firebase Admin env vars on Vercel.'
+    }, runtimeMeta(requestId)));
   }
 
   const db = admin.firestore();
@@ -622,6 +667,13 @@ module.exports = async function handler(req, res) {
   const action = body.action || 'create';
 
   try {
+    console.log('[CREATE_BOOKING_RUNTIME]', {
+      requestId,
+      serverBuild: SERVER_BUILD,
+      commitSha: process.env.VERCEL_GIT_COMMIT_SHA || 'local',
+      action
+    });
+
     // ---------- resolveHandle ----------
     if (action === 'resolveHandle') {
       const handle = String(body.handle || '').toLowerCase().trim();
@@ -820,9 +872,21 @@ module.exports = async function handler(req, res) {
 
     // ---------- create (public online booking) ----------
     if (action === 'create') {
-      // Honeypot: bots fill hidden field
-      if (body.website || body.company_url || body.hp_field) {
-        return res.status(200).json({ success: true, appointmentId: 'ok', message: 'Booking recorded' });
+      // Honeypot: only treat as bot when a honeypot field is NON-EMPTY (after trim).
+      // IMPORTANT: never return appointmentId/bookingRef that a real client would accept.
+      // Browser autofill can fill name="website" — clients must still require a real BK- reference.
+      const hpVal = String(body.website || body.company_url || body.hp_field || body.bk_hp || '').trim();
+      if (hpVal) {
+        return res.status(200).json(Object.assign({
+          ok: false,
+          success: false,
+          stage: 'honeypot',
+          error: 'Rejected',
+          message: 'Could not complete booking. Please try again.',
+          appointmentId: null,
+          bookingId: null,
+          bookingRef: null
+        }, runtimeMeta(typeof requestId !== 'undefined' ? requestId : null)));
       }
 
       const tenantId = body.tenantId;
@@ -838,7 +902,12 @@ module.exports = async function handler(req, res) {
       const idempotencyKey = body.idempotencyKey ? sanitizeIdempotencyKey(body.idempotencyKey) : null;
 
       if (!tenantId || !serviceId || !date || !startTime || !customerName || !customerEmail) {
-        return res.status(400).json({ error: 'Missing required booking fields' });
+        return res.status(400).json({
+          ok: false,
+          stage: 'validate-fields',
+          error: 'Missing required booking fields',
+          message: 'Missing required booking fields'
+        });
       }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return res.status(400).json({ error: 'Invalid date' });
@@ -867,6 +936,13 @@ module.exports = async function handler(req, res) {
       const appointmentsCol = db.collection('tenants/' + tenantId + '/appointments');
       const timeOffForDay = await loadStaffTimeOffForDate(db, tenantId, date);
       const specialForCreate = await loadSpecialHoursForDate(db, tenantId, date);
+      // Pre-load staff outside the transaction (non-tx reads inside runTransaction are unsafe)
+      const staffSnapPre = await db.collection('tenants/' + tenantId + '/staff').limit(100).get();
+      const allStaffPre = [];
+      staffSnapPre.forEach(function (d) {
+        allStaffPre.push(Object.assign({ id: d.id }, d.data()));
+      });
+      const activeStaffPre = allStaffPre.filter(function (s) { return s.active !== false; });
 
       const result = await db.runTransaction(async (tx) => {
         // Idempotency inside transaction (atomic with create)
@@ -874,11 +950,13 @@ module.exports = async function handler(req, res) {
           const idempRef = db.doc('tenants/' + tenantId + '/idempotency/' + idempotencyKey);
           const idempSnap = await tx.get(idempRef);
           if (idempSnap.exists) {
-            const prev = idempSnap.data();
+            const prev = idempSnap.data() || {};
             return {
-              id: prev.appointmentId,
-              bookingId: prev.bookingId,
-              status: prev.status,
+              id: prev.appointmentId || null,
+              bookingId: prev.bookingId || null,
+              bookingRef: prev.bookingRef || null,
+              manageToken: prev.manageToken || null,
+              status: prev.status || 'confirmed',
               price: 0,
               duplicate: true
             };
@@ -908,14 +986,6 @@ module.exports = async function handler(req, res) {
           err.status = 403;
           throw err;
         }
-        // Enforce booking within effective business hours
-        const bizOpen = timeToMinutes(dayHoursCreate.open);
-        const bizClose = timeToMinutes(dayHoursCreate.close);
-        if (startMin < bizOpen || reqEndMin > bizClose) {
-          const err = new Error('Selected time is outside business hours for this date.');
-          err.status = 409;
-          throw err;
-        }
 
         const serviceSnap = await tx.get(serviceRef);
         if (!serviceSnap.exists || serviceSnap.data().active === false) {
@@ -928,22 +998,33 @@ module.exports = async function handler(req, res) {
         const price = Number(service.price || 0);
         const buffer = (settings.bookingRules && settings.bookingRules.bufferMinutes) || 0;
 
-        const startMin = timeToMinutes(startTime);
-        const finalEnd = endTime || minutesToTime(startMin + duration);
-        const reqEndMin = timeToMinutes(finalEnd);
+        // BOOKING-FIX-FINAL-1: declare ALL slot minute values BEFORE any comparison (no TDZ).
+        const slotDurationMin = Number(duration) || 30;
+        const slotStartMin = timeToMinutes(startTime);
+        if (!Number.isFinite(slotStartMin)) {
+          const err = new Error('Invalid start time.');
+          err.status = 400;
+          throw err;
+        }
+        const slotEndTime = endTime || minutesToTime(slotStartMin + slotDurationMin);
+        const slotEndMin = timeToMinutes(slotEndTime);
+        if (!Number.isFinite(slotEndMin) || slotEndMin <= slotStartMin) {
+          const err = new Error('Invalid end time for this service duration.');
+          err.status = 400;
+          throw err;
+        }
 
-        const weekday = getWeekdayKey(date);
-        const day = settings.operatingHours && settings.operatingHours[weekday];
-        if (!day || !day.enabled) {
-          const err = new Error('Business is closed on this day');
-          err.status = 400;
+        // Effective hours for this date only (includes special hours / holidays)
+        const bizOpenMin = timeToMinutes(dayHoursCreate.open);
+        const bizCloseMin = timeToMinutes(dayHoursCreate.close);
+        if (slotStartMin < bizOpenMin || slotEndMin > bizCloseMin) {
+          const err = new Error('Selected time is outside business hours for this date.');
+          err.status = 409;
           throw err;
         }
-        if (startMin < timeToMinutes(day.open) || reqEndMin > timeToMinutes(day.close)) {
-          const err = new Error('Selected time is outside operating hours');
-          err.status = 400;
-          throw err;
-        }
+
+        // Helpers use fromMin/toMin params; create path uses slotStartMin/slotEndMin only.
+        const finalEnd = slotEndTime;
 
         // Booking rules: min advance
         const minAdvance = (settings.bookingRules && settings.bookingRules.minAdvanceHours) || 0;
@@ -957,18 +1038,11 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        // Staff assignment (optional enhancement; legacy tenants have no staff)
+        // Staff assignment (optional; uses preloaded list — legacy tenants have no staff)
         const staffMode = getStaffSelectionMode(settings);
-        const timeOffForDay = await loadStaffTimeOffForDate(db, tenantId, date);
         let assignedStaffId = body.staffId ? String(body.staffId).trim() : '';
         let assignedStaffName = '';
-        const staffCol = db.collection('tenants/' + tenantId + '/staff');
-        const staffSnapAll = await staffCol.limit(100).get();
-        const allStaff = [];
-        staffSnapAll.forEach(function (d) {
-          allStaff.push(Object.assign({ id: d.id }, d.data()));
-        });
-        const activeStaffList = allStaff.filter(function (s) { return s.active !== false; });
+        const activeStaffList = activeStaffPre;
 
         if (activeStaffList.length) {
           if (staffMode === 'required' && !assignedStaffId) {
@@ -983,7 +1057,7 @@ module.exports = async function handler(req, res) {
               err.status = 400;
               throw err;
             }
-            if (!staffWorksAt(st, date, startMin, reqEndMin, timeOffForDay)) {
+            if (!staffWorksAt(st, date, slotStartMin, slotEndMin, timeOffForDay)) {
               const err = new Error('Selected staff is unavailable at this time (hours, break, or time off)');
               err.status = 409;
               throw err;
@@ -1000,7 +1074,7 @@ module.exports = async function handler(req, res) {
         // Smart balanced auto-assign when no specific staff chosen
         if (activeStaffList.length && !assignedStaffId && staffMode !== 'required') {
           const eligible = activeStaffList.filter(function (s) { return staffCanDoService(s, serviceId); });
-          const picked = pickStaffForSlot(eligible, appointments, date, startMin, reqEndMin, buffer, serviceId, timeOffForDay);
+          const picked = pickStaffForSlot(eligible, appointments, date, slotStartMin, slotEndMin, buffer, serviceId, timeOffForDay);
           if (picked) {
             assignedStaffId = picked.id;
             assignedStaffName = picked.name || 'Staff';
@@ -1018,7 +1092,7 @@ module.exports = async function handler(req, res) {
           // Legacy business-level: all appointments conflict
           active = getActiveAppointments(appointments);
         }
-        if (overlapsAny(startMin, reqEndMin, active, buffer)) {
+        if (overlapsAny(slotStartMin, slotEndMin, active, buffer)) {
           const err = new Error('Sorry, this time slot was just booked. Please choose another available time.');
           err.status = 409;
           throw err;
@@ -1029,7 +1103,7 @@ module.exports = async function handler(req, res) {
         const blockSnap = await tx.get(blockQuery);
         const blocks = [];
         blockSnap.forEach(function (d) { blocks.push(d.data()); });
-        if (overlapsBlocks(startMin, reqEndMin, blocks, date)) {
+        if (overlapsBlocks(slotStartMin, slotEndMin, blocks, date)) {
           const err = new Error('This time is blocked by the business.');
           err.status = 409;
           throw err;
@@ -1049,7 +1123,7 @@ module.exports = async function handler(req, res) {
         }
 
         const bookingId = makeBookingId();
-        const bookingRef = makeBookingRef();
+        const bookingRef = makeBookingRef(date);
         const manageToken = makeManageToken();
         const tzOff = (settings.timezoneOffsetMinutes != null) ? Number(settings.timezoneOffsetMinutes) : 480;
         const startLocal = parseBusinessLocalDateTime(date, startTime, tzOff);
@@ -1058,8 +1132,10 @@ module.exports = async function handler(req, res) {
 
         const newRef = appointmentsCol.doc();
         const appointment = {
+          tenantId,
           bookingId,
           bookingRef,
+          bookingReference: bookingRef,
           manageToken,
           paymentMode: 'pay_at_venue',
           statusLabel: 'Confirmed — Pay at Venue',
@@ -1096,6 +1172,7 @@ module.exports = async function handler(req, res) {
             appointmentId: newRef.id,
             bookingId,
             bookingRef,
+            manageToken,
             status,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
           });
@@ -1141,10 +1218,12 @@ module.exports = async function handler(req, res) {
 
       if (result.duplicate) {
         return res.status(200).json({
+          ok: true,
           success: true,
           appointmentId: result.id,
           bookingId: result.bookingId,
           bookingRef,
+          bookingReference: bookingRef,
           status: result.status,
           message: 'Booking already recorded',
           duplicate: true
@@ -1155,17 +1234,28 @@ module.exports = async function handler(req, res) {
         ? ('/manage-booking.html?tenant=' + encodeURIComponent(tenantId) + '&ref=' + encodeURIComponent(bookingRef || '') + '&token=' + encodeURIComponent(manageToken))
         : null;
 
-      return res.status(201).json({
+      if (!result.id || !bookingRef) {
+        return res.status(500).json({
+          ok: false,
+          stage: 'post-write',
+          error: 'Booking write did not return a reference',
+          message: 'Booking could not be confirmed. Please try again.'
+        });
+      }
+
+      return res.status(201).json(Object.assign({
+        ok: true,
         success: true,
         appointmentId: result.id,
-        bookingId: result.bookingId,
+        bookingId: result.bookingId || result.id,
         bookingRef,
+        bookingReference: bookingRef,
         manageToken,
         manageUrl,
-        status: result.status,
+        status: result.status || 'confirmed',
         paymentMode: 'pay_at_venue',
         message: 'Booking confirmed — Pay at Venue'
-      });
+      }, runtimeMeta(typeof requestId !== 'undefined' ? requestId : null)));
     }
 
     // ---------- walkIn (owner) ----------
@@ -1194,9 +1284,9 @@ module.exports = async function handler(req, res) {
       if (!serviceSnap.exists) return res.status(404).json({ error: 'Service not found' });
       const service = serviceSnap.data();
       const duration = body.duration ? Number(body.duration) : (service.duration || 30);
-      const startMin = timeToMinutes(startTime);
-      const endTime = minutesToTime(startMin + duration);
-      const endMin = startMin + duration;
+      const wiStartMin = timeToMinutes(startTime);
+      const endTime = minutesToTime(wiStartMin + duration);
+      const wiEndMin = wiStartMin + duration;
       const buffer = (settings.bookingRules && settings.bookingRules.bufferMinutes) || 0;
       const timeOffForDay = await loadStaffTimeOffForDate(db, tenantId, date);
       const specialForWalkIn = await loadSpecialHoursForDate(db, tenantId, date);
@@ -1204,7 +1294,7 @@ module.exports = async function handler(req, res) {
       if (dayHoursWi.closed) {
         return res.status(403).json({ error: dayHoursWi.reason || 'Business is closed on this date.' });
       }
-      if (startMin < timeToMinutes(dayHoursWi.open) || endMin > timeToMinutes(dayHoursWi.close)) {
+      if (wiStartMin < timeToMinutes(dayHoursWi.open) || wiEndMin > timeToMinutes(dayHoursWi.close)) {
         return res.status(409).json({ error: 'Walk-in time is outside business hours for this date.' });
       }
 
@@ -1216,7 +1306,7 @@ module.exports = async function handler(req, res) {
         const blockSnap = await tx.get(db.collection('tenants/' + tenantId + '/blockedSlots').where('date', '==', date));
         const blocks = [];
         blockSnap.forEach(function (d) { blocks.push(d.data()); });
-        if (overlapsBlocks(startMin, endMin, blocks, date)) {
+        if (overlapsBlocks(wiStartMin, wiEndMin, blocks, date)) {
           const err = new Error('This time is blocked.');
           err.status = 409;
           throw err;
@@ -1241,13 +1331,13 @@ module.exports = async function handler(req, res) {
               err.status = 400;
               throw err;
             }
-            if (!staffWorksAt(st, date, startMin, endMin, timeOffForDay)) {
+            if (!staffWorksAt(st, date, wiStartMin, wiEndMin, timeOffForDay)) {
               const err = new Error('Selected staff is not working at this time');
               err.status = 409;
               throw err;
             }
             const staffAppts = getActiveAppointments(appointments.filter(function (a) { return a.staffId === assignedStaffId; }));
-            if (overlapsAny(startMin, endMin, staffAppts, buffer)) {
+            if (overlapsAny(wiStartMin, wiEndMin, staffAppts, buffer)) {
               const err = new Error('Selected staff already has an appointment at this time');
               err.status = 409;
               throw err;
@@ -1255,7 +1345,7 @@ module.exports = async function handler(req, res) {
             assignedStaffName = st.name || 'Staff';
           } else {
             const eligible = activeStaffList.filter(function (s) { return staffCanDoService(s, serviceId); });
-            const picked = pickStaffForSlot(eligible, appointments, date, startMin, endMin, buffer, serviceId, timeOffForDay);
+            const picked = pickStaffForSlot(eligible, appointments, date, wiStartMin, wiEndMin, buffer, serviceId, timeOffForDay);
             if (picked) {
               assignedStaffId = picked.id;
               assignedStaffName = picked.name || 'Staff';
@@ -1269,7 +1359,7 @@ module.exports = async function handler(req, res) {
 
         // Legacy conflict when no staff system
         if (!activeStaffList.length) {
-          if (overlapsAny(startMin, endMin, getActiveAppointments(appointments), buffer)) {
+          if (overlapsAny(wiStartMin, wiEndMin, getActiveAppointments(appointments), buffer)) {
             const err = new Error('This time conflicts with an existing appointment.');
             err.status = 409;
             throw err;
@@ -1701,19 +1791,19 @@ module.exports = async function handler(req, res) {
       }
       if (!duration) duration = 30;
       const buffer = (settings.bookingRules && settings.bookingRules.bufferMinutes) || 0;
-      const startMin = timeToMinutes(newStartTime);
-      const endMin = startMin + duration;
+      const rsStartMin = timeToMinutes(newStartTime);
+      const rsEndMin = rsStartMin + duration;
       const newEndTime = minutesToTime(endMin);
 
       // Validate against effective business hours (weekly or special)
       const openMin = timeToMinutes(dayHoursRs.open);
       const closeMin = timeToMinutes(dayHoursRs.close);
-      if (startMin < openMin || endMin > closeMin) {
+      if (rsStartMin < openMin || rsEndMin > closeMin) {
         return res.status(409).json({ error: 'Selected time is outside business hours' });
       }
 
       const blocks = await loadBlocksForDate(db, tenantId, newDate);
-      if (overlapsBlocks(startMin, endMin, blocks, newDate)) {
+      if (overlapsBlocks(rsStartMin, rsEndMin, blocks, newDate)) {
         return res.status(409).json({ error: 'Selected time is blocked' });
       }
 
@@ -1748,7 +1838,7 @@ module.exports = async function handler(req, res) {
             others.push(Object.assign({ id: d.id }, d.data()));
           });
           const active = getActiveAppointments(others);
-          if (overlapsAny(startMin, endMin, active, buffer)) {
+          if (overlapsAny(rsStartMin, rsEndMin, active, buffer)) {
             const err = new Error('That time is no longer available. Please choose another slot.');
             err.status = 409;
             throw err;
@@ -1819,6 +1909,12 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     console.error('create-booking error:', err);
     const status = err.status || 500;
-    return res.status(status).json({ error: err.message || 'Internal server error' });
+    const rid = (typeof requestId !== 'undefined') ? requestId : null;
+    return res.status(status).json(Object.assign({
+      ok: false,
+      stage: err.stage || 'server',
+      error: err.message || 'Internal server error',
+      message: err.message || 'Internal server error'
+    }, runtimeMeta(rid)));
   }
 };
