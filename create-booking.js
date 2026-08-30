@@ -2,8 +2,11 @@
 function makeManageToken() {
   return require('crypto').randomBytes(24).toString('hex');
 }
-function makeBookingRef() {
-  return 'BK-' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
+function makeBookingRef(dateStr) {
+  const d = (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr))
+    ? dateStr.replace(/-/g, '')
+    : new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  return 'BK-' + d + '-' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
 }
 /**
  * POST /api/create-booking
@@ -820,9 +823,21 @@ module.exports = async function handler(req, res) {
 
     // ---------- create (public online booking) ----------
     if (action === 'create') {
-      // Honeypot: bots fill hidden field
-      if (body.website || body.company_url || body.hp_field) {
-        return res.status(200).json({ success: true, appointmentId: 'ok', message: 'Booking recorded' });
+      // Honeypot: only treat as bot when a honeypot field is NON-EMPTY (after trim).
+      // IMPORTANT: never return appointmentId/bookingRef that a real client would accept.
+      // Browser autofill can fill name="website" — clients must still require a real BK- reference.
+      const hpVal = String(body.website || body.company_url || body.hp_field || body.bk_hp || '').trim();
+      if (hpVal) {
+        return res.status(200).json({
+          ok: false,
+          success: false,
+          stage: 'honeypot',
+          error: 'Rejected',
+          message: 'Could not complete booking. Please try again.',
+          appointmentId: null,
+          bookingId: null,
+          bookingRef: null
+        });
       }
 
       const tenantId = body.tenantId;
@@ -886,11 +901,13 @@ module.exports = async function handler(req, res) {
           const idempRef = db.doc('tenants/' + tenantId + '/idempotency/' + idempotencyKey);
           const idempSnap = await tx.get(idempRef);
           if (idempSnap.exists) {
-            const prev = idempSnap.data();
+            const prev = idempSnap.data() || {};
             return {
-              id: prev.appointmentId,
-              bookingId: prev.bookingId,
-              status: prev.status,
+              id: prev.appointmentId || null,
+              bookingId: prev.bookingId || null,
+              bookingRef: prev.bookingRef || null,
+              manageToken: prev.manageToken || null,
+              status: prev.status || 'confirmed',
               price: 0,
               duplicate: true
             };
@@ -1043,7 +1060,7 @@ module.exports = async function handler(req, res) {
         }
 
         const bookingId = makeBookingId();
-        const bookingRef = makeBookingRef();
+        const bookingRef = makeBookingRef(date);
         const manageToken = makeManageToken();
         const tzOff = (settings.timezoneOffsetMinutes != null) ? Number(settings.timezoneOffsetMinutes) : 480;
         const startLocal = parseBusinessLocalDateTime(date, startTime, tzOff);
@@ -1052,8 +1069,10 @@ module.exports = async function handler(req, res) {
 
         const newRef = appointmentsCol.doc();
         const appointment = {
+          tenantId,
           bookingId,
           bookingRef,
+          bookingReference: bookingRef,
           manageToken,
           paymentMode: 'pay_at_venue',
           statusLabel: 'Confirmed — Pay at Venue',
@@ -1090,6 +1109,7 @@ module.exports = async function handler(req, res) {
             appointmentId: newRef.id,
             bookingId,
             bookingRef,
+            manageToken,
             status,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
           });
@@ -1135,10 +1155,12 @@ module.exports = async function handler(req, res) {
 
       if (result.duplicate) {
         return res.status(200).json({
+          ok: true,
           success: true,
           appointmentId: result.id,
           bookingId: result.bookingId,
           bookingRef,
+          bookingReference: bookingRef,
           status: result.status,
           message: 'Booking already recorded',
           duplicate: true
@@ -1149,15 +1171,25 @@ module.exports = async function handler(req, res) {
         ? ('/manage-booking.html?tenant=' + encodeURIComponent(tenantId) + '&ref=' + encodeURIComponent(bookingRef || '') + '&token=' + encodeURIComponent(manageToken))
         : null;
 
+      if (!result.id || !bookingRef) {
+        return res.status(500).json({
+          ok: false,
+          stage: 'post-write',
+          error: 'Booking write did not return a reference',
+          message: 'Booking could not be confirmed. Please try again.'
+        });
+      }
+
       return res.status(201).json({
         ok: true,
         success: true,
         appointmentId: result.id,
-        bookingId: result.bookingId,
+        bookingId: result.bookingId || result.id,
         bookingRef,
+        bookingReference: bookingRef,
         manageToken,
         manageUrl,
-        status: result.status,
+        status: result.status || 'confirmed',
         paymentMode: 'pay_at_venue',
         message: 'Booking confirmed — Pay at Venue'
       });

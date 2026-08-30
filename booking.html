@@ -142,7 +142,7 @@
         <div class="space-y-3 mt-4">
           <div>
             <label for="cust-name" class="bk-label">Full name <span class="bk-req">*</span></label>
-            <input id="hp_field" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;height:0;width:0;opacity:0" aria-hidden="true" value="" />
+            <input id="hp_field" name="bk_hp_x9f2" tabindex="-1" autocomplete="new-password" style="position:absolute;left:-9999px;height:0;width:0;opacity:0;pointer-events:none" aria-hidden="true" value="" />
             <input id="cust-name" required class="bk-input" autocomplete="name" placeholder="Your full name" />
             <p id="err-cust-name" class="bk-field-error hidden"></p>
           </div>
@@ -178,7 +178,7 @@
           </ul>
         </div>
         <p id="confirm-hint" class="bk-muted text-sm text-center mb-3">Select a service, date, and time to continue.</p>
-        <p id="booking-debug-build" class="text-xs text-center mb-2" style="color:#64748b;font-family:ui-monospace,monospace;">Booking Debug Build: CONFIRM-TRACE-2</p>
+        <p id="booking-debug-build" class="text-xs text-center mb-2" style="color:#64748b;font-family:ui-monospace,monospace;">Booking Debug Build: CONFIRM-TRACE-3</p>
         <button id="btn-confirm" disabled type="button" class="bk-btn bk-btn-primary bk-btn-block">
           Confirm booking
         </button>
@@ -1386,7 +1386,8 @@
           customerEmail: email,
           customerPhone: phone,
           notes,
-          website: hp || '',
+          website: '',
+          bk_hp: hp || '',
           idempotencyKey: window.__bookingIdempotencyKey
         };
 
@@ -1435,10 +1436,22 @@
           throw new Error((data.message || data.error || ('HTTP ' + res.status)) + stage);
         }
 
+        // Require a real booking reference — never show "ok" / true / empty as a reference
+        const refRaw = String(
+          data.bookingReference || data.bookingRef || data.bookingId || ''
+        ).trim();
+        const apptId = String(data.appointmentId || data.bookingId || '').trim();
+        const isValidRef = /^BK-[A-Z0-9-]{6,}$/i.test(refRaw) && refRaw.toLowerCase() !== 'ok';
+        if (!isValidRef || !apptId || apptId.toLowerCase() === 'ok') {
+          throw new Error(
+            'Server did not return a valid booking reference. The booking may not have been saved. Please try again.'
+          );
+        }
+
         bookingStage = 'Success';
         setBookingStatus('Booking confirmed successfully.', 'ok');
 
-        const bid = data.bookingId || data.appointmentId || '';
+        const bid = refRaw;
         const sd = document.getElementById('success-details');
         if (sd) {
           sd.textContent =
@@ -1447,7 +1460,7 @@
             '. Status: ' + (data.status || 'confirmed') + '.';
         }
         const idEl = document.getElementById('success-booking-id');
-        if (idEl) idEl.textContent = (data.bookingRef || bid) || '—';
+        if (idEl) idEl.textContent = refRaw;
         const manageEl = document.getElementById('manage-link');
         if (manageEl && data.manageUrl) {
           manageEl.href = data.manageUrl;
