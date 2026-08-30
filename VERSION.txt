@@ -1,3 +1,3 @@
 BookAI v2.6.3-release
-Session boot hardening: getDoc timeout, 22s watchdog, API error object handling, null-safe enterApp
-SW cache: bookai-static-v14
+Auth gate fix: style.display controller (no Tailwind flex/hidden conflict); single session router; terminal-state watchdog
+SW cache: bookai-static-v15

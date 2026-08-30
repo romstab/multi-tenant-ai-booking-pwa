@@ -17,47 +17,82 @@
     <button type="button" id="btn-sw-update" class="underline">Refresh</button>
   </div>
 
-<div id="auth-loading" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-6">
+<div id="auth-loading" style="display:flex;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;padding:1.5rem;background:rgba(15,23,42,0.92);">
     <div class="text-center text-white max-w-sm w-full">
-      <p id="auth-loading-version" class="text-xs text-white/50 mb-4">BookAI</p>
-      <div id="auth-loading-spinner" class="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
+      <p id="auth-loading-version" class="text-xs text-white/50 mb-2">BookAI</p>
+      <p id="auth-loading-stage" class="text-[11px] text-white/40 mb-4 font-mono">Starting…</p>
+      <div id="auth-loading-spinner" style="display:block;width:2.5rem;height:2.5rem;margin:0 auto 0.75rem;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:9999px;animation:bookai-spin 0.8s linear infinite;"></div>
       <p id="auth-loading-msg" class="text-sm">Loading…</p>
-      <div id="auth-loading-error" class="hidden mt-4 space-y-3 text-left">
+      <div id="auth-loading-error" style="display:none;margin-top:1rem;text-align:left;">
         <p id="auth-loading-error-text" class="text-sm text-red-200 bg-red-950/40 border border-red-500/30 rounded-lg p-3"></p>
-        <button type="button" id="auth-loading-retry" class="btn btn-primary btn-block min-h-[44px]">Retry</button>
-        <button type="button" id="auth-loading-signout" class="btn btn-secondary btn-block min-h-[44px]">Sign out</button>
+        <button type="button" id="auth-loading-retry" class="btn btn-primary btn-block min-h-[44px]" style="margin-top:0.75rem">Retry</button>
+        <button type="button" id="auth-loading-signout" class="btn btn-secondary btn-block min-h-[44px]" style="margin-top:0.5rem">Sign out</button>
       </div>
     </div>
   </div>
+  <style>@keyframes bookai-spin{to{transform:rotate(360deg)}}</style>
 
   
 <script>
-/* Boot watchdog: if module never finishes session bootstrap, surface error (never infinite Loading) */
+<script>
+/* Unified auth gate + watchdog — visibility via style.display only (not Tailwind flex/hidden) */
 (function () {
-  window.__BOOKAI_BOOT__ = { t0: Date.now(), stage: 'html', ok: false };
-  function forceError(msg) {
-    if (window.__BOOKAI_BOOT__.ok) return;
+  window.__BOOKAI_GATE__ = { terminal: false, stage: 'html', t0: Date.now() };
+  window.__BOOKAI_BOOT__ = window.__BOOKAI_GATE__; // back-compat
+
+  window.__bookaiSetGate = function (mode, opts) {
+    opts = opts || {};
     var el = document.getElementById('auth-loading');
-    if (!el || el.classList.contains('hidden')) return;
+    if (!el) return;
     var spin = document.getElementById('auth-loading-spinner');
-    if (spin) spin.classList.add('hidden');
-    var m = document.getElementById('auth-loading-msg');
-    if (m) m.textContent = 'Could not open your business';
-    var box = document.getElementById('auth-loading-error');
-    if (box) box.classList.remove('hidden');
-    var t = document.getElementById('auth-loading-error-text');
-    if (t) t.textContent = msg || 'Startup timed out. Check your connection, then tap Retry.';
-    var retry = document.getElementById('auth-loading-retry');
-    if (retry) retry.onclick = function () { location.reload(); };
-    var so = document.getElementById('auth-loading-signout');
-    if (so) so.onclick = function () { location.replace('/index.html'); };
-  }
-  setTimeout(function () {
-    if (!window.__BOOKAI_BOOT__.ok) {
-      var st = window.__BOOKAI_BOOT__.stage || 'unknown';
-      forceError('Still loading after 22s (stage: ' + st + '). If this keeps happening, clear site data or try Incognito, and confirm Vercel env vars FIREBASE_PROJECT_ID / CLIENT_EMAIL / PRIVATE_KEY are set.');
+    var errBox = document.getElementById('auth-loading-error');
+    var msg = document.getElementById('auth-loading-msg');
+    var stageEl = document.getElementById('auth-loading-stage');
+    var ver = document.getElementById('auth-loading-version');
+    if (ver) ver.textContent = 'BookAI v' + (window.BOOKAI_VERSION || '2.6.3-release');
+    if (opts.stage) {
+      window.__BOOKAI_GATE__.stage = opts.stage;
+      if (stageEl) stageEl.textContent = opts.stage;
     }
-  }, 22000);
+    if (mode === 'off') {
+      el.style.display = 'none';
+      el.setAttribute('hidden', 'hidden');
+      if (spin) spin.style.display = 'none';
+      if (errBox) errBox.style.display = 'none';
+      return;
+    }
+    el.style.display = 'flex';
+    el.removeAttribute('hidden');
+    if (mode === 'loading') {
+      if (spin) spin.style.display = 'block';
+      if (errBox) errBox.style.display = 'none';
+      if (msg) msg.textContent = opts.message || 'Loading…';
+    } else if (mode === 'error') {
+      window.__BOOKAI_GATE__.terminal = true;
+      if (spin) spin.style.display = 'none';
+      if (errBox) errBox.style.display = 'block';
+      if (msg) msg.textContent = 'Could not open your business';
+      var t = document.getElementById('auth-loading-error-text');
+      if (t) {
+        var failed = opts.stage || window.__BOOKAI_GATE__.stage || 'unknown';
+        t.textContent = 'FAILED AT: ' + failed + '\n' + (opts.message || 'Something went wrong.');
+      }
+      var retry = document.getElementById('auth-loading-retry');
+      if (retry) retry.onclick = function () { location.reload(); };
+      var so = document.getElementById('auth-loading-signout');
+      if (so) so.onclick = function () { location.replace('/index.html'); };
+    }
+  };
+
+  setTimeout(function () {
+    var g = window.__BOOKAI_GATE__;
+    if (!g || g.terminal) return;
+    // Terminal means onboarding/dashboard/denied/error already reached
+    window.__bookaiSetGate('error', {
+      stage: g.stage || 'timeout',
+      message: 'Still not ready after 20s. Check connection, Vercel Firebase Admin env vars, and that Deployment Protection is not blocking /api/*.'
+    });
+  }, 20000);
 })();
 </script>
 
@@ -1140,29 +1175,72 @@
       return perms.indexOf('full') !== -1 || perms.indexOf(perm) !== -1;
     }
 
+    function markTerminal(stage) {
+      window.__BOOKAI_GATE__ = window.__BOOKAI_GATE__ || {};
+      window.__BOOKAI_GATE__.terminal = true;
+      if (stage) window.__BOOKAI_GATE__.stage = stage;
+      window.__BOOKAI_BOOT__ = window.__BOOKAI_GATE__;
+    }
+
+    function bootStage(stage, message) {
+      window.__BOOKAI_GATE__ = window.__BOOKAI_GATE__ || { terminal: false, t0: Date.now() };
+      window.__BOOKAI_GATE__.stage = stage;
+      window.__BOOKAI_BOOT__ = window.__BOOKAI_GATE__;
+      try { console.info('[BookAI]', stage); } catch (e) {}
+      if (typeof window.__bookaiSetGate === 'function') {
+        window.__bookaiSetGate('loading', { stage: stage, message: message || stage });
+      }
+    }
+
     function hideAuthLoading() {
-      document.getElementById('auth-loading')?.classList.add('hidden');
+      if (typeof window.__bookaiSetGate === 'function') window.__bookaiSetGate('off');
+      else {
+        const el = document.getElementById('auth-loading');
+        if (el) { el.style.display = 'none'; el.setAttribute('hidden', 'hidden'); }
+      }
     }
 
-    function bootStage(stage) {
-      try {
-        window.__BOOKAI_BOOT__ = window.__BOOKAI_BOOT__ || { t0: Date.now() };
-        window.__BOOKAI_BOOT__.stage = stage;
-        console.info('[BookAI boot]', stage);
-      } catch (e) {}
+    function showAuthLoadingBusy(msg, stage) {
+      bootStage(stage || 'loading', msg || 'Loading…');
     }
 
-    function markBootOk() {
-      try {
-        window.__BOOKAI_BOOT__ = window.__BOOKAI_BOOT__ || {};
-        window.__BOOKAI_BOOT__.ok = true;
-        window.__BOOKAI_BOOT__.stage = 'done';
-      } catch (e) {}
+    function showSessionError(message, stage) {
+      markTerminal(stage || (window.__BOOKAI_GATE__ && window.__BOOKAI_GATE__.stage) || 'error');
+      if (typeof window.__bookaiSetGate === 'function') {
+        window.__bookaiSetGate('error', { stage: stage || 'error', message: message });
+      } else {
+        alert(message || 'Could not open your business.');
+      }
+      // Wire sign-out with Firebase when available
+      const so = document.getElementById('auth-loading-signout');
+      if (so) {
+        so.onclick = () => {
+          Promise.resolve(signOut(auth)).catch(() => {}).then(() => location.replace('/index.html'));
+        };
+      }
+    }
+
+    function showDeniedAccess(reason) {
+      markTerminal('denied');
+      hideAuthLoading();
+      document.getElementById('app')?.classList.add('hidden');
+      document.getElementById('onboarding')?.classList.add('hidden');
+      let box = document.getElementById('no-access');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'no-access';
+        box.className = 'min-h-screen flex items-center justify-center p-6';
+        box.innerHTML = '<div class="card p-6 max-w-md text-center space-y-3"><h1 class="font-semibold text-lg">No business access</h1><p class="text-sm text-slate-500" id="no-access-msg"></p><button type="button" id="no-access-signout" class="btn btn-secondary btn-block">Sign out</button></div>';
+        document.body.appendChild(box);
+        document.getElementById('no-access-signout').onclick = () => signOut(auth);
+      }
+      document.getElementById('no-access-msg').textContent = reason || 'This account is not linked to a business.';
+      box.classList.remove('hidden');
     }
 
     function withTimeout(promise, ms, label) {
       return new Promise((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error((label || 'Operation') + ' timed out after ' + ms + 'ms')), ms);
+        const t = setTimeout(() => reject(new Error((label || 'Operation') + ' timed out')), ms);
         Promise.resolve(promise).then(
           (v) => { clearTimeout(t); resolve(v); },
           (e) => { clearTimeout(t); reject(e); }
@@ -1182,60 +1260,51 @@
       return res ? ('Session failed (' + res.status + ')') : 'Session failed';
     }
 
-    function showAuthLoadingBusy(msg) {
-      const el = document.getElementById('auth-loading');
-      if (!el) return;
-      el.classList.remove('hidden');
-      document.getElementById('auth-loading-spinner')?.classList.remove('hidden');
-      document.getElementById('auth-loading-error')?.classList.add('hidden');
-      const m = document.getElementById('auth-loading-msg');
-      if (m) m.textContent = msg || 'Loading…';
-      const ver = document.getElementById('auth-loading-version');
-      if (ver) ver.textContent = 'BookAI v' + (window.BOOKAI_VERSION || '2.6.3-release');
-    }
-
-    function showSessionError(message) {
-      markBootOk(); // stop watchdog from double-firing; we are in a terminal UI state
-      const el = document.getElementById('auth-loading');
-      if (!el) {
-        alert(message || 'Could not open your business. Please try again.');
+    /** Single session router — maps API/membership + settings into one terminal UI state */
+    async function routeSession(user, session) {
+      if (session && session.denied) {
+        showDeniedAccess(session.reason || 'This account is not linked to a business.');
         return;
       }
-      el.classList.remove('hidden');
-      document.getElementById('auth-loading-spinner')?.classList.add('hidden');
-      const msg = document.getElementById('auth-loading-msg');
-      if (msg) msg.textContent = 'Could not open your business';
-      document.getElementById('auth-loading-error')?.classList.remove('hidden');
-      const t = document.getElementById('auth-loading-error-text');
-      if (t) t.textContent = message || 'Something went wrong while loading your account.';
-      const retry = document.getElementById('auth-loading-retry');
-      if (retry) retry.onclick = () => location.reload();
-      const so = document.getElementById('auth-loading-signout');
-      if (so) so.onclick = () => {
-        Promise.resolve(signOut(auth)).catch(() => {}).then(() => location.replace('/index.html'));
-      };
-    }
 
-    function showDeniedAccess(reason) {
-      markBootOk();
-      hideAuthLoading();
-      document.getElementById('app')?.classList.add('hidden');
-      document.getElementById('onboarding')?.classList.add('hidden');
-      let box = document.getElementById('no-access');
-      if (!box) {
-        box = document.createElement('div');
-        box.id = 'no-access';
-        box.className = 'min-h-screen flex items-center justify-center p-6';
-        box.innerHTML = '<div class="card p-6 max-w-md text-center space-y-3"><h1 class="font-semibold text-lg">No business access</h1><p class="text-sm text-slate-500" id="no-access-msg"></p><button type="button" id="no-access-signout" class="btn btn-secondary btn-block">Sign out</button></div>';
-        document.body.appendChild(box);
-        document.getElementById('no-access-signout').onclick = () => signOut(auth);
+      if (session && session.isStaff && !session.isOwner) {
+        userContext = {
+          isOwner: false,
+          isStaff: true,
+          accessRole: session.accessRole || 'staff',
+          permissions: session.permissions || [],
+          staffId: session.staffId,
+          staffName: session.staffName
+        };
+        tenantId = session.tenantId;
+        if ((session.accessRole || 'staff') === 'staff') {
+          markTerminal('staff-redirect');
+          hideAuthLoading();
+          location.replace('/staff-home.html');
+          return;
+        }
+        // Manager
+        bootStage('Loading business…', 'Loading business…');
+        const greet = document.getElementById('greeting');
+        if (greet) greet.textContent = greeting() + (session.staffName ? ' · ' + session.staffName : '');
+        const link = document.getElementById('booking-link');
+        if (link) link.value = location.origin + '/booking.html?tenant=' + tenantId;
+        try {
+          const snap = await withTimeout(
+            getDoc(doc(db, 'tenants', tenantId, 'settings', 'config')),
+            12000,
+            'Loading business settings'
+          );
+          settings = snap.exists() ? snap.data() : {};
+        } catch (e) {
+          settings = {};
+        }
+        enterApp();
+        applyRoleUi();
+        return;
       }
-      document.getElementById('no-access-msg').textContent = reason || 'This account is not linked to a business.';
-      box.classList.remove('hidden');
-    }
 
-    async function resolveOwnerDashboard(user, session) {
-      bootStage('owner-dashboard');
+      // Owner (including provisional needsOnboarding from authz)
       userContext = {
         isOwner: true,
         accessRole: 'owner',
@@ -1247,7 +1316,7 @@
       const link = document.getElementById('booking-link');
       if (link) link.value = location.origin + '/booking.html?tenant=' + tenantId;
 
-      bootStage('firestore-settings');
+      bootStage('Loading business…', 'Loading business…');
       let snap;
       try {
         snap = await withTimeout(
@@ -1256,46 +1325,35 @@
           'Loading business settings'
         );
       } catch (ge) {
-        console.error('[BookAI] settings getDoc failed', ge);
-        // No settings readable → treat as new owner onboarding (cannot stay on Loading)
-        const emailEl = document.getElementById('ob-email');
-        if (emailEl) emailEl.value = user.email || '';
+        console.error('[BookAI] settings read failed', ge);
         showOnboarding();
         return;
       }
-
       if (!snap.exists()) {
-        bootStage('onboarding');
-        const emailEl = document.getElementById('ob-email');
-        if (emailEl) emailEl.value = user.email || '';
         showOnboarding();
         return;
       }
       settings = snap.data() || {};
-      bootStage('enter-app');
       enterApp();
       applyRoleUi();
     }
 
-    bootStage('module-loaded');
+    bootStage('Checking authentication…', 'Checking authentication…');
     onAuthStateChanged(auth, async (user) => {
-      bootStage('auth-state');
       if (!user) {
-        markBootOk();
+        markTerminal('signed-out');
         location.replace('/index.html');
         return;
       }
-      bootStage('user-present');
       document.getElementById('app')?.classList.add('hidden');
       document.getElementById('onboarding')?.classList.add('hidden');
       document.getElementById('no-access')?.classList.add('hidden');
-      showAuthLoadingBusy('Loading…');
+      showAuthLoadingBusy('Verifying account…', 'Verifying account…');
 
       try {
-        bootStage('get-id-token');
         const idToken = await withTimeout(user.getIdToken(), 10000, 'Getting sign-in token');
+        bootStage('Verifying account…', 'Verifying account…');
 
-        bootStage('resolve-session');
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
         const timer = controller ? setTimeout(() => controller.abort(), 15000) : null;
         let res, session;
@@ -1312,71 +1370,27 @@
           if (timer) clearTimeout(timer);
         }
 
-        bootStage('session-response-' + (res ? res.status : 'none'));
-
         if (!res || !res.ok) {
           const msg = formatApiError(session, res);
-          // Common deployment misconfig signals
           if (res && res.status === 500 && /Admin not configured/i.test(msg)) {
-            throw new Error('Server Firebase Admin is not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY on Vercel, then redeploy.');
+            throw new Error('Server Firebase Admin is not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY in Vercel, then redeploy.');
           }
-          if (res && (res.status === 401 || res.status === 403) && /Protected deployment|vercel_auth/i.test(JSON.stringify(session))) {
-            throw new Error('This Vercel deployment is password/SSO protected. Disable Deployment Protection for production, or open the site after Vercel auth so /api/* works.');
+          if (res && /Protected deployment|vercel_auth/i.test(JSON.stringify(session || {}))) {
+            throw new Error('Vercel Deployment Protection is blocking /api/*. Disable it for Production or authenticate, then retry.');
           }
           throw new Error(msg);
         }
 
-        if (session.denied) {
-          showDeniedAccess(session.reason || 'This account is not linked to a business.');
-          return;
-        }
-
-        if (session.isStaff && !session.isOwner) {
-          userContext = {
-            isOwner: false,
-            isStaff: true,
-            accessRole: session.accessRole || 'staff',
-            permissions: session.permissions || [],
-            staffId: session.staffId,
-            staffName: session.staffName
-          };
-          tenantId = session.tenantId;
-          if (session.accessRole === 'staff') {
-            markBootOk();
-            location.replace('/staff-home.html');
-            return;
-          }
-          const greet = document.getElementById('greeting');
-          if (greet) greet.textContent = greeting() + (session.staffName ? ' · ' + session.staffName : '');
-          const link = document.getElementById('booking-link');
-          if (link) link.value = location.origin + '/booking.html?tenant=' + tenantId;
-          try {
-            const snap = await withTimeout(
-              getDoc(doc(db, 'tenants', tenantId, 'settings', 'config')),
-              12000,
-              'Loading business settings'
-            );
-            settings = snap.exists() ? snap.data() : {};
-          } catch (ge) {
-            settings = {};
-          }
-          enterApp();
-          applyRoleUi();
-          return;
-        }
-
-        await resolveOwnerDashboard(user, session);
+        await routeSession(user, session);
       } catch (e) {
-        console.error('[BookAI] session bootstrap error', e);
-        bootStage('fallback-owner');
+        console.error('[BookAI] resolveSession failed, owner fallback', e);
+        // Fallback: still allow owner onboarding/dashboard via client settings read
         try {
-          await resolveOwnerDashboard(user, { permissions: [] });
+          await routeSession(user, { isOwner: true, permissions: [] });
         } catch (e2) {
-          console.error('[BookAI] fallback failed', e2);
           showSessionError(
-            (e && e.message ? e.message + ' ' : '') +
-            (e2 && e2.message ? e2.message + ' ' : '') +
-            'Tap Retry, or Sign out and try again. Stage: ' + (window.__BOOKAI_BOOT__ && window.__BOOKAI_BOOT__.stage)
+            (e && e.message ? e.message + ' ' : '') + (e2 && e2.message ? e2.message : ''),
+            (window.__BOOKAI_GATE__ && window.__BOOKAI_GATE__.stage) || 'session-error'
           );
         }
       }
@@ -1464,11 +1478,14 @@
     }
 
     function showOnboarding() {
-      markBootOk();
+      markTerminal('onboarding');
       hideAuthLoading();
       document.getElementById('app')?.classList.add('hidden');
       const ob = document.getElementById('onboarding');
-      if (ob) ob.classList.remove('hidden');
+      if (ob) {
+        ob.classList.remove('hidden');
+        ob.style.display = '';
+      }
       renderObDots();
       renderObHours(getDefaultOperatingHours());
       loadTemplateServices();
@@ -1859,7 +1876,7 @@
     };
 
     function enterApp() {
-      markBootOk();
+      markTerminal('dashboard');
       try {
         const mode = (settings && settings.theme && settings.theme.mode) || obTheme || 'light';
         applyTheme(mode);
@@ -1868,7 +1885,10 @@
       } catch (e) {}
       hideAuthLoading();
       const appEl = document.getElementById('app');
-      if (appEl) appEl.classList.remove('hidden');
+      if (appEl) {
+        appEl.classList.remove('hidden');
+        appEl.style.display = '';
+      }
       const hbn = document.getElementById('header-business-name');
       if (hbn) hbn.textContent = (settings && settings.businessName) || 'Dashboard';
       const setName = document.getElementById('set-name');
