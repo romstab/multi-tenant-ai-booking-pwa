@@ -1,4 +1,4 @@
-/** CREATE-BOOKING-FIX-FINAL-2 — no startMin aliases in create; explicit slotStartMin/slotEndMin only */
+/** CREATE-BOOKING-RUNTIME-TRACE-3 — zero startMin identifiers; fingerprint on every response */
 
 function makeManageToken() {
   return require('crypto').randomBytes(24).toString('hex');
@@ -44,8 +44,8 @@ function initAdmin() {
   }
 }
 
-const SERVER_BUILD = 'CREATE-BOOKING-FIX-FINAL-2';
-const DEPLOY_VERSION = '2.6.4-booking-fix';
+const SERVER_BUILD = 'CREATE-BOOKING-RUNTIME-TRACE-3';
+const DEPLOY_VERSION = '2.6.4-runtime-trace-3';
 function runtimeMeta(requestId) {
   return {
     serverBuild: SERVER_BUILD,
@@ -402,18 +402,18 @@ function getActiveAppointments(list) {
   });
 }
 
-function overlapsAny(startMin, endMin, appointments, bufferMinutes) {
+function overlapsAny(fromMin, toMin, appointments, bufferMinutes) {
   const buf = bufferMinutes || 0;
   for (let i = 0; i < appointments.length; i++) {
     const a = appointments[i];
     const es = timeToMinutes(a.startTime) - buf;
     const ee = timeToMinutes(a.endTime) + buf;
-    if (hasConflict(startMin, endMin, es, ee)) return true;
+    if (hasConflict(fromMin, toMin, es, ee)) return true;
   }
   return false;
 }
 
-function overlapsBlocks(startMin, endMin, blocks, dateStr) {
+function overlapsBlocks(fromMin, toMin, blocks, dateStr) {
   for (let i = 0; i < (blocks || []).length; i++) {
     const b = blocks[i];
     if (b.status === 'inactive') continue;
@@ -421,7 +421,7 @@ function overlapsBlocks(startMin, endMin, blocks, dateStr) {
     if (b.allDay) return true;
     const bs = timeToMinutes(b.startTime);
     const be = timeToMinutes(b.endTime);
-    if (hasConflict(startMin, endMin, bs, be)) return true;
+    if (hasConflict(fromMin, toMin, bs, be)) return true;
   }
   return false;
 }
@@ -454,14 +454,14 @@ function generateSlots(date, durationMinutes, operatingHours, appointments, bloc
   return slots;
 }
 
-function overlapsStaffBreaks(startMin, endMin, breaks) {
+function overlapsStaffBreaks(fromMin, toMin, breaks) {
   for (let i = 0; i < (breaks || []).length; i++) {
     const b = breaks[i];
     if (!b || !b.start || !b.end) continue;
     const bs = timeToMinutes(b.start);
     const be = timeToMinutes(b.end);
     if (be <= bs) continue;
-    if (hasConflict(startMin, endMin, bs, be)) return true;
+    if (hasConflict(fromMin, toMin, bs, be)) return true;
   }
   return false;
 }
@@ -480,7 +480,7 @@ function getStaffBreaksForDate(staff, dateStr) {
  * timeOff records: { staffId, startDate, endDate, startTime?, endTime?, type }
  * Full day if startTime/endTime missing.
  */
-function isStaffOnTimeOff(timeOffList, staffId, dateStr, startMin, endMin) {
+function isStaffOnTimeOff(timeOffList, staffId, dateStr, fromMin, toMin) {
   const list = timeOffList || [];
   for (let i = 0; i < list.length; i++) {
     const to = list[i];
@@ -495,7 +495,7 @@ function isStaffOnTimeOff(timeOffList, staffId, dateStr, startMin, endMin) {
     const ts = to.startTime ? timeToMinutes(to.startTime) : 0;
     const te = to.endTime ? timeToMinutes(to.endTime) : 24 * 60;
     if (te <= ts) return true; // treat invalid as full day
-    if (hasConflict(startMin, endMin, ts, te)) return true;
+    if (hasConflict(fromMin, toMin, ts, te)) return true;
   }
   return false;
 }
@@ -538,17 +538,17 @@ async function loadActiveStaff(db, tenantId) {
   return list.filter(function (s) { return s.active !== false; });
 }
 
-function staffWorksAt(staff, dateStr, startMin, endMin, timeOffList) {
+function staffWorksAt(staff, dateStr, fromMin, toMin, timeOffList) {
   if (!staff || staff.active === false) return false;
-  if (isStaffOnTimeOff(timeOffList, staff.id, dateStr, startMin, endMin)) return false;
+  if (isStaffOnTimeOff(timeOffList, staff.id, dateStr, fromMin, toMin)) return false;
   const weekday = getWeekdayKey(dateStr);
   const sd = staff.workingHours && staff.workingHours[weekday];
   if (sd) {
     if (sd.enabled === false || sd.closed === true) return false;
-    if (sd.open && startMin < timeToMinutes(sd.open)) return false;
-    if (sd.close && endMin > timeToMinutes(sd.close)) return false;
+    if (sd.open && fromMin < timeToMinutes(sd.open)) return false;
+    if (sd.close && toMin > timeToMinutes(sd.close)) return false;
   }
-  if (overlapsStaffBreaks(startMin, endMin, getStaffBreaksForDate(staff, dateStr))) return false;
+  if (overlapsStaffBreaks(fromMin, toMin, getStaffBreaksForDate(staff, dateStr))) return false;
   return true;
 }
 
@@ -565,16 +565,16 @@ function countStaffUpcomingLoad(appointments, staffId, fromDateStr) {
 }
 
 /** Balanced auto-assign: fewest day load, then upcoming, then name/id. */
-function pickStaffForSlot(eligibleStaff, appointments, dateStr, startMin, endMin, buffer, serviceId, timeOffList) {
+function pickStaffForSlot(eligibleStaff, appointments, dateStr, fromMin, toMin, buffer, serviceId, timeOffList) {
   const candidates = [];
   for (let i = 0; i < eligibleStaff.length; i++) {
     const st = eligibleStaff[i];
     if (!staffCanDoService(st, serviceId)) continue;
-    if (!staffWorksAt(st, dateStr, startMin, endMin, timeOffList)) continue;
+    if (!staffWorksAt(st, dateStr, fromMin, toMin, timeOffList)) continue;
     const staffAppts = getActiveAppointments(appointments.filter(function (a) {
       return a.staffId === st.id;
     }));
-    if (overlapsAny(startMin, endMin, staffAppts, buffer)) continue;
+    if (overlapsAny(fromMin, toMin, staffAppts, buffer)) continue;
     candidates.push(st);
   }
   if (!candidates.length) return null;
@@ -990,7 +990,7 @@ module.exports = async function handler(req, res) {
           throw err;
         }
 
-        // NO startMin alias — helpers receive slotStartMin/slotEndMin explicitly (TDZ-proof).
+        // Helpers use fromMin/toMin params; create path uses slotStartMin/slotEndMin only.
         const finalEnd = slotEndTime;
 
         // Booking rules: min advance

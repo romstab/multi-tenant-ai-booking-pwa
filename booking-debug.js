@@ -1,9 +1,9 @@
 /**
- * GET/POST /api/booking-debug
- * Safe runtime identity for deployment verification. No secrets.
+ * GET/POST /api/booking-debug — proves which serverless code is deployed.
+ * No secrets.
  */
-const SERVER_BUILD = 'CREATE-BOOKING-FIX-FINAL-2';
-const DEPLOY_VERSION = '2.6.4-booking-fix';
+const SERVER_BUILD = 'CREATE-BOOKING-RUNTIME-TRACE-3';
+const DEPLOY_VERSION = '2.6.4-runtime-trace-3';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,8 +13,7 @@ module.exports = async function handler(req, res) {
 
   return res.status(200).json({
     ok: true,
-    route: '/api/create-booking',
-    debugRoute: '/api/booking-debug',
+    fingerprint: 'CREATE-BOOKING-RUNTIME-TRACE-3',
     serverBuild: SERVER_BUILD,
     deployVersion: DEPLOY_VERSION,
     commitSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_REF || 'local',
@@ -22,6 +21,8 @@ module.exports = async function handler(req, res) {
     region: process.env.VERCEL_REGION || null,
     runtime: 'vercel-serverless',
     node: process.version,
-    time: new Date().toISOString()
+    expectedCreateRoute: '/api/create-booking',
+    time: new Date().toISOString(),
+    note: 'If create-booking errors mention startMin, this file is NOT the code handling that request.'
   });
 };

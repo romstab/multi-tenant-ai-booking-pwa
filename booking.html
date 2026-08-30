@@ -178,7 +178,7 @@
           </ul>
         </div>
         <p id="confirm-hint" class="bk-muted text-sm text-center mb-3">Select a service, date, and time to continue.</p>
-        <p id="booking-debug-build" class="text-xs text-center mb-2" style="color:#64748b;font-family:ui-monospace,monospace;">Booking Debug Build: BOOKING-FIX-FINAL-2</p>
+        <p id="booking-debug-build" class="text-xs text-center mb-2" style="color:#64748b;font-family:ui-monospace,monospace;">Booking Debug Build: BOOKING-RUNTIME-TRACE-3</p>
         <button id="btn-confirm" disabled type="button" class="bk-btn bk-btn-primary bk-btn-block">
           Confirm booking
         </button>
@@ -1241,16 +1241,16 @@
     function setBookingStatus(text, kind) {
       const el = document.getElementById('booking-status');
       const msg = document.getElementById('booking-msg');
+      // Single visible status line only — do NOT mirror into booking-msg (prevents duplicate errors)
       if (el) {
         el.textContent = text || '';
         el.style.color = kind === 'error' ? '#b91c1c' : (kind === 'ok' ? '#047857' : '#334155');
+        el.style.whiteSpace = 'pre-wrap';
+        el.style.wordBreak = 'break-word';
       }
-      if (msg && kind === 'error') {
-        msg.textContent = text || '';
-        msg.className = 'text-sm mt-2 text-center text-red-600';
-        msg.classList.remove('hidden');
-      } else if (msg && kind !== 'error') {
+      if (msg) {
         msg.classList.add('hidden');
+        msg.textContent = '';
       }
     }
 
@@ -1267,7 +1267,9 @@
       return true;
     }
 
+    let bookingSubmitInFlight = false;
     async function handleConfirmBooking() {
+      if (bookingSubmitInFlight) return;
       let bookingStage = 'Starting';
       const btn = document.getElementById('btn-confirm');
 
@@ -1392,7 +1394,8 @@
         };
 
         bookingStage = 'Sending booking request';
-        setBookingStatus('Sending booking request…', 'info');
+        bookingSubmitInFlight = true;
+        setBookingStatus('Sending booking request…\nPOST /api/create-booking', 'info');
         console.info('[BookAI] CONFIRM-TRACE-2 payload', {
           tenantId: payload.tenantId,
           serviceId: payload.serviceId,
@@ -1431,24 +1434,20 @@
           );
         }
 
-        console.info('[BookAI] API response', {
-          status: res.status,
-          serverBuild: data.serverBuild,
-          commitSha: data.commitSha,
-          requestId: data.requestId,
-          ok: data.ok
-        });
+        const metaLines = [
+          'HTTP ' + res.status,
+          'URL POST /api/create-booking',
+          data.serverBuild ? ('Server Build: ' + data.serverBuild) : 'Server Build: (missing — OLD API?)',
+          data.commitSha ? ('Commit: ' + String(data.commitSha).slice(0, 12)) : null,
+          data.requestId ? ('Request ID: ' + data.requestId) : null
+        ].filter(Boolean);
+        console.info('[BookAI] API response', data);
         if (!res.ok || data.ok === false) {
-          const parts = [];
-          parts.push(data.message || data.error || ('HTTP ' + res.status));
-          if (data.stage) parts.push('stage=' + data.stage);
-          if (data.serverBuild) parts.push('API=' + data.serverBuild);
-          if (data.commitSha && data.commitSha !== 'local') parts.push('commit=' + String(data.commitSha).slice(0, 8));
-          if (data.requestId) parts.push('req=' + data.requestId);
-          throw new Error(parts.join(' · '));
+          const errMsg = data.message || data.error || ('HTTP ' + res.status);
+          throw new Error(errMsg + '\n' + metaLines.join('\n'));
         }
-        if (!data.serverBuild) {
-          console.warn('[BookAI] Response missing serverBuild — may be an old deployment');
+        if (!data.serverBuild || String(data.serverBuild).indexOf('RUNTIME-TRACE-3') < 0) {
+          console.warn('[BookAI] Unexpected serverBuild — deployed API may not be TRACE-3', data.serverBuild);
         }
 
         // Require a real booking reference — never show "ok" / true / empty as a reference
@@ -1513,6 +1512,7 @@
         setBookingStatus('Booking failed at: ' + bookingStage + ' — ' + safe, 'error');
         try { loadSlots(); } catch (_) {}
       } finally {
+        bookingSubmitInFlight = false;
         if (btn) {
           delete btn.dataset.busy;
           btn.disabled = false;
