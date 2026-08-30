@@ -771,12 +771,14 @@
       maxDate.setDate(maxDate.getDate() + 60);
       input.min = min;
       input.max = localISODate(maxDate);
-      input.addEventListener('change', () => {
-        selectedDate = input.value;
+      const onDatePicked = () => {
+        selectedDate = input.value || null;
         selectedSlot = null;
         updateSummary();
-        loadSlots();
-      });
+        if (selectedDate) loadSlots();
+      };
+      input.addEventListener('change', onDatePicked);
+      input.addEventListener('input', onDatePicked);
     }
 
     /**
@@ -939,14 +941,59 @@
       }
     });
 
-    function bindSlotButtons(container) {
-      container.querySelectorAll('.slot-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          container.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('is-selected'));
-          btn.classList.add('is-selected');
-          selectedSlot = { startTime: btn.dataset.start, endTime: btn.dataset.end };
-          updateSummary();
+    /**
+     * Select a time slot from a slot button element.
+     * Uses getAttribute (more reliable than dataset on some mobile WebViews).
+     */
+    function selectSlotButton(btn) {
+      if (!btn || !btn.classList || !btn.classList.contains('slot-btn')) return false;
+      const start = btn.getAttribute('data-start') || btn.dataset.start || '';
+      const end = btn.getAttribute('data-end') || btn.dataset.end || '';
+      if (!start) {
+        console.warn('[BookAI] slot button missing data-start');
+        return false;
+      }
+      const container = document.getElementById('slots-container');
+      if (container) {
+        container.querySelectorAll('.slot-btn').forEach(b => {
+          b.classList.remove('is-selected', 'selected');
+          b.setAttribute('aria-pressed', 'false');
         });
+      }
+      btn.classList.add('is-selected', 'selected');
+      btn.setAttribute('aria-pressed', 'true');
+      selectedSlot = { startTime: String(start), endTime: String(end || '') };
+      // Keep date in sync with the visible date input (Android date pickers)
+      const di = document.getElementById('booking-date');
+      if (di && di.value) selectedDate = di.value;
+      updateSummary();
+      return true;
+    }
+
+    // Global for inline onclick (most reliable on Android Chrome)
+    window.__bookaiSelectSlot = function (el) {
+      try { selectSlotButton(el); } catch (e) { console.error(e); }
+    };
+
+    function bindSlotButtons(container) {
+      if (!container) return;
+      // Prefer one delegated listener (survives re-renders if we only bind once on parent)
+      if (!container.dataset.slotBound) {
+        container.dataset.slotBound = '1';
+        const activate = (e) => {
+          const btn = e.target && e.target.closest ? e.target.closest('.slot-btn') : null;
+          if (!btn || !container.contains(btn)) return;
+          e.preventDefault();
+          selectSlotButton(btn);
+        };
+        container.addEventListener('click', activate);
+        container.addEventListener('pointerup', activate);
+      }
+      // Also ensure each button is keyboard-accessible
+      container.querySelectorAll('.slot-btn').forEach(btn => {
+        btn.setAttribute('type', 'button');
+        btn.setAttribute('role', 'button');
+        btn.setAttribute('aria-pressed', btn.classList.contains('is-selected') ? 'true' : 'false');
       });
     }
 
@@ -987,11 +1034,14 @@
           return;
         }
 
-        container.innerHTML = slots.map(s => `
-          <button type="button" data-start="${s.startTime}" data-end="${s.endTime}" class="slot-btn">
-            <span class="block">${formatTime12(s.startTime)}</span>
-          </button>
-        `).join('');
+        container.innerHTML = slots.map(s => {
+          const st = s.startTime || s.start || '';
+          const en = s.endTime || s.end || '';
+          return '<button type="button" data-start="' + String(st).replace(/"/g, '') +
+            '" data-end="' + String(en).replace(/"/g, '') +
+            '" class="slot-btn" aria-pressed="false" onclick="window.__bookaiSelectSlot && window.__bookaiSelectSlot(this)">' +
+            '<span class="block">' + formatTime12(st) + '</span></button>';
+        }).join('');
         bindSlotButtons(container);
       } catch (err) {
         console.error(err);
@@ -1006,11 +1056,14 @@
             '<div class="bk-empty"><p class="bk-empty-title">No available times for this date</p>' +
             '<p class="bk-empty-text">The business may be closed or hours are not set. Please select another date.</p></div>';
         } else {
-          container.innerHTML = slots.map(s => `
-            <button type="button" data-start="${s.startTime}" data-end="${s.endTime}" class="slot-btn">
-              <span class="block">${formatTime12(s.startTime)}</span>
-            </button>
-          `).join('') + '<p class="w-full bk-muted text-xs mt-2">Times shown in AM/PM. Availability is re-checked when you confirm.</p>';
+          container.innerHTML = slots.map(s => {
+            const st = s.startTime || s.start || '';
+            const en = s.endTime || s.end || '';
+            return '<button type="button" data-start="' + String(st).replace(/"/g, '') +
+              '" data-end="' + String(en).replace(/"/g, '') +
+              '" class="slot-btn" aria-pressed="false" onclick="window.__bookaiSelectSlot && window.__bookaiSelectSlot(this)">' +
+              '<span class="block">' + formatTime12(st) + '</span></button>';
+          }).join('') + '<p class="w-full bk-muted text-xs mt-2">Times shown in AM/PM. Availability is re-checked when you confirm.</p>';
           bindSlotButtons(container);
         }
       }
@@ -1039,7 +1092,24 @@
       const hint = document.getElementById('confirm-hint');
       const name = (document.getElementById('cust-name')?.value || '').trim();
       const email = (document.getElementById('cust-email')?.value || '').trim();
-      const readySlot = !!(selectedService && selectedDate && selectedSlot);
+
+      // Sync date from the visible control (Android date inputs can lag the change event)
+      const dateInput = document.getElementById('booking-date');
+      if (dateInput && dateInput.value) {
+        selectedDate = dateInput.value;
+      }
+
+      // Recover slot from DOM if state was lost but a button is still marked selected
+      if (!selectedSlot) {
+        const selBtn = document.querySelector('#slots-container .slot-btn.is-selected, #slots-container .slot-btn.selected');
+        if (selBtn) {
+          const st = selBtn.getAttribute('data-start') || '';
+          const en = selBtn.getAttribute('data-end') || '';
+          if (st) selectedSlot = { startTime: st, endTime: en };
+        }
+      }
+
+      const readySlot = !!(selectedService && selectedDate && selectedSlot && selectedSlot.startTime);
       const readyForm = name.length >= 2 && email.includes('@');
 
       const errName = document.getElementById('err-cust-name');
@@ -1093,9 +1163,17 @@
         btn.disabled = !(readySlot && readyForm);
       }
       if (hint) {
-        if (!readySlot) hint.textContent = 'Select a service, date, and time to continue.';
-        else if (!readyForm) hint.textContent = 'Enter your full name and email to enable confirm.';
-        else hint.textContent = 'Ready — review the summary, then confirm.';
+        if (!selectedService) {
+          hint.textContent = 'Select a service to continue.';
+        } else if (!selectedDate) {
+          hint.textContent = 'Select a date to continue.';
+        } else if (!selectedSlot || !selectedSlot.startTime) {
+          hint.textContent = 'Tap an available time to continue.';
+        } else if (!readyForm) {
+          hint.textContent = 'Enter your full name and email to enable confirm.';
+        } else {
+          hint.textContent = 'Ready — review the summary, then confirm.';
+        }
         hint.classList.toggle('is-ready', readySlot && readyForm);
       }
       updateBookingProgress();
