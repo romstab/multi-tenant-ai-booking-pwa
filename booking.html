@@ -1266,32 +1266,56 @@
       btn.textContent = 'Confirming booking...';
 
       try {
+        // Ensure endTime always present for the API
+        let startTime = selectedSlot.startTime;
+        let endTime = selectedSlot.endTime;
+        if (!endTime && startTime && selectedService) {
+          const sm = timeToMinutes(startTime);
+          endTime = minutesToTime(sm + (selectedService.duration || 30));
+        }
+        const payload = {
+          action: 'create',
+          tenantId,
+          serviceId: selectedService.id,
+          staffId: selectedStaff && selectedStaff.id ? selectedStaff.id : '',
+          date: selectedDate,
+          startTime,
+          endTime: endTime || '',
+          customerName: name,
+          customerEmail: email,
+          customerPhone: phone,
+          notes,
+          website: hp || '',
+          idempotencyKey: window.__bookingIdempotencyKey
+        };
+        console.info('[BookAI] create booking payload', {
+          tenantId: payload.tenantId,
+          serviceId: payload.serviceId,
+          date: payload.date,
+          startTime: payload.startTime,
+          endTime: payload.endTime
+        });
         const res = await fetch('/api/create-booking', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'create',
-            tenantId,
-            serviceId: selectedService.id,
-            staffId: selectedStaff && selectedStaff.id ? selectedStaff.id : '',
-            date: selectedDate,
-            startTime: selectedSlot.startTime,
-            endTime: selectedSlot.endTime,
-            customerName: name,
-            customerEmail: email,
-            customerPhone: phone,
-            notes,
-            website: hp,
-            idempotencyKey: window.__bookingIdempotencyKey
-          })
+          body: JSON.stringify(payload)
         });
-        const data = await res.json();
+        const rawText = await res.text();
+        let data = {};
+        try { data = rawText ? JSON.parse(rawText) : {}; } catch (_) {
+          throw new Error(
+            res.status === 401
+              ? 'API blocked (401). If using Vercel Deployment Protection, disable it for Production so /api/* works.'
+              : ('Server returned non-JSON response (' + res.status + '). Check Vercel function logs.')
+          );
+        }
         if (!res.ok) {
           throw new Error(apiErrorMessage(res, data, 'Booking failed'));
         }
 
         const bid = data.bookingId || data.appointmentId || '';
-        document.getElementById('success-details').textContent =
+        const sd = document.getElementById('success-details');
+        if (sd) sd.textContent =
           `${selectedService.name} on ${formatDisplayDate(selectedDate)} at ${formatTime12(selectedSlot.startTime)}. Status: ${data.status || 'confirmed'}.`;
         const idEl = document.getElementById('success-booking-id');
         if (idEl) idEl.textContent = (data.bookingRef || bid) || '—';
@@ -1321,7 +1345,9 @@
           status: data.status || 'confirmed'
         };
         window.__bookingIdempotencyKey = null;
-        document.getElementById('success-modal').classList.remove('hidden');
+        const sm = document.getElementById('success-modal');
+        if (sm) sm.classList.remove('hidden');
+        else alert('Booking confirmed.');
       } catch (err) {
         console.error(err);
         msg.textContent = err.message || 'Could not complete booking. The slot may have been taken.';
