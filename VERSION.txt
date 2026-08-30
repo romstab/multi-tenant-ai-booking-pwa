@@ -1,3 +1,4 @@
 BookAI v2.6.3-release
-Boot fix: dynamic module imports with visible stages (Starting was stuck on static import of firebase CDN)
-SW: JS network-first; cache bookai-static-v16
+CRITICAL: Removed duplicate function customerKeyFromAppt (SyntaxError blocked entire dashboard module)
+Module now parses; dynamic import boot can run
+SW cache: bookai-static-v17

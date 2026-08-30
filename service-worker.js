@@ -1,5 +1,5 @@
 /**
- * BookAI Service Worker v16 — Batch 28 PWA production pack
+ * BookAI Service Worker v17 — Batch 28 PWA production pack
  *
  * Strategy:
  * - Precache static shell only (CSS, icons, offline, manifests, register)
@@ -9,7 +9,7 @@
  * - Static assets: cache-first with network refresh
  * - No offline mutation queue; no token caching
  */
-const CACHE_NAME = 'bookai-static-v16';
+const CACHE_NAME = 'bookai-static-v17';
 const PRECACHE = [
   '/offline.html',
   '/styles.css',
