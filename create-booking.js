@@ -1,4 +1,4 @@
-/** CREATE-BOOKING-FIX-FINAL-1 — slotStartMin/slotEndMin declared before hours checks; real BK refs only */
+/** CREATE-BOOKING-FIX-FINAL-2 — no startMin aliases in create; explicit slotStartMin/slotEndMin only */
 
 function makeManageToken() {
   return require('crypto').randomBytes(24).toString('hex');
@@ -44,7 +44,17 @@ function initAdmin() {
   }
 }
 
-const SERVER_BUILD = 'CREATE-BOOKING-FIX-FINAL-1';
+const SERVER_BUILD = 'CREATE-BOOKING-FIX-FINAL-2';
+const DEPLOY_VERSION = '2.6.4-booking-fix';
+function runtimeMeta(requestId) {
+  return {
+    serverBuild: SERVER_BUILD,
+    deployVersion: DEPLOY_VERSION,
+    commitSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_REF || 'local',
+    requestId: requestId || null
+  };
+}
+
 
 function timeToMinutes(t) {
   if (!t) return 0;
@@ -628,6 +638,9 @@ module.exports = async function handler(req, res) {
   const action = body.action || 'create';
 
   try {
+    const requestId = 'req_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    console.log('[CREATE_BOOKING_RUNTIME]', { requestId, serverBuild: SERVER_BUILD, commitSha: process.env.VERCEL_GIT_COMMIT_SHA || 'local', action: (typeof req.body === 'object' && req.body && req.body.action) || null });
+
     // ---------- resolveHandle ----------
     if (action === 'resolveHandle') {
       const handle = String(body.handle || '').toLowerCase().trim();
@@ -831,7 +844,7 @@ module.exports = async function handler(req, res) {
       // Browser autofill can fill name="website" — clients must still require a real BK- reference.
       const hpVal = String(body.website || body.company_url || body.hp_field || body.bk_hp || '').trim();
       if (hpVal) {
-        return res.status(200).json({
+        return res.status(200).json(Object.assign({
           ok: false,
           success: false,
           stage: 'honeypot',
@@ -839,9 +852,8 @@ module.exports = async function handler(req, res) {
           message: 'Could not complete booking. Please try again.',
           appointmentId: null,
           bookingId: null,
-          bookingRef: null,
-          serverBuild: SERVER_BUILD
-        });
+          bookingRef: null
+        }, runtimeMeta(typeof requestId !== 'undefined' ? requestId : null)));
       }
 
       const tenantId = body.tenantId;
@@ -978,9 +990,7 @@ module.exports = async function handler(req, res) {
           throw err;
         }
 
-        // Aliases used by shared helpers below (declared only after values are ready)
-        const startMin = slotStartMin;
-        const reqEndMin = slotEndMin;
+        // NO startMin alias — helpers receive slotStartMin/slotEndMin explicitly (TDZ-proof).
         const finalEnd = slotEndTime;
 
         // Booking rules: min advance
@@ -1014,7 +1024,7 @@ module.exports = async function handler(req, res) {
               err.status = 400;
               throw err;
             }
-            if (!staffWorksAt(st, date, startMin, reqEndMin, timeOffForDay)) {
+            if (!staffWorksAt(st, date, slotStartMin, slotEndMin, timeOffForDay)) {
               const err = new Error('Selected staff is unavailable at this time (hours, break, or time off)');
               err.status = 409;
               throw err;
@@ -1031,7 +1041,7 @@ module.exports = async function handler(req, res) {
         // Smart balanced auto-assign when no specific staff chosen
         if (activeStaffList.length && !assignedStaffId && staffMode !== 'required') {
           const eligible = activeStaffList.filter(function (s) { return staffCanDoService(s, serviceId); });
-          const picked = pickStaffForSlot(eligible, appointments, date, startMin, reqEndMin, buffer, serviceId, timeOffForDay);
+          const picked = pickStaffForSlot(eligible, appointments, date, slotStartMin, slotEndMin, buffer, serviceId, timeOffForDay);
           if (picked) {
             assignedStaffId = picked.id;
             assignedStaffName = picked.name || 'Staff';
@@ -1049,7 +1059,7 @@ module.exports = async function handler(req, res) {
           // Legacy business-level: all appointments conflict
           active = getActiveAppointments(appointments);
         }
-        if (overlapsAny(startMin, reqEndMin, active, buffer)) {
+        if (overlapsAny(slotStartMin, slotEndMin, active, buffer)) {
           const err = new Error('Sorry, this time slot was just booked. Please choose another available time.');
           err.status = 409;
           throw err;
@@ -1060,7 +1070,7 @@ module.exports = async function handler(req, res) {
         const blockSnap = await tx.get(blockQuery);
         const blocks = [];
         blockSnap.forEach(function (d) { blocks.push(d.data()); });
-        if (overlapsBlocks(startMin, reqEndMin, blocks, date)) {
+        if (overlapsBlocks(slotStartMin, slotEndMin, blocks, date)) {
           const err = new Error('This time is blocked by the business.');
           err.status = 409;
           throw err;
@@ -1200,7 +1210,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      return res.status(201).json({
+      return res.status(201).json(Object.assign({
         ok: true,
         success: true,
         appointmentId: result.id,
@@ -1211,9 +1221,8 @@ module.exports = async function handler(req, res) {
         manageUrl,
         status: result.status || 'confirmed',
         paymentMode: 'pay_at_venue',
-        message: 'Booking confirmed — Pay at Venue',
-        serverBuild: SERVER_BUILD
-      });
+        message: 'Booking confirmed — Pay at Venue'
+      }, runtimeMeta(typeof requestId !== 'undefined' ? requestId : null)));
     }
 
     // ---------- walkIn (owner) ----------
@@ -1242,9 +1251,9 @@ module.exports = async function handler(req, res) {
       if (!serviceSnap.exists) return res.status(404).json({ error: 'Service not found' });
       const service = serviceSnap.data();
       const duration = body.duration ? Number(body.duration) : (service.duration || 30);
-      const startMin = timeToMinutes(startTime);
-      const endTime = minutesToTime(startMin + duration);
-      const endMin = startMin + duration;
+      const wiStartMin = timeToMinutes(startTime);
+      const endTime = minutesToTime(wiStartMin + duration);
+      const wiEndMin = wiStartMin + duration;
       const buffer = (settings.bookingRules && settings.bookingRules.bufferMinutes) || 0;
       const timeOffForDay = await loadStaffTimeOffForDate(db, tenantId, date);
       const specialForWalkIn = await loadSpecialHoursForDate(db, tenantId, date);
@@ -1252,7 +1261,7 @@ module.exports = async function handler(req, res) {
       if (dayHoursWi.closed) {
         return res.status(403).json({ error: dayHoursWi.reason || 'Business is closed on this date.' });
       }
-      if (startMin < timeToMinutes(dayHoursWi.open) || endMin > timeToMinutes(dayHoursWi.close)) {
+      if (wiStartMin < timeToMinutes(dayHoursWi.open) || wiEndMin > timeToMinutes(dayHoursWi.close)) {
         return res.status(409).json({ error: 'Walk-in time is outside business hours for this date.' });
       }
 
@@ -1264,7 +1273,7 @@ module.exports = async function handler(req, res) {
         const blockSnap = await tx.get(db.collection('tenants/' + tenantId + '/blockedSlots').where('date', '==', date));
         const blocks = [];
         blockSnap.forEach(function (d) { blocks.push(d.data()); });
-        if (overlapsBlocks(startMin, endMin, blocks, date)) {
+        if (overlapsBlocks(wiStartMin, wiEndMin, blocks, date)) {
           const err = new Error('This time is blocked.');
           err.status = 409;
           throw err;
@@ -1289,13 +1298,13 @@ module.exports = async function handler(req, res) {
               err.status = 400;
               throw err;
             }
-            if (!staffWorksAt(st, date, startMin, endMin, timeOffForDay)) {
+            if (!staffWorksAt(st, date, wiStartMin, wiEndMin, timeOffForDay)) {
               const err = new Error('Selected staff is not working at this time');
               err.status = 409;
               throw err;
             }
             const staffAppts = getActiveAppointments(appointments.filter(function (a) { return a.staffId === assignedStaffId; }));
-            if (overlapsAny(startMin, endMin, staffAppts, buffer)) {
+            if (overlapsAny(wiStartMin, wiEndMin, staffAppts, buffer)) {
               const err = new Error('Selected staff already has an appointment at this time');
               err.status = 409;
               throw err;
@@ -1303,7 +1312,7 @@ module.exports = async function handler(req, res) {
             assignedStaffName = st.name || 'Staff';
           } else {
             const eligible = activeStaffList.filter(function (s) { return staffCanDoService(s, serviceId); });
-            const picked = pickStaffForSlot(eligible, appointments, date, startMin, endMin, buffer, serviceId, timeOffForDay);
+            const picked = pickStaffForSlot(eligible, appointments, date, wiStartMin, wiEndMin, buffer, serviceId, timeOffForDay);
             if (picked) {
               assignedStaffId = picked.id;
               assignedStaffName = picked.name || 'Staff';
@@ -1317,7 +1326,7 @@ module.exports = async function handler(req, res) {
 
         // Legacy conflict when no staff system
         if (!activeStaffList.length) {
-          if (overlapsAny(startMin, endMin, getActiveAppointments(appointments), buffer)) {
+          if (overlapsAny(wiStartMin, wiEndMin, getActiveAppointments(appointments), buffer)) {
             const err = new Error('This time conflicts with an existing appointment.');
             err.status = 409;
             throw err;
@@ -1749,19 +1758,19 @@ module.exports = async function handler(req, res) {
       }
       if (!duration) duration = 30;
       const buffer = (settings.bookingRules && settings.bookingRules.bufferMinutes) || 0;
-      const startMin = timeToMinutes(newStartTime);
-      const endMin = startMin + duration;
+      const rsStartMin = timeToMinutes(newStartTime);
+      const rsEndMin = rsStartMin + duration;
       const newEndTime = minutesToTime(endMin);
 
       // Validate against effective business hours (weekly or special)
       const openMin = timeToMinutes(dayHoursRs.open);
       const closeMin = timeToMinutes(dayHoursRs.close);
-      if (startMin < openMin || endMin > closeMin) {
+      if (rsStartMin < openMin || rsEndMin > closeMin) {
         return res.status(409).json({ error: 'Selected time is outside business hours' });
       }
 
       const blocks = await loadBlocksForDate(db, tenantId, newDate);
-      if (overlapsBlocks(startMin, endMin, blocks, newDate)) {
+      if (overlapsBlocks(rsStartMin, rsEndMin, blocks, newDate)) {
         return res.status(409).json({ error: 'Selected time is blocked' });
       }
 
@@ -1796,7 +1805,7 @@ module.exports = async function handler(req, res) {
             others.push(Object.assign({ id: d.id }, d.data()));
           });
           const active = getActiveAppointments(others);
-          if (overlapsAny(startMin, endMin, active, buffer)) {
+          if (overlapsAny(rsStartMin, rsEndMin, active, buffer)) {
             const err = new Error('That time is no longer available. Please choose another slot.');
             err.status = 409;
             throw err;
@@ -1867,12 +1876,12 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     console.error('create-booking error:', err);
     const status = err.status || 500;
-    return res.status(status).json({
+    const rid = (typeof requestId !== 'undefined') ? requestId : null;
+    return res.status(status).json(Object.assign({
       ok: false,
       stage: err.stage || 'server',
       error: err.message || 'Internal server error',
-      message: err.message || 'Internal server error',
-      serverBuild: SERVER_BUILD
-    });
+      message: err.message || 'Internal server error'
+    }, runtimeMeta(rid)));
   }
 };

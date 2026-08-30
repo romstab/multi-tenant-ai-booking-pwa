@@ -178,7 +178,7 @@
           </ul>
         </div>
         <p id="confirm-hint" class="bk-muted text-sm text-center mb-3">Select a service, date, and time to continue.</p>
-        <p id="booking-debug-build" class="text-xs text-center mb-2" style="color:#64748b;font-family:ui-monospace,monospace;">Booking Debug Build: BOOKING-FIX-FINAL-1</p>
+        <p id="booking-debug-build" class="text-xs text-center mb-2" style="color:#64748b;font-family:ui-monospace,monospace;">Booking Debug Build: BOOKING-FIX-FINAL-2</p>
         <button id="btn-confirm" disabled type="button" class="bk-btn bk-btn-primary bk-btn-block">
           Confirm booking
         </button>
@@ -1431,14 +1431,24 @@
           );
         }
 
-        if (data.serverBuild) {
-          console.info('[BookAI] API serverBuild=', data.serverBuild);
-          setBookingStatus('Server build: ' + data.serverBuild + ' (HTTP ' + res.status + ')', 'info');
-        }
+        console.info('[BookAI] API response', {
+          status: res.status,
+          serverBuild: data.serverBuild,
+          commitSha: data.commitSha,
+          requestId: data.requestId,
+          ok: data.ok
+        });
         if (!res.ok || data.ok === false) {
-          const stage = data.stage ? (' [' + data.stage + ']') : '';
-          const build = data.serverBuild ? (' [API ' + data.serverBuild + ']') : '';
-          throw new Error((data.message || data.error || ('HTTP ' + res.status)) + stage + build);
+          const parts = [];
+          parts.push(data.message || data.error || ('HTTP ' + res.status));
+          if (data.stage) parts.push('stage=' + data.stage);
+          if (data.serverBuild) parts.push('API=' + data.serverBuild);
+          if (data.commitSha && data.commitSha !== 'local') parts.push('commit=' + String(data.commitSha).slice(0, 8));
+          if (data.requestId) parts.push('req=' + data.requestId);
+          throw new Error(parts.join(' · '));
+        }
+        if (!data.serverBuild) {
+          console.warn('[BookAI] Response missing serverBuild — may be an old deployment');
         }
 
         // Require a real booking reference — never show "ok" / true / empty as a reference
